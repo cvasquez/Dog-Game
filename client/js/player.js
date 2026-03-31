@@ -111,13 +111,12 @@ export class Player {
     else this.groundedTimer = 0;
 
     // --- CLIMBING ---
+    // Only cling if actively pressing toward the wall
     const canCling = nextToWall && !this.grounded && !this.exhausted && this.stamina > 0;
 
     if (canCling && !this.clinging && !this.grounded) {
-      const movingToward = (wallLeft && (input.left || this.vx < -0.5)) ||
-                           (wallRight && (input.right || this.vx > 0.5));
-      const falling = this.vy > 1;
-      if (movingToward || falling) {
+      const movingToward = (wallLeft && input.left) || (wallRight && input.right);
+      if (movingToward) {
         this.clinging = true;
         this.clingWallSide = wallLeft ? -1 : 1;
         this.vx = 0;
@@ -155,11 +154,16 @@ export class Player {
       if (jumpPressed && this.stamina >= STAMINA_CLIMB_JUMP) {
         this.stamina -= STAMINA_CLIMB_JUMP;
         this.vy = CLIMB_JUMP_FORCE;
-        this.vx = -this.clingWallSide * this.moveSpeed * 0.3;
+        // Only push away from wall if pressing away; otherwise jump straight up
+        const pushAway = (this.clingWallSide < 0 && input.right) ||
+                         (this.clingWallSide > 0 && input.left);
+        this.vx = pushAway ? -this.clingWallSide * this.moveSpeed * 0.3 : 0;
         this.releaseCling();
       } else if (jumpPressed && this.stamina > 0) {
         this.vy = CLIMB_JUMP_FORCE * (this.stamina / STAMINA_CLIMB_JUMP) * 0.5;
-        this.vx = -this.clingWallSide * this.moveSpeed * 0.2;
+        const pushAway = (this.clingWallSide < 0 && input.right) ||
+                         (this.clingWallSide > 0 && input.left);
+        this.vx = pushAway ? -this.clingWallSide * this.moveSpeed * 0.2 : 0;
         this.stamina = 0;
         this.releaseCling();
       }

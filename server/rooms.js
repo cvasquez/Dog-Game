@@ -196,7 +196,7 @@ function handleDigging(room, player) {
   let ty = Math.floor(player.y - PLAYER_HEIGHT / 2);
 
   if (inp.down) ty = Math.floor(player.y + 0.1);
-  else if (inp.up) ty = Math.floor(player.y - PLAYER_HEIGHT - 0.1);
+  else if (inp.up) ty = Math.floor(player.y - PLAYER_HEIGHT) - 1;
   else if (inp.left) { tx = Math.floor(player.x - PLAYER_WIDTH / 2 - 0.1); ty = Math.floor(player.y - 0.5); }
   else if (inp.right) { tx = Math.floor(player.x + PLAYER_WIDTH / 2 + 0.1); ty = Math.floor(player.y - 0.5); }
   else {

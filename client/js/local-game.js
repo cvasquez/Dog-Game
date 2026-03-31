@@ -215,7 +215,7 @@ export class LocalGame {
     let ty = Math.floor(p.y - PLAYER_HEIGHT / 2);
 
     if (input.down) ty = Math.floor(p.y + 0.1);
-    else if (input.up) ty = Math.floor(p.y - PLAYER_HEIGHT - 0.1);
+    else if (input.up) ty = Math.floor(p.y - PLAYER_HEIGHT) - 1;
     else if (input.left) { tx = Math.floor(p.x - PLAYER_WIDTH / 2 - 0.1); ty = Math.floor(p.y - 0.5); }
     else if (input.right) { tx = Math.floor(p.x + PLAYER_WIDTH / 2 + 0.1); ty = Math.floor(p.y - 0.5); }
     else {
