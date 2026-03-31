@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dog Digging Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Lobby overlay -->
+  <div id="lobby">
+    <div class="lobby-box">
+      <h1>🐕 Dog Digging Game</h1>
+      <p class="subtitle">Dig deep, find treasure, decorate your park!</p>
+
+      <div class="form-group">
+        <label>Your Dog's Name</label>
+        <input type="text" id="playerName" value="Biscuit" maxlength="20">
+      </div>
+
+      <div class="form-group">
+        <label>Dog Color</label>
+        <div class="color-picker" id="colorPicker">
+          <button class="color-btn selected" data-color="0" style="background: #8B5E3C" title="Brown"></button>
+          <button class="color-btn" data-color="1" style="background: #DAA520" title="Golden"></button>
+          <button class="color-btn" data-color="2" style="background: #808080" title="Gray"></button>
+          <button class="color-btn" data-color="3" style="background: #E8E0D0" title="White"></button>
+        </div>
+      </div>
+
+      <button id="createBtn" class="btn btn-primary">Create New Room</button>
+
+      <div class="divider"><span>or join a friend</span></div>
+
+      <div class="join-row">
+        <input type="text" id="roomInput" placeholder="Room code" maxlength="6">
+        <button id="joinBtn" class="btn">Join</button>
+      </div>
+
+      <div class="divider"><span>or load a saved world</span></div>
+      <button id="loadBtn" class="btn btn-secondary">Load Saved World</button>
+      <div id="worldList" class="world-list" style="display:none"></div>
+
+      <div id="lobbyError" class="error"></div>
+    </div>
+  </div>
+
+  <!-- Game canvas -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- HUD elements -->
+  <div id="hud" style="display:none">
+    <div id="resourceBar"></div>
+    <div id="depthMeter"></div>
+    <div id="roomCode"></div>
+    <div id="playerList"></div>
+  </div>
+
+  <!-- Shop overlay -->
+  <div id="shopOverlay" style="display:none">
+    <div class="shop-box">
+      <h2>Shop</h2>
+      <div class="shop-tabs">
+        <button class="shop-tab active" data-tab="decorations">Decorations</button>
+        <button class="shop-tab" data-tab="emotes">Emotes</button>
+      </div>
+      <div id="shopItems"></div>
+      <button id="shopClose" class="btn">Close (B)</button>
+    </div>
+  </div>
+
+  <!-- Emote wheel (canvas-rendered) -->
+  <canvas id="emoteWheel" style="display:none"></canvas>
+
+  <!-- Notifications -->
+  <div id="notifications"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

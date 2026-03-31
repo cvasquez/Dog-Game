@@ -1,0 +1,16 @@
+{
+  "name": "dog-game",
+  "version": "1.0.0",
+  "description": "Multiplayer browser-based dog digging game",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "npx nodemon server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "ws": "^8.18.0",
+    "better-sqlite3": "^11.7.0"
+  }
+}
