@@ -188,7 +188,7 @@ export class LocalGame {
     }
 
     // Update stamina HUD
-    this.hud.updateStamina(this.localPlayer.stamina, this.localPlayer.maxStamina);
+    this.hud.updateStamina(this.localPlayer.stamina, this.localPlayer.maxStamina, this.localPlayer.exhausted);
 
     this.camera.follow(this.localPlayer.x, this.localPlayer.y);
     this.particles.update();

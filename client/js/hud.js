@@ -46,16 +46,35 @@ export class HUD {
     }
   }
 
-  updateStamina(current, max) {
+  updateStamina(current, max, exhausted) {
     const pct = Math.max(0, Math.min(100, (current / max) * 100));
     this.staminaFill.style.width = pct + '%';
-    // Color based on level
-    if (pct > 50) this.staminaFill.style.background = '#66BB6A';
-    else if (pct > 20) this.staminaFill.style.background = '#FFA726';
-    else this.staminaFill.style.background = '#EF5350';
 
-    // Only show when not full
-    this.staminaBar.style.opacity = pct < 100 ? '1' : '0.3';
+    // Color: green → yellow → orange → red as it drains
+    if (pct > 60) this.staminaFill.style.background = '#66BB6A';
+    else if (pct > 30) this.staminaFill.style.background = '#FFA726';
+    else if (pct > 0) this.staminaFill.style.background = '#EF5350';
+
+    // Visibility: show when draining or not full, fade when full
+    if (pct >= 100) {
+      this.staminaBar.style.opacity = '0';
+    } else {
+      this.staminaBar.style.opacity = '1';
+    }
+
+    // Exhaustion: flash the bar red
+    if (exhausted) {
+      this.staminaBar.classList.add('exhausted');
+    } else {
+      this.staminaBar.classList.remove('exhausted');
+    }
+
+    // Low stamina pulse
+    if (pct > 0 && pct <= 20 && !exhausted) {
+      this.staminaBar.classList.add('low');
+    } else {
+      this.staminaBar.classList.remove('low');
+    }
   }
 
   setRoomCode(code, isSolo) {

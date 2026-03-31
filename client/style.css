@@ -207,7 +207,7 @@ input[type="text"]:focus {
   position: fixed;
   left: 16px; top: 36px;
   pointer-events: none;
-  transition: opacity 0.3s;
+  transition: opacity 0.5s;
 }
 
 .stamina-label {
@@ -230,7 +230,33 @@ input[type="text"]:focus {
   width: 100%;
   background: #66BB6A;
   border-radius: 3px;
-  transition: width 0.1s;
+  transition: width 0.08s linear, background 0.2s;
+}
+
+/* Low stamina: pulsing glow */
+#staminaBar.low .stamina-track {
+  animation: staminaPulse 0.6s ease-in-out infinite;
+}
+
+@keyframes staminaPulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(239, 83, 80, 0.3); }
+  50% { box-shadow: 0 0 10px rgba(239, 83, 80, 0.8); }
+}
+
+/* Exhaustion: flash red */
+#staminaBar.exhausted .stamina-track {
+  animation: staminaExhaust 0.15s ease-in-out 4;
+  background: rgba(239, 83, 80, 0.3);
+}
+
+#staminaBar.exhausted .stamina-label {
+  color: #EF5350;
+}
+
+@keyframes staminaExhaust {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
 }
 
 #roomCode {

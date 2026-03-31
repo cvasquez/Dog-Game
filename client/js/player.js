@@ -3,11 +3,18 @@ import {
   PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, WORLD_WIDTH,
 } from '../../shared/constants.js';
 
-// Stamina constants
+// Stamina constants (BotW-style)
 const MAX_STAMINA = 100;
-const STAMINA_CLIMB_COST = 1.2;   // per frame while climbing
-const STAMINA_REGEN_RATE = 1.5;   // per frame while grounded
-const CLIMB_SPEED = 2.0;          // tiles per second
+const STAMINA_CLING_COST = 0.4;    // per frame just holding onto wall
+const STAMINA_CLIMB_COST = 1.0;    // per frame actively climbing up
+const STAMINA_CLIMB_JUMP = 20;     // cost for a climb-jump (leap off wall upward)
+const STAMINA_REGEN_RATE = 1.2;    // per frame while grounded (after delay)
+const STAMINA_REGEN_DELAY = 30;    // frames on ground before regen starts
+const STAMINA_EXHAUSTION_TIME = 45; // frames of exhaustion after hitting 0
+
+const CLIMB_SPEED = 2.5;           // tiles per second climbing up
+const CLING_SLIDE_SPEED = 0.5;     // tiles per second sliding down while clinging
+const CLIMB_JUMP_FORCE = -9.0;     // upward force for climb-jump
 
 export class Player {
   constructor(id, name, color) {
@@ -31,70 +38,154 @@ export class Player {
     this.animTimer = 0;
     this.isLocal = false;
 
-    // Climbing / stamina
+    // Climbing / stamina (BotW-style)
     this.stamina = MAX_STAMINA;
     this.maxStamina = MAX_STAMINA;
-    this.climbing = false;
+    this.climbing = false;       // actively climbing up
+    this.clinging = false;       // holding onto wall (may be sliding down)
+    this.clingWallSide = 0;      // -1 = wall on left, 1 = wall on right
+    this.exhausted = false;      // stamina hit 0, can't climb until recovered
+    this.exhaustionTimer = 0;
+    this.groundedTimer = 0;      // frames spent on ground (for regen delay)
+    this.prevJump = false;       // for jump edge detection
 
     // Interpolation for remote players
     this.targetX = this.x;
     this.targetY = this.y;
   }
 
-  // Client-side prediction for the local player
   predictUpdate(input, world, dt) {
-    // Check if next to a wall (for climbing)
-    const wallLeft = this.isSolidAt(world, this.x - PLAYER_WIDTH / 2 - 0.15, this.y - PLAYER_HEIGHT / 2);
-    const wallRight = this.isSolidAt(world, this.x + PLAYER_WIDTH / 2 + 0.15, this.y - PLAYER_HEIGHT / 2);
+    // Detect jump press (edge trigger)
+    const jumpPressed = input.jump && !this.prevJump;
+    this.prevJump = input.jump;
+
+    // Check walls
+    const wallLeft = this.checkWall(world, -1);
+    const wallRight = this.checkWall(world, 1);
     const nextToWall = wallLeft || wallRight;
 
-    // Wall climbing: hold up next to a wall while airborne with stamina
-    if (input.up && nextToWall && !this.grounded && this.stamina > 0) {
-      this.climbing = true;
-      this.vy = -CLIMB_SPEED;
-      this.stamina -= STAMINA_CLIMB_COST;
-      if (this.stamina < 0) this.stamina = 0;
-      // Slow horizontal movement while climbing
-      if (input.left) { this.vx = -MOVE_SPEED * 0.3; this.facing = -1; }
-      else if (input.right) { this.vx = MOVE_SPEED * 0.3; this.facing = 1; }
-      else { this.vx = 0; }
+    // Exhaustion recovery
+    if (this.exhausted) {
+      this.exhaustionTimer--;
+      if (this.exhaustionTimer <= 0) {
+        this.exhausted = false;
+      }
+    }
+
+    // Grounded timer for regen delay
+    if (this.grounded) {
+      this.groundedTimer++;
     } else {
+      this.groundedTimer = 0;
+    }
+
+    // --- CLIMBING STATE MACHINE ---
+    const canCling = nextToWall && !this.grounded && !this.exhausted && this.stamina > 0;
+
+    // Enter cling: touch a wall while airborne
+    if (canCling && !this.clinging && !this.grounded) {
+      // Auto-cling when moving toward a wall or falling near one
+      const movingTowardWall = (wallLeft && (input.left || this.vx < -0.5)) ||
+                                (wallRight && (input.right || this.vx > 0.5));
+      const falling = this.vy > 1;
+      if (movingTowardWall || falling) {
+        this.clinging = true;
+        this.clingWallSide = wallLeft ? -1 : 1;
+        this.vx = 0;
+        this.vy = 0;
+      }
+    }
+
+    // Release cling conditions
+    if (this.clinging) {
+      // Lost the wall
+      const stillOnWall = this.clingWallSide < 0 ? wallLeft : wallRight;
+      if (!stillOnWall) {
+        this.releaseCling();
+      }
+      // Touched ground
+      else if (this.grounded) {
+        this.releaseCling();
+      }
+      // Pressed away from wall or down
+      else if ((this.clingWallSide < 0 && input.right) ||
+               (this.clingWallSide > 0 && input.left) ||
+               input.down) {
+        this.releaseCling();
+        // Small push away from wall
+        this.vx = -this.clingWallSide * MOVE_SPEED * 0.5;
+      }
+      // Stamina ran out
+      else if (this.stamina <= 0) {
+        this.triggerExhaustion();
+      }
+    }
+
+    // --- MOVEMENT ---
+    if (this.clinging) {
+      // While clinging to wall
+      this.vx = 0;
+
+      if (input.up && this.stamina > 0) {
+        // Actively climbing up
+        this.climbing = true;
+        this.vy = -CLIMB_SPEED;
+        this.stamina -= STAMINA_CLIMB_COST;
+      } else {
+        // Just holding on — slow slide down
+        this.climbing = false;
+        this.vy = CLING_SLIDE_SPEED;
+        this.stamina -= STAMINA_CLING_COST;
+      }
+
+      if (this.stamina < 0) this.stamina = 0;
+
+      // Climb-jump: press jump while clinging
+      if (jumpPressed && this.stamina >= STAMINA_CLIMB_JUMP) {
+        this.stamina -= STAMINA_CLIMB_JUMP;
+        this.vy = CLIMB_JUMP_FORCE;
+        // Small push away from wall so you can clear ledges
+        this.vx = -this.clingWallSide * MOVE_SPEED * 0.3;
+        this.releaseCling();
+      } else if (jumpPressed && this.stamina > 0) {
+        // Not enough for full climb-jump but do a smaller one with remaining stamina
+        this.vy = CLIMB_JUMP_FORCE * (this.stamina / STAMINA_CLIMB_JUMP) * 0.5;
+        this.vx = -this.clingWallSide * MOVE_SPEED * 0.2;
+        this.stamina = 0;
+        this.releaseCling();
+      }
+
+    } else {
+      // Normal movement (not clinging)
       this.climbing = false;
 
-      // Normal horizontal movement
+      // Horizontal
       if (input.left) { this.vx = -MOVE_SPEED; this.facing = -1; }
       else if (input.right) { this.vx = MOVE_SPEED; this.facing = 1; }
       else { this.vx *= FRICTION; if (Math.abs(this.vx) < 0.1) this.vx = 0; }
 
-      // Jump
-      if (input.jump && this.grounded) {
+      // Ground jump
+      if (jumpPressed && this.grounded) {
         this.vy = JUMP_FORCE;
         this.grounded = false;
       }
 
-      // Wall jump: press jump while next to wall and airborne
-      if (input.jump && !this.grounded && nextToWall && this.stamina > 10) {
-        this.vy = JUMP_FORCE * 0.8;
-        this.vx = wallLeft ? MOVE_SPEED * 1.5 : -MOVE_SPEED * 1.5;
-        this.stamina -= 10;
-      }
-
-      // Gravity (reduced while climbing/clinging)
+      // Gravity
       this.vy += GRAVITY;
       if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
     }
 
-    // Regen stamina on ground
-    if (this.grounded) {
+    // Stamina regen: only on ground, after delay
+    if (this.grounded && !this.exhausted && this.groundedTimer > STAMINA_REGEN_DELAY) {
       this.stamina = Math.min(this.maxStamina, this.stamina + STAMINA_REGEN_RATE);
     }
 
-    // Move X — use inset collision box (shrink top/bottom by 0.15) to avoid ground false positives
+    // --- PHYSICS ---
+    // Move X
     const newX = this.x + this.vx * dt;
     if (!this.collidesAtH(world, newX, this.y)) {
       this.x = newX;
     } else {
-      // Snap to tile edge
       if (this.vx > 0) {
         const rightEdge = Math.floor(newX + PLAYER_WIDTH / 2);
         this.x = rightEdge - PLAYER_WIDTH / 2;
@@ -112,18 +203,23 @@ export class Player {
       this.grounded = false;
     } else {
       if (this.vy > 0) {
-        // Landing: find exact ground position
+        // Landing
         const groundTileY = Math.floor(newY);
         this.y = groundTileY;
-        // Verify we're not inside a tile; nudge up if needed
         while (this.collidesAt(world, this.x, this.y) && this.y > 0) {
           this.y -= 0.1;
         }
-        this.y += 0.001; // tiny offset to stay just above
+        this.y += 0.001;
         this.grounded = true;
+        // Release cling on landing
+        if (this.clinging) this.releaseCling();
       } else {
         // Hit ceiling
         this.y = Math.floor(this.y - PLAYER_HEIGHT) + PLAYER_HEIGHT + 1;
+        // If climbing and hit ceiling, stop
+        if (this.clinging) {
+          this.vy = 0;
+        }
       }
       this.vy = 0;
     }
@@ -133,8 +229,13 @@ export class Player {
 
     // Animation
     this.animTimer++;
-    if (this.climbing) {
-      if (this.animTimer > 6) { this.animFrame = (this.animFrame + 1) % 2; this.animTimer = 0; }
+    if (this.clinging || this.climbing) {
+      if (this.climbing) {
+        if (this.animTimer > 6) { this.animFrame = (this.animFrame + 1) % 2; this.animTimer = 0; }
+      } else {
+        // Slow idle cling animation
+        if (this.animTimer > 15) { this.animFrame = (this.animFrame + 1) % 2; this.animTimer = 0; }
+      }
     } else if (Math.abs(this.vx) > 0.5 || this.digging) {
       if (this.animTimer > 8) { this.animFrame = (this.animFrame + 1) % 2; this.animTimer = 0; }
     } else {
@@ -148,12 +249,40 @@ export class Player {
     }
   }
 
-  // Check if a specific world position is solid
+  releaseCling() {
+    this.clinging = false;
+    this.climbing = false;
+    this.clingWallSide = 0;
+  }
+
+  triggerExhaustion() {
+    this.exhausted = true;
+    this.exhaustionTimer = STAMINA_EXHAUSTION_TIME;
+    this.stamina = 0;
+    this.releaseCling();
+    // Fall with reduced max speed so it feels like you're flailing
+    this.vy = Math.min(this.vy, 2);
+  }
+
+  // Check if there's a wall on the given side (-1 = left, 1 = right)
+  // Checks multiple points along the player's height for reliability
+  checkWall(world, side) {
+    const wx = side < 0
+      ? this.x - PLAYER_WIDTH / 2 - 0.1
+      : this.x + PLAYER_WIDTH / 2 + 0.1;
+    // Check at head, mid, and feet level
+    const headY = this.y - PLAYER_HEIGHT + 0.1;
+    const midY = this.y - PLAYER_HEIGHT / 2;
+    const feetY = this.y - 0.15;
+    return world.isSolid(Math.floor(wx), Math.floor(headY)) ||
+           world.isSolid(Math.floor(wx), Math.floor(midY)) ||
+           world.isSolid(Math.floor(wx), Math.floor(feetY));
+  }
+
   isSolidAt(world, wx, wy) {
     return world.isSolid(Math.floor(wx), Math.floor(wy));
   }
 
-  // Full AABB collision check
   collidesAt(world, px, py) {
     const left = Math.floor(px - PLAYER_WIDTH / 2);
     const right = Math.floor(px + PLAYER_WIDTH / 2 - 0.01);
@@ -168,7 +297,6 @@ export class Player {
     return false;
   }
 
-  // Horizontal collision: inset the vertical range to avoid ground overlap
   collidesAtH(world, px, py) {
     const inset = 0.15;
     const left = Math.floor(px - PLAYER_WIDTH / 2);
@@ -184,7 +312,6 @@ export class Player {
     return false;
   }
 
-  // Smooth interpolation for remote players
   interpolate(dt) {
     if (this.isLocal) return;
     const lerpSpeed = 0.3;
@@ -192,7 +319,6 @@ export class Player {
     this.y += (this.targetY - this.y) * lerpSpeed;
   }
 
-  // Apply server state
   applyServerState(state) {
     if (this.isLocal) {
       const dx = state.x - this.x;
