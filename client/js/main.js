@@ -1,9 +1,10 @@
-import { Game } from './game.js';
+import { LocalGame } from './local-game.js';
 
-const game = new Game();
+let game = null;
 
 // DOM elements
 const lobby = document.getElementById('lobby');
+const soloBtn = document.getElementById('soloBtn');
 const createBtn = document.getElementById('createBtn');
 const joinBtn = document.getElementById('joinBtn');
 const loadBtn = document.getElementById('loadBtn');
@@ -24,77 +25,75 @@ colorPicker.addEventListener('click', (e) => {
   btn.classList.add('selected');
 });
 
-// Create room
-createBtn.addEventListener('click', () => startGame(null));
+// Solo play (no server needed)
+soloBtn.addEventListener('click', () => {
+  startSoloGame(null);
+});
 
-// Join room
+// Load saved worlds (localStorage)
+loadBtn.addEventListener('click', () => {
+  const saves = LocalGame.getSaves();
+  showWorldList(saves);
+});
+
+// Create multiplayer room
+createBtn.addEventListener('click', () => startMultiplayerGame(null));
+
+// Join multiplayer room
 joinBtn.addEventListener('click', () => {
   const code = roomInput.value.trim().toUpperCase();
   if (!code) {
     lobbyError.textContent = 'Enter a room code';
     return;
   }
-  startGame(code);
+  startMultiplayerGame(code);
 });
 
-// Enter key in room input
 roomInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') joinBtn.click();
 });
 
-// Load saved worlds
-loadBtn.addEventListener('click', async () => {
-  try {
-    // We need a temporary connection to get the world list
-    // Instead, use a REST-like approach via the lobby
-    const tmpWs = new WebSocket(
-      `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`
-    );
-    tmpWs.onopen = () => {
-      tmpWs.send(JSON.stringify({ type: 'load_world' }));
-    };
-    tmpWs.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      if (msg.type === 'world_list') {
-        showWorldList(msg.worlds);
-      }
-      tmpWs.close();
-    };
-  } catch (err) {
-    lobbyError.textContent = 'Could not load world list';
-  }
-});
-
-function showWorldList(worlds) {
+function showWorldList(saves) {
   worldList.style.display = 'block';
   worldList.innerHTML = '';
-  if (worlds.length === 0) {
-    worldList.innerHTML = '<div style="padding:8px;color:rgba(255,255,255,0.5)">No saved worlds</div>';
+  if (saves.length === 0) {
+    worldList.innerHTML = '<div style="padding:8px;color:rgba(255,255,255,0.5)">No saved worlds yet</div>';
     return;
   }
-  for (const w of worlds) {
+  for (const s of saves) {
     const el = document.createElement('div');
     el.className = 'world-item';
-    const date = new Date(w.updated_at).toLocaleDateString();
-    el.innerHTML = `<span>Room: ${w.room_id}</span><span>${date}</span>`;
-    el.addEventListener('click', () => startGame(w.room_id));
+    const date = new Date(s.savedAt).toLocaleDateString();
+    const name = s.player ? s.player.resources : {};
+    el.innerHTML = `<span>World: ${s.id}</span><span>${date}</span>`;
+    el.addEventListener('click', () => startSoloGame(s));
     worldList.appendChild(el);
   }
 }
 
-async function startGame(roomId) {
+function startSoloGame(saveData) {
+  lobbyError.textContent = '';
+  const playerName = nameInput.value.trim() || 'Dog';
+
+  game = new LocalGame();
+  game.start(playerName, selectedColor, saveData);
+}
+
+async function startMultiplayerGame(roomId) {
   lobbyError.textContent = '';
   const playerName = nameInput.value.trim() || 'Dog';
 
   try {
     createBtn.disabled = true;
     joinBtn.disabled = true;
-    await game.start(roomId, playerName, selectedColor);
 
-    // Update URL hash
+    // Dynamic import to avoid loading network code on static hosts
+    const { Game } = await import('./game.js');
+    game = new Game();
+    await game.start(roomId, playerName, selectedColor);
     window.location.hash = game.roomId;
   } catch (err) {
-    lobbyError.textContent = err.message || 'Failed to connect';
+    lobbyError.textContent = err.message || 'Failed to connect to server';
     createBtn.disabled = false;
     joinBtn.disabled = false;
     lobby.style.display = 'flex';

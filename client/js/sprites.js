@@ -1,4 +1,4 @@
-import { TILE, TILE_COLORS, DOG_COLORS, TILE_SIZE } from '/shared/constants.js';
+import { TILE, TILE_COLORS, DOG_COLORS, TILE_SIZE } from '../../shared/constants.js';
 
 const spriteCache = new Map();
 

@@ -1,7 +1,7 @@
 import {
   GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION, MAX_FALL_SPEED,
   PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, WORLD_WIDTH,
-} from '/shared/constants.js';
+} from '../../shared/constants.js';
 
 export class Player {
   constructor(id, name, color) {

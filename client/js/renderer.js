@@ -1,7 +1,7 @@
 import {
   TILE_SIZE, TILE, SURFACE_Y, WORLD_WIDTH, WORLD_HEIGHT,
   PLAYER_WIDTH, PLAYER_HEIGHT, DOG_COLORS, EMOTES, HARDNESS,
-} from '/shared/constants.js';
+} from '../../shared/constants.js';
 import { getTileSprite, getDogSprite, getDecorationSprite, getSkyGradient } from './sprites.js';
 
 // Internal render resolution

@@ -1,4 +1,4 @@
-import { MSG } from '/shared/constants.js';
+import { MSG } from '../../shared/constants.js';
 
 export class Network {
   constructor() {

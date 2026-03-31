@@ -37,15 +37,20 @@ export class HUD {
     }
   }
 
-  setRoomCode(code) {
-    this.roomCodeEl.textContent = `Room: ${code}`;
-    this.roomCodeEl.addEventListener('click', () => {
-      const url = window.location.origin + '/#' + code;
-      navigator.clipboard.writeText(url).then(() => {
-        this.roomCodeEl.textContent = 'Copied!';
-        setTimeout(() => { this.roomCodeEl.textContent = `Room: ${code}`; }, 1500);
+  setRoomCode(code, isSolo) {
+    if (isSolo) {
+      this.roomCodeEl.textContent = `World: ${code}`;
+      this.roomCodeEl.style.cursor = 'default';
+    } else {
+      this.roomCodeEl.textContent = `Room: ${code}`;
+      this.roomCodeEl.addEventListener('click', () => {
+        const url = window.location.origin + '/#' + code;
+        navigator.clipboard.writeText(url).then(() => {
+          this.roomCodeEl.textContent = 'Copied!';
+          setTimeout(() => { this.roomCodeEl.textContent = `Room: ${code}`; }, 1500);
+        });
       });
-    });
+    }
   }
 
   updatePlayerList(players) {

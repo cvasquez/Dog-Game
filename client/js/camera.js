@@ -1,4 +1,4 @@
-import { TILE_SIZE, WORLD_WIDTH, WORLD_HEIGHT } from '/shared/constants.js';
+import { TILE_SIZE, WORLD_WIDTH, WORLD_HEIGHT } from '../../shared/constants.js';
 
 export class Camera {
   constructor(viewWidth, viewHeight) {

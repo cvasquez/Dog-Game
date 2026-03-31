@@ -1,4 +1,4 @@
-import { EMOTES } from '/shared/constants.js';
+import { EMOTES } from '../../shared/constants.js';
 
 export class EmoteWheel {
   constructor() {

@@ -1,4 +1,4 @@
-import { WORLD_WIDTH, WORLD_HEIGHT, TILE, SOLID_TILES } from '/shared/constants.js';
+import { WORLD_WIDTH, WORLD_HEIGHT, TILE, SOLID_TILES } from '../../shared/constants.js';
 
 export class World {
   constructor() {

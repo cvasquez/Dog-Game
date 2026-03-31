@@ -1,4 +1,4 @@
-import { DECORATIONS, EMOTES } from '/shared/constants.js';
+import { DECORATIONS, EMOTES } from '../../shared/constants.js';
 
 export class Shop {
   constructor() {
