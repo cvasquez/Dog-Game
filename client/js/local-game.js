@@ -117,7 +117,7 @@ export class LocalGame {
     // Controls hint
     const hint = document.createElement('div');
     hint.className = 'controls-hint';
-    hint.innerHTML = 'WASD/Arrows: Move & Dig<br>Space: Jump<br>Up + Wall: Climb (uses stamina)<br>R: Recall to surface (lose 50% loot)<br>E: Emotes | B: Shop | Tab: Save';
+    hint.innerHTML = 'WASD/Arrows: Move<br>Shift/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>R: Recall to surface (lose 50% loot)<br>E: Emotes | B: Shop | Tab: Save';
     document.body.appendChild(hint);
 
     this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
@@ -201,7 +201,7 @@ export class LocalGame {
 
   handleDigging(input) {
     const p = this.localPlayer;
-    const isDigging = input.left || input.right || input.up || input.down;
+    const isDigging = input.dig;
 
     if (!isDigging) {
       this.digTarget = null;
@@ -210,7 +210,7 @@ export class LocalGame {
       return;
     }
 
-    // Determine target tile
+    // Determine target tile based on direction or facing
     let tx = Math.floor(p.x);
     let ty = Math.floor(p.y - PLAYER_HEIGHT / 2);
 
@@ -218,9 +218,15 @@ export class LocalGame {
     else if (input.up) ty = Math.floor(p.y - PLAYER_HEIGHT - 0.1);
     else if (input.left) { tx = Math.floor(p.x - PLAYER_WIDTH / 2 - 0.1); ty = Math.floor(p.y - 0.5); }
     else if (input.right) { tx = Math.floor(p.x + PLAYER_WIDTH / 2 + 0.1); ty = Math.floor(p.y - 0.5); }
+    else {
+      // Dig in facing direction
+      if (p.facing > 0) tx = Math.floor(p.x + PLAYER_WIDTH / 2 + 0.1);
+      else tx = Math.floor(p.x - PLAYER_WIDTH / 2 - 0.1);
+      ty = Math.floor(p.y - 0.5);
+    }
 
     const tileType = this.world.getTile(tx, ty);
-    if (!SOLID_TILES.has(tileType) || tileType === TILE.BEDROCK) {
+    if (!SOLID_TILES.has(tileType) || tileType === TILE.BEDROCK || tileType === TILE.GRANITE) {
       this.digTarget = null;
       this.digProgress = 0;
       p.digging = false;
@@ -235,7 +241,7 @@ export class LocalGame {
 
     p.digging = true;
     p.digTarget = { x: tx, y: ty, tile: tileType };
-    this.digProgress++;
+    this.digProgress += (p.digSpeed || 1);
     p.digProgress = this.digProgress;
 
     const hardness = HARDNESS[tileType] || 3;
@@ -262,9 +268,11 @@ export class LocalGame {
           ty * TILE_SIZE + TILE_SIZE / 2,
           gemColor
         );
-        p.resources[resourceName] = (p.resources[resourceName] || 0) + 1;
+        let amount = 1;
+        if (p.lootBonus && Math.random() < p.lootBonus) amount = 2;
+        p.resources[resourceName] = (p.resources[resourceName] || 0) + amount;
         this.hud.updateResources(p.resources);
-        this.notify(`+1 ${resourceName}!`);
+        this.notify(`+${amount} ${resourceName}!`);
       }
 
       this.digTarget = null;

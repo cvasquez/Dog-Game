@@ -67,6 +67,67 @@ function genTileSprite(tileType) {
     ctx.fillRect(4, 10, 2, 1);
     ctx.fillRect(10, 13, 3, 1);
   }
+  if (tileType === TILE.GRANITE) {
+    // Dense speckled texture
+    ctx.fillStyle = '#3E2723';
+    ctx.fillRect(1, 3, 2, 2);
+    ctx.fillRect(7, 1, 3, 1);
+    ctx.fillRect(4, 8, 2, 2);
+    ctx.fillRect(10, 5, 2, 2);
+    ctx.fillRect(2, 12, 3, 1);
+    ctx.fillRect(12, 11, 2, 2);
+    // Light flecks
+    ctx.fillStyle = '#6D4C41';
+    ctx.fillRect(5, 2, 1, 1);
+    ctx.fillRect(11, 9, 1, 1);
+    ctx.fillRect(3, 14, 1, 1);
+  }
+  if (tileType === TILE.LAVA) {
+    // Animated lava surface glow
+    ctx.fillStyle = '#FF8F00';
+    ctx.fillRect(2, 1, 4, 2);
+    ctx.fillRect(9, 3, 3, 2);
+    ctx.fillRect(5, 6, 5, 2);
+    ctx.fillRect(1, 10, 3, 2);
+    ctx.fillRect(11, 8, 3, 2);
+    // Bright hotspots
+    ctx.fillStyle = '#FFAB00';
+    ctx.fillRect(3, 2, 2, 1);
+    ctx.fillRect(10, 4, 1, 1);
+    ctx.fillRect(6, 7, 2, 1);
+  }
+  // Mushroom biome
+  if (tileType === TILE.MUSHROOM_DIRT) {
+    ctx.fillStyle = '#7B5EA7';
+    ctx.fillRect(3, 4, 2, 1);
+    ctx.fillRect(9, 9, 3, 1);
+    ctx.fillRect(1, 13, 2, 1);
+  }
+  // Crystal biome
+  if (tileType === TILE.CRYSTAL_ROCK) {
+    ctx.fillStyle = '#6A1B9A';
+    ctx.fillRect(2, 3, 1, 3);
+    ctx.fillRect(8, 1, 1, 4);
+    ctx.fillRect(12, 7, 1, 3);
+    ctx.fillRect(5, 11, 1, 3);
+  }
+  // Frozen biome
+  if (tileType === TILE.FROZEN_ICE) {
+    ctx.fillStyle = '#E1F5FE';
+    ctx.fillRect(1, 2, 3, 1);
+    ctx.fillRect(7, 5, 4, 1);
+    ctx.fillRect(3, 10, 5, 1);
+    ctx.fillRect(10, 13, 3, 1);
+  }
+  // Ancient biome
+  if (tileType === TILE.ANCIENT_BRICK) {
+    // Brick pattern
+    ctx.fillStyle = '#4E342E';
+    ctx.fillRect(0, 7, S, 1);
+    ctx.fillRect(7, 0, 1, 7);
+    ctx.fillRect(3, 8, 1, 8);
+    ctx.fillRect(11, 8, 1, 8);
+  }
 
   // Resource gem overlay
   if (colors.gem) {
@@ -148,6 +209,8 @@ function genDecorationSprite(decId) {
     6: drawGoldStatue,
     7: drawDiamondKennel,
     8: drawShrine,
+    9: drawMushroomGarden,
+    10: drawCrystalDisplay,
   };
   const fn = decs[decId];
   if (!fn) return null;
@@ -300,6 +363,45 @@ function drawShrine() {
   ctx.fillStyle = '#FFAB40';
   ctx.beginPath();
   ctx.arc(16, 26, 3, 0, Math.PI * 2);
+  ctx.fill();
+  return c;
+}
+
+function drawMushroomGarden() {
+  const c = createCanvas(TILE_SIZE * 2, TILE_SIZE);
+  const ctx = c.getContext('2d');
+  drawRect(ctx, 0, 10, 32, 6, '#4A3670');
+  // Mushrooms
+  ctx.fillStyle = '#76FF03';
+  ctx.beginPath(); ctx.arc(6, 6, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(16, 4, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(26, 6, 4, 0, Math.PI * 2); ctx.fill();
+  // Stems
+  ctx.fillStyle = '#AED581';
+  ctx.fillRect(5, 8, 2, 4);
+  ctx.fillRect(15, 7, 2, 5);
+  ctx.fillRect(25, 8, 2, 4);
+  return c;
+}
+
+function drawCrystalDisplay() {
+  const c = createCanvas(TILE_SIZE, TILE_SIZE * 2);
+  const ctx = c.getContext('2d');
+  drawRect(ctx, 2, 20, 12, 10, '#38006B');
+  // Crystal formation
+  ctx.fillStyle = '#EA80FC';
+  ctx.beginPath();
+  ctx.moveTo(8, 2);
+  ctx.lineTo(4, 18);
+  ctx.lineTo(12, 18);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#CE93D8';
+  ctx.beginPath();
+  ctx.moveTo(5, 8);
+  ctx.lineTo(2, 18);
+  ctx.lineTo(8, 18);
+  ctx.closePath();
   ctx.fill();
   return c;
 }

@@ -8,7 +8,7 @@ export class Network {
     this.lastInputState = null;
   }
 
-  connect(roomId, playerName, colorIndex) {
+  connect(roomId, playerName, breedId) {
     return new Promise((resolve, reject) => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       this.ws = new WebSocket(`${protocol}//${window.location.host}`);
@@ -19,7 +19,7 @@ export class Network {
         this.send({
           type: MSG.JOIN,
           name: playerName,
-          color: colorIndex,
+          breedId: breedId || 0,
           roomId: roomId || undefined,
         });
       };

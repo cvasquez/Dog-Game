@@ -1,8 +1,8 @@
 import {
   WORLD_WIDTH, WORLD_HEIGHT, TILE, SOLID_TILES, HARDNESS, RESOURCE_NAMES,
-  RESOURCE_VALUE, GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION, MAX_FALL_SPEED,
-  PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, SERVER_TICK_MS, MSG,
-  DECORATIONS, EMOTES, PARK_TOP, PARK_BOTTOM,
+  RESOURCE_VALUE, HAZARD_TILES, GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION,
+  MAX_FALL_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, SERVER_TICK_MS, MSG,
+  DECORATIONS, EMOTES, PARK_TOP, PARK_BOTTOM, DOG_BREEDS,
 } from '../shared/constants.js';
 import { generateWorld } from './world-gen.js';
 import { saveWorld, loadWorld, savePlayer, loadPlayer, listWorlds } from './persistence.js';
@@ -17,25 +17,42 @@ function genRoomId() {
   return id;
 }
 
-function createPlayer(id, name, colorIndex) {
+function createPlayer(id, name, breedId) {
+  const breed = DOG_BREEDS[breedId] || DOG_BREEDS[0];
+  const s = breed.stats;
+  const unlockedEmotes = [0, 1];
+  if (breed.freeEmote != null && !unlockedEmotes.includes(breed.freeEmote)) {
+    unlockedEmotes.push(breed.freeEmote);
+  }
   return {
     id,
     name: name || 'Dog',
-    color: colorIndex || 0,
+    breedId: breedId || 0,
+    color: breedId || 0,
     x: WORLD_WIDTH / 2,
     y: SURFACE_Y - 1,
     vx: 0,
     vy: 0,
     facing: 1,
     grounded: false,
+    dead: false,
+    respawnTimer: 0,
     input: { left: false, right: false, up: false, down: false, jump: false, dig: false },
     digging: false,
     digTarget: null,
     digProgress: 0,
-    resources: { bones: 0, gems: 0, fossils: 0, gold: 0, diamonds: 0, artifacts: 0 },
-    unlockedEmotes: [0, 1],
+    resources: {
+      bones: 0, gems: 0, fossils: 0, gold: 0, diamonds: 0, artifacts: 0,
+      mushrooms: 0, crystals: 0, frozen_gems: 0, relics: 0,
+    },
+    unlockedEmotes,
     activeEmote: null,
     emoteTimer: 0,
+    // Breed stats
+    moveSpeed: MOVE_SPEED * s.moveSpeed,
+    jumpForce: JUMP_FORCE * s.jumpForce,
+    digSpeed: s.digSpeed,
+    lootBonus: s.lootBonus || 0,
     ws: null,
   };
 }
@@ -69,17 +86,51 @@ function collidesAt(room, px, py) {
   return false;
 }
 
+function checkHazards(room, player) {
+  const cx = Math.floor(player.x);
+  const cy = Math.floor(player.y - 0.01);
+  const cy2 = Math.floor(player.y - PLAYER_HEIGHT / 2);
+  for (const ty of [cy, cy2]) {
+    for (const tx of [cx, Math.floor(player.x - PLAYER_WIDTH / 2), Math.floor(player.x + PLAYER_WIDTH / 2 - 0.01)]) {
+      if (HAZARD_TILES.has(getTile(room, tx, ty))) {
+        player.dead = true;
+        player.respawnTimer = 90;
+        return;
+      }
+    }
+  }
+}
+
 function updatePlayer(room, player, dt) {
+  // Respawn timer
+  if (player.dead) {
+    player.respawnTimer--;
+    if (player.respawnTimer <= 0) {
+      player.dead = false;
+      player.x = WORLD_WIDTH / 2;
+      player.y = SURFACE_Y - 1;
+      player.vx = 0;
+      player.vy = 0;
+    }
+    return;
+  }
+
+  // Check hazards (lava)
+  checkHazards(room, player);
+  if (player.dead) return;
+
   const inp = player.input;
 
-  // Horizontal movement
-  if (inp.left) { player.vx = -MOVE_SPEED; player.facing = -1; }
-  else if (inp.right) { player.vx = MOVE_SPEED; player.facing = 1; }
+  // Horizontal movement (use breed speed)
+  const speed = player.moveSpeed || MOVE_SPEED;
+  if (inp.left) { player.vx = -speed; player.facing = -1; }
+  else if (inp.right) { player.vx = speed; player.facing = 1; }
   else { player.vx *= FRICTION; if (Math.abs(player.vx) < 0.1) player.vx = 0; }
 
-  // Jump
+  // Jump (use breed jump force)
+  const jumpF = player.jumpForce || JUMP_FORCE;
   if (inp.jump && player.grounded) {
-    player.vy = JUMP_FORCE;
+    player.vy = jumpF;
     player.grounded = false;
   }
 
@@ -156,7 +207,7 @@ function handleDigging(room, player) {
   }
 
   const tileType = getTile(room, tx, ty);
-  if (!SOLID_TILES.has(tileType) || tileType === TILE.BEDROCK) {
+  if (!SOLID_TILES.has(tileType) || tileType === TILE.BEDROCK || tileType === TILE.GRANITE) {
     player.digging = false;
     player.digTarget = null;
     player.digProgress = 0;
@@ -170,7 +221,7 @@ function handleDigging(room, player) {
   }
 
   player.digging = true;
-  player.digProgress++;
+  player.digProgress += (player.digSpeed || 1);
 
   const hardness = HARDNESS[tileType] || 3;
   if (player.digProgress >= hardness) {
@@ -183,7 +234,12 @@ function handleDigging(room, player) {
 
     // Give resource if it was a resource tile
     if (resourceName) {
-      player.resources[resourceName] = (player.resources[resourceName] || 0) + 1;
+      let amount = 1;
+      // Breed loot bonus: chance for double loot
+      if (player.lootBonus && Math.random() < player.lootBonus) {
+        amount = 2;
+      }
+      player.resources[resourceName] = (player.resources[resourceName] || 0) + amount;
       broadcast(room, {
         type: MSG.RESOURCE_COLLECTED,
         playerId: player.id,
@@ -230,6 +286,7 @@ function tickRoom(room) {
       vy: p.vy,
       facing: p.facing,
       grounded: p.grounded,
+      dead: p.dead,
       digging: p.digging,
       digTarget: p.digTarget,
       digProgress: p.digProgress,

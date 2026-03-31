@@ -24,6 +24,10 @@ export class HUD {
       { icon: '🥇', name: 'gold', value: resources.gold || 0 },
       { icon: '💠', name: 'diamonds', value: resources.diamonds || 0 },
       { icon: '🏺', name: 'artifacts', value: resources.artifacts || 0 },
+      { icon: '🍄', name: 'mushrooms', value: resources.mushrooms || 0 },
+      { icon: '🔮', name: 'crystals', value: resources.crystals || 0 },
+      { icon: '❄️', name: 'frozen_gems', value: resources.frozen_gems || 0 },
+      { icon: '📜', name: 'relics', value: resources.relics || 0 },
     ];
 
     this.resourceBar.innerHTML = items

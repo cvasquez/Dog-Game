@@ -10,18 +10,18 @@ const joinBtn = document.getElementById('joinBtn');
 const loadBtn = document.getElementById('loadBtn');
 const roomInput = document.getElementById('roomInput');
 const nameInput = document.getElementById('playerName');
-const colorPicker = document.getElementById('colorPicker');
+const breedPicker = document.getElementById('breedPicker');
 const lobbyError = document.getElementById('lobbyError');
 const worldList = document.getElementById('worldList');
 
-let selectedColor = 0;
+let selectedBreed = 0;
 
-// Color picker
-colorPicker.addEventListener('click', (e) => {
-  const btn = e.target.closest('.color-btn');
+// Breed picker
+breedPicker.addEventListener('click', (e) => {
+  const btn = e.target.closest('.breed-btn');
   if (!btn) return;
-  selectedColor = parseInt(btn.dataset.color);
-  colorPicker.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+  selectedBreed = parseInt(btn.dataset.breed);
+  breedPicker.querySelectorAll('.breed-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
 });
 
@@ -76,7 +76,7 @@ function startSoloGame(saveData) {
   const playerName = nameInput.value.trim() || 'Dog';
 
   game = new LocalGame();
-  game.start(playerName, selectedColor, saveData);
+  game.start(playerName, selectedBreed, saveData);
 }
 
 async function startMultiplayerGame(roomId) {
@@ -90,7 +90,7 @@ async function startMultiplayerGame(roomId) {
     // Dynamic import to avoid loading network code on static hosts
     const { Game } = await import('./game.js');
     game = new Game();
-    await game.start(roomId, playerName, selectedColor);
+    await game.start(roomId, playerName, selectedBreed);
     window.location.hash = game.roomId;
   } catch (err) {
     lobbyError.textContent = err.message || 'Failed to connect to server';

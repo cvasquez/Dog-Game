@@ -46,9 +46,9 @@ wss.on('connection', (ws) => {
     if (msg.type === MSG.JOIN) {
       playerId = 'p' + (nextPlayerId++);
       const playerName = (msg.name || 'Dog').slice(0, 20);
-      const colorIndex = Math.max(0, Math.min(3, msg.color || 0));
+      const breedId = Math.max(0, Math.min(3, msg.breedId || 0));
 
-      const player = createPlayer(playerId, playerName, colorIndex);
+      const player = createPlayer(playerId, playerName, breedId);
 
       let room;
       if (msg.roomId) {
@@ -93,7 +93,7 @@ wss.on('connection', (ws) => {
       // Notify others
       const joinMsg = {
         type: MSG.PLAYER_JOINED,
-        player: { id: playerId, name: playerName, color: colorIndex, x: player.x, y: player.y },
+        player: { id: playerId, name: playerName, color: breedId, x: player.x, y: player.y },
       };
       for (const [id, p] of room.players) {
         if (id !== playerId) sendTo(p, joinMsg);

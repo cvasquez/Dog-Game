@@ -17,33 +17,64 @@ export const TILE = {
   CLAY: 3,
   STONE: 4,
   BEDROCK: 5,
+  // Resources
   BONE: 10,
   GEM: 11,
   FOSSIL: 12,
   GOLD: 13,
   DIAMOND: 14,
   ARTIFACT: 15,
+  // Obstacles
+  LAVA: 20,
+  GRANITE: 21,       // undiggable rock formations
+  // Biome tiles
+  MUSHROOM_DIRT: 30,  // mushroom cavern soil
+  MUSHROOM: 31,       // glowing mushroom (resource)
+  CRYSTAL_ROCK: 32,   // crystal cavern walls
+  CRYSTAL: 33,        // harvestable crystal (resource)
+  FROZEN_ICE: 34,     // frozen cavern walls (slippery)
+  FROZEN_GEM: 35,     // frozen gem (resource)
+  ANCIENT_BRICK: 36,  // ancient ruins walls
+  ANCIENT_RELIC: 37,  // ancient relic (resource)
 };
 
-// Which tiles are diggable solid
+// Which tiles are solid (block movement)
 export const SOLID_TILES = new Set([
   TILE.GRASS, TILE.DIRT, TILE.CLAY, TILE.STONE, TILE.BEDROCK,
   TILE.BONE, TILE.GEM, TILE.FOSSIL, TILE.GOLD, TILE.DIAMOND, TILE.ARTIFACT,
+  TILE.GRANITE,
+  TILE.MUSHROOM_DIRT, TILE.MUSHROOM,
+  TILE.CRYSTAL_ROCK, TILE.CRYSTAL,
+  TILE.FROZEN_ICE, TILE.FROZEN_GEM,
+  TILE.ANCIENT_BRICK, TILE.ANCIENT_RELIC,
 ]);
 
-// Tile hardness (server ticks to dig)
+// Hazard tiles (damage/kill the player)
+export const HAZARD_TILES = new Set([TILE.LAVA]);
+
+// Tile hardness (frames to dig, Infinity = undiggable)
 export const HARDNESS = {
   [TILE.GRASS]: 2,
   [TILE.DIRT]: 3,
   [TILE.CLAY]: 8,
   [TILE.STONE]: 15,
   [TILE.BEDROCK]: Infinity,
+  [TILE.GRANITE]: Infinity,
   [TILE.BONE]: 3,
   [TILE.GEM]: 8,
   [TILE.FOSSIL]: 8,
   [TILE.GOLD]: 15,
   [TILE.DIAMOND]: 15,
   [TILE.ARTIFACT]: 15,
+  // Biome tiles
+  [TILE.MUSHROOM_DIRT]: 4,
+  [TILE.MUSHROOM]: 5,
+  [TILE.CRYSTAL_ROCK]: 12,
+  [TILE.CRYSTAL]: 10,
+  [TILE.FROZEN_ICE]: 6,
+  [TILE.FROZEN_GEM]: 8,
+  [TILE.ANCIENT_BRICK]: 18,
+  [TILE.ANCIENT_RELIC]: 12,
 };
 
 // Resource values (currency)
@@ -54,6 +85,10 @@ export const RESOURCE_VALUE = {
   [TILE.GOLD]: 20,
   [TILE.DIAMOND]: 50,
   [TILE.ARTIFACT]: 100,
+  [TILE.MUSHROOM]: 8,
+  [TILE.CRYSTAL]: 15,
+  [TILE.FROZEN_GEM]: 25,
+  [TILE.ANCIENT_RELIC]: 60,
 };
 
 // Resource names
@@ -64,9 +99,13 @@ export const RESOURCE_NAMES = {
   [TILE.GOLD]: 'gold',
   [TILE.DIAMOND]: 'diamonds',
   [TILE.ARTIFACT]: 'artifacts',
+  [TILE.MUSHROOM]: 'mushrooms',
+  [TILE.CRYSTAL]: 'crystals',
+  [TILE.FROZEN_GEM]: 'frozen_gems',
+  [TILE.ANCIENT_RELIC]: 'relics',
 };
 
-// Physics constants
+// Base physics constants (modified by breed)
 export const GRAVITY = 0.6;
 export const MOVE_SPEED = 3.0;
 export const JUMP_FORCE = -8.0;
@@ -75,13 +114,74 @@ export const MAX_FALL_SPEED = 12.0;
 export const PLAYER_WIDTH = 0.75;
 export const PLAYER_HEIGHT = 0.75;
 
-// Dog colors
-export const DOG_COLORS = [
-  { name: 'Brown', body: '#8B5E3C', dark: '#6B3F1F', light: '#C49A6C' },
-  { name: 'Golden', body: '#DAA520', dark: '#B8860B', light: '#FFD700' },
-  { name: 'Gray', body: '#808080', dark: '#5A5A5A', light: '#B0B0B0' },
-  { name: 'White', body: '#E8E0D0', dark: '#C0B8A8', light: '#FFFFFF' },
+// Dog breeds with stats
+export const DOG_BREEDS = [
+  {
+    id: 0,
+    name: 'Labrador',
+    desc: 'All-rounder. High stamina, reliable digger.',
+    colors: { body: '#C49A6C', dark: '#8B6914', light: '#E8D5A3' },
+    stats: {
+      moveSpeed: 1.0,    // multiplier on base
+      jumpForce: 1.0,
+      digSpeed: 1.0,
+      maxStamina: 1.2,   // 20% more stamina
+      staminaRegen: 1.0,
+    },
+    freeEmote: 0, // Bark
+  },
+  {
+    id: 1,
+    name: 'Dachshund',
+    desc: 'Born to dig. Fastest digger, tires quickly.',
+    colors: { body: '#8B4513', dark: '#5C2E0A', light: '#C47D3E' },
+    stats: {
+      moveSpeed: 0.85,
+      jumpForce: 0.8,    // short legs
+      digSpeed: 1.6,     // 60% faster digging
+      maxStamina: 0.7,   // less stamina
+      staminaRegen: 1.1,
+    },
+    freeEmote: 3, // Dig Here
+  },
+  {
+    id: 2,
+    name: 'Husky',
+    desc: 'Explorer. Fast runner, great climber, slow digger.',
+    colors: { body: '#B0B0B0', dark: '#606060', light: '#FFFFFF' },
+    stats: {
+      moveSpeed: 1.3,    // fast
+      jumpForce: 1.2,    // high jump
+      digSpeed: 0.7,     // slow digger
+      maxStamina: 1.1,
+      staminaRegen: 1.3, // great stamina regen (endurance breed)
+    },
+    freeEmote: 5, // Howl
+  },
+  {
+    id: 3,
+    name: 'Terrier',
+    desc: 'Treasure hunter. Finds extra loot, fragile.',
+    colors: { body: '#D2B48C', dark: '#A0785A', light: '#F5E6D0' },
+    stats: {
+      moveSpeed: 1.1,
+      jumpForce: 1.15,   // springy
+      digSpeed: 1.3,     // good digger
+      maxStamina: 0.85,
+      staminaRegen: 0.9,
+      lootBonus: 0.15,   // 15% chance for double loot
+    },
+    freeEmote: 4, // Celebrate
+  },
 ];
+
+// Keep DOG_COLORS for backward compat (maps to breed colors)
+export const DOG_COLORS = DOG_BREEDS.map(b => ({
+  name: b.name,
+  body: b.colors.body,
+  dark: b.colors.dark,
+  light: b.colors.light,
+}));
 
 // Tile colors for rendering
 export const TILE_COLORS = {
@@ -97,7 +197,74 @@ export const TILE_COLORS = {
   [TILE.GOLD]: { top: '#757575', main: '#757575', gem: '#FFD700' },
   [TILE.DIAMOND]: { top: '#757575', main: '#757575', gem: '#00E5FF' },
   [TILE.ARTIFACT]: { top: '#757575', main: '#757575', gem: '#FF6D00' },
+  // Obstacles
+  [TILE.LAVA]: { top: '#FF6F00', main: '#E65100', accent: '#BF360C', animated: true },
+  [TILE.GRANITE]: { top: '#5D4037', main: '#4E342E', accent: '#3E2723' },
+  // Mushroom biome
+  [TILE.MUSHROOM_DIRT]: { top: '#5E4A8A', main: '#4A3670', accent: '#3B2860' },
+  [TILE.MUSHROOM]: { top: '#4A3670', main: '#4A3670', gem: '#76FF03' },
+  // Crystal biome
+  [TILE.CRYSTAL_ROCK]: { top: '#4A148C', main: '#38006B', accent: '#2C0053' },
+  [TILE.CRYSTAL]: { top: '#38006B', main: '#38006B', gem: '#EA80FC' },
+  // Frozen biome
+  [TILE.FROZEN_ICE]: { top: '#B3E5FC', main: '#81D4FA', accent: '#4FC3F7' },
+  [TILE.FROZEN_GEM]: { top: '#81D4FA', main: '#81D4FA', gem: '#E0F7FA' },
+  // Ancient biome
+  [TILE.ANCIENT_BRICK]: { top: '#6D4C41', main: '#5D4037', accent: '#4E342E' },
+  [TILE.ANCIENT_RELIC]: { top: '#5D4037', main: '#5D4037', gem: '#FFD54F' },
 };
+
+// Biome definitions
+export const BIOMES = [
+  {
+    id: 'mushroom',
+    name: 'Mushroom Cavern',
+    minDepth: 20,
+    maxDepth: 80,
+    baseTile: TILE.MUSHROOM_DIRT,
+    resourceTile: TILE.MUSHROOM,
+    resourceChance: 0.12,
+    minSize: { w: 6, h: 4 },
+    maxSize: { w: 12, h: 8 },
+    rarity: 0.6, // relative spawn weight
+  },
+  {
+    id: 'crystal',
+    name: 'Crystal Cave',
+    minDepth: 60,
+    maxDepth: 150,
+    baseTile: TILE.CRYSTAL_ROCK,
+    resourceTile: TILE.CRYSTAL,
+    resourceChance: 0.10,
+    minSize: { w: 5, h: 5 },
+    maxSize: { w: 10, h: 10 },
+    rarity: 0.4,
+  },
+  {
+    id: 'frozen',
+    name: 'Frozen Cavern',
+    minDepth: 100,
+    maxDepth: 200,
+    baseTile: TILE.FROZEN_ICE,
+    resourceTile: TILE.FROZEN_GEM,
+    resourceChance: 0.08,
+    minSize: { w: 7, h: 5 },
+    maxSize: { w: 14, h: 8 },
+    rarity: 0.3,
+  },
+  {
+    id: 'ancient',
+    name: 'Ancient Ruins',
+    minDepth: 150,
+    maxDepth: 240,
+    baseTile: TILE.ANCIENT_BRICK,
+    resourceTile: TILE.ANCIENT_RELIC,
+    resourceChance: 0.08,
+    minSize: { w: 8, h: 6 },
+    maxSize: { w: 16, h: 10 },
+    rarity: 0.2,
+  },
+];
 
 // Decoration definitions
 export const DECORATIONS = [
@@ -110,6 +277,8 @@ export const DECORATIONS = [
   { id: 6, name: 'Gold Statue', cost: { gold: 2 }, w: 1, h: 2, color: '#FFC107' },
   { id: 7, name: 'Diamond Kennel', cost: { diamonds: 1 }, w: 2, h: 2, color: '#00BCD4' },
   { id: 8, name: 'Ancient Shrine', cost: { artifacts: 1 }, w: 2, h: 3, color: '#FF5722' },
+  { id: 9, name: 'Mushroom Garden', cost: { mushrooms: 3 }, w: 2, h: 1, color: '#76FF03' },
+  { id: 10, name: 'Crystal Display', cost: { crystals: 2 }, w: 1, h: 2, color: '#EA80FC' },
 ];
 
 // Emote definitions
@@ -126,7 +295,6 @@ export const EMOTES = [
 
 // Network message types
 export const MSG = {
-  // Client -> Server
   JOIN: 'join',
   INPUT: 'input',
   PLACE_DECORATION: 'place_decoration',
@@ -135,7 +303,6 @@ export const MSG = {
   BUY_EMOTE: 'buy_emote',
   BUY_DECORATION: 'buy_decoration',
   LOAD_WORLD: 'load_world',
-  // Server -> Client
   ROOM_JOINED: 'room_joined',
   STATE: 'state',
   TILE_UPDATE: 'tile_update',

@@ -32,9 +32,9 @@ export class Game {
     this.placingDecoration = null; // id of decoration being placed, or null
   }
 
-  async start(roomId, playerName, colorIndex) {
+  async start(roomId, playerName, breedId) {
     // Connect to server
-    const joinData = await this.network.connect(roomId, playerName, colorIndex);
+    const joinData = await this.network.connect(roomId, playerName, breedId);
 
     // Setup world
     this.world.loadFromArray(joinData.world);
@@ -92,7 +92,7 @@ export class Game {
     // Add controls hint
     const hint = document.createElement('div');
     hint.className = 'controls-hint';
-    hint.innerHTML = 'WASD/Arrows: Move & Dig<br>Space: Jump<br>E: Emotes<br>B: Shop<br>Tab: Save';
+    hint.innerHTML = 'WASD/Arrows: Move<br>Shift/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>E: Emotes | B: Shop | Tab: Save';
     document.body.appendChild(hint);
 
     // Canvas click for decoration placement
@@ -287,6 +287,9 @@ export class Game {
         }
       }
     }
+
+    // Update stamina HUD
+    this.hud.updateStamina(this.localPlayer.stamina, this.localPlayer.maxStamina, this.localPlayer.exhausted);
 
     // Update camera
     this.camera.follow(this.localPlayer.x, this.localPlayer.y);
