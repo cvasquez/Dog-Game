@@ -154,16 +154,16 @@ export class Player {
       if (jumpPressed && this.stamina >= STAMINA_CLIMB_JUMP) {
         this.stamina -= STAMINA_CLIMB_JUMP;
         this.vy = CLIMB_JUMP_FORCE;
-        // Only push away from wall if pressing away; otherwise jump straight up
+        // Small nudge away from wall; bigger push if pressing away
         const pushAway = (this.clingWallSide < 0 && input.right) ||
                          (this.clingWallSide > 0 && input.left);
-        this.vx = pushAway ? -this.clingWallSide * this.moveSpeed * 0.3 : 0;
+        this.vx = -this.clingWallSide * this.moveSpeed * (pushAway ? 0.3 : 0.08);
         this.releaseCling();
       } else if (jumpPressed && this.stamina > 0) {
         this.vy = CLIMB_JUMP_FORCE * (this.stamina / STAMINA_CLIMB_JUMP) * 0.5;
         const pushAway = (this.clingWallSide < 0 && input.right) ||
                          (this.clingWallSide > 0 && input.left);
-        this.vx = pushAway ? -this.clingWallSide * this.moveSpeed * 0.2 : 0;
+        this.vx = -this.clingWallSide * this.moveSpeed * (pushAway ? 0.2 : 0.08);
         this.stamina = 0;
         this.releaseCling();
       }
