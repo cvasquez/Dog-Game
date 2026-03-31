@@ -203,6 +203,36 @@ input[type="text"]:focus {
   text-align: right;
 }
 
+#staminaBar {
+  position: fixed;
+  left: 16px; top: 36px;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.stamina-label {
+  font-size: 10px;
+  color: rgba(255,255,255,0.6);
+  margin-bottom: 2px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+
+.stamina-track {
+  width: 80px;
+  height: 6px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.stamina-fill {
+  height: 100%;
+  width: 100%;
+  background: #66BB6A;
+  border-radius: 3px;
+  transition: width 0.1s;
+}
+
 #roomCode {
   position: fixed;
   top: 10px; right: 16px;

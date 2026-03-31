@@ -4,6 +4,16 @@ export class HUD {
     this.depthMeter = document.getElementById('depthMeter');
     this.roomCodeEl = document.getElementById('roomCode');
     this.playerListEl = document.getElementById('playerList');
+
+    // Create stamina bar
+    this.staminaBar = document.createElement('div');
+    this.staminaBar.id = 'staminaBar';
+    this.staminaBar.innerHTML = `
+      <div class="stamina-label">Stamina</div>
+      <div class="stamina-track"><div class="stamina-fill"></div></div>
+    `;
+    document.getElementById('hud').appendChild(this.staminaBar);
+    this.staminaFill = this.staminaBar.querySelector('.stamina-fill');
   }
 
   updateResources(resources) {
@@ -21,7 +31,6 @@ export class HUD {
       .map(i => `<span class="resource-item">${i.icon} ${i.value}</span>`)
       .join('');
 
-    // Always show bones even if 0
     if (!resources.bones && !this.resourceBar.innerHTML) {
       this.resourceBar.innerHTML = '<span class="resource-item">🦴 0</span>';
     }
@@ -35,6 +44,18 @@ export class HUD {
       this.depthMeter.textContent = 'Surface';
       this.depthMeter.style.display = 'block';
     }
+  }
+
+  updateStamina(current, max) {
+    const pct = Math.max(0, Math.min(100, (current / max) * 100));
+    this.staminaFill.style.width = pct + '%';
+    // Color based on level
+    if (pct > 50) this.staminaFill.style.background = '#66BB6A';
+    else if (pct > 20) this.staminaFill.style.background = '#FFA726';
+    else this.staminaFill.style.background = '#EF5350';
+
+    // Only show when not full
+    this.staminaBar.style.opacity = pct < 100 ? '1' : '0.3';
   }
 
   setRoomCode(code, isSolo) {

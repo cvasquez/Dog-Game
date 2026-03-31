@@ -117,7 +117,7 @@ export class LocalGame {
     // Controls hint
     const hint = document.createElement('div');
     hint.className = 'controls-hint';
-    hint.innerHTML = 'WASD/Arrows: Move & Dig<br>Space: Jump<br>E: Emotes<br>B: Shop<br>Tab: Save';
+    hint.innerHTML = 'WASD/Arrows: Move & Dig<br>Space: Jump<br>Up + Wall: Climb (uses stamina)<br>R: Recall to surface (lose 50% loot)<br>E: Emotes | B: Shop | Tab: Save';
     document.body.appendChild(hint);
 
     this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
@@ -176,11 +176,19 @@ export class LocalGame {
       this.placingDecoration = null;
     }
 
+    // Emergency recall to surface (R key)
+    if (this.input.justPressed('KeyR') && this.localPlayer.y > SURFACE_Y + 1) {
+      this.recallToSurface();
+    }
+
     if (!this.shop.visible && !this.emoteWheel.visible) {
       const inputState = this.input.getState();
       this.localPlayer.predictUpdate(inputState, this.world, dt);
       this.handleDigging(inputState);
     }
+
+    // Update stamina HUD
+    this.hud.updateStamina(this.localPlayer.stamina, this.localPlayer.maxStamina);
 
     this.camera.follow(this.localPlayer.x, this.localPlayer.y);
     this.particles.update();
@@ -310,6 +318,32 @@ export class LocalGame {
       this.notify('Decoration placed!');
     } else {
       this.notify('Must place in the dog park area (above ground)');
+    }
+  }
+
+  recallToSurface() {
+    const p = this.localPlayer;
+    // Lose 50% of all resources
+    const lost = {};
+    for (const [key, amount] of Object.entries(p.resources)) {
+      const penalty = Math.floor(amount / 2);
+      if (penalty > 0) lost[key] = penalty;
+      p.resources[key] = amount - penalty;
+    }
+    // Teleport to surface
+    p.x = WORLD_WIDTH / 2;
+    p.y = SURFACE_Y - 1;
+    p.vx = 0;
+    p.vy = 0;
+    p.grounded = false;
+    p.stamina = p.maxStamina;
+
+    this.hud.updateResources(p.resources);
+    const lostStr = Object.entries(lost).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(', ');
+    if (lostStr) {
+      this.notify(`Recalled to surface! Lost: ${lostStr}`);
+    } else {
+      this.notify('Recalled to surface!');
     }
   }
 
