@@ -1,6 +1,6 @@
 import {
   TILE_SIZE, TILE, SURFACE_Y, WORLD_WIDTH, WORLD_HEIGHT,
-  PLAYER_WIDTH, PLAYER_HEIGHT, DOG_COLORS, EMOTES, HARDNESS,
+  PLAYER_WIDTH, PLAYER_HEIGHT, EMOTES, HARDNESS,
 } from '../../shared/constants.js';
 import { getTileSprite, getDogSprite, getDecorationSprite, getSkyGradient } from './sprites.js';
 
@@ -97,7 +97,10 @@ export class Renderer {
   }
 
   drawPlayer(player, camera, isLocal) {
-    const sprite = getDogSprite(player.color, player.animFrame || 0, player.digging, player.facing);
+    if (player.dead) return; // Don't draw dead players
+    const breedId = player.breedId != null ? player.breedId : (player.color || 0);
+    const animState = player.animState || 'idle';
+    const sprite = getDogSprite(breedId, animState, player.animFrame || 0);
     if (!sprite) return;
 
     const screenPos = camera.worldToScreen(player.x, player.y);

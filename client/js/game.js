@@ -272,13 +272,16 @@ export class Game {
     for (const [id, player] of this.players) {
       if (!player.isLocal) {
         player.interpolate(dt);
-        // Animation
+        // Derive animation state from server data
+        if (player.climbing || player.clinging) player.animState = 'climb';
+        else if (player.digging) player.animState = 'dig';
+        else if (Math.abs(player.vx) > 0.5) player.animState = 'walk';
+        else player.animState = 'idle';
+        // Advance frames
         player.animTimer = (player.animTimer || 0) + 1;
-        if (Math.abs(player.vx) > 0.5 || player.digging) {
-          if (player.animTimer > 8) {
-            player.animFrame = ((player.animFrame || 0) + 1) % 2;
-            player.animTimer = 0;
-          }
+        if (player.animTimer > 8) {
+          player.animFrame = ((player.animFrame || 0) + 1) % 2;
+          player.animTimer = 0;
         }
         // Emote timer
         if (player.activeEmote !== null) {

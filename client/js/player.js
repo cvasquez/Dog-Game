@@ -45,6 +45,8 @@ export class Player {
     }
     this.animFrame = 0;
     this.animTimer = 0;
+    this.animState = 'idle';
+    this.idleTimer = 0;
     this.isLocal = false;
 
     // Breed-adjusted stats
@@ -221,15 +223,49 @@ export class Player {
 
     this.x = Math.max(1 + PLAYER_WIDTH / 2, Math.min(WORLD_WIDTH - 1 - PLAYER_WIDTH / 2, this.x));
 
-    // Animation
-    this.animTimer++;
+    // Animation state machine
+    let newState;
     if (this.clinging || this.climbing) {
-      const rate = this.climbing ? 6 : 15;
-      if (this.animTimer > rate) { this.animFrame = (this.animFrame + 1) % 2; this.animTimer = 0; }
-    } else if (Math.abs(this.vx) > 0.5 || this.digging) {
-      if (this.animTimer > 8) { this.animFrame = (this.animFrame + 1) % 2; this.animTimer = 0; }
+      newState = 'climb';
+    } else if (this.digging) {
+      newState = 'dig';
+    } else if (!this.grounded && this.vy < -0.5) {
+      newState = 'jump';
+    } else if (Math.abs(this.vx) > 0.5) {
+      newState = 'walk';
     } else {
+      newState = 'idle';
+    }
+
+    // Track idle duration for sit transition
+    if (newState === 'idle') {
+      this.idleTimer++;
+      if (this.grounded && this.idleTimer > 120) { // ~2 seconds
+        newState = 'sit';
+      }
+    } else {
+      this.idleTimer = 0;
+    }
+
+    // Reset frame on state change
+    if (newState !== this.animState) {
+      this.animState = newState;
       this.animFrame = 0;
+      this.animTimer = 0;
+    }
+
+    // Advance frame
+    this.animTimer++;
+    const rates = { walk: 8, dig: 6, climb: 8, jump: 99, idle: 99, sit: 30 };
+    const rate = rates[this.animState] || 8;
+    const maxFrames = this.animState === 'sit' ? 2 : 2;
+    if (this.animTimer > rate) {
+      this.animFrame = (this.animFrame + 1) % maxFrames;
+      this.animTimer = 0;
+      // Sit: hold on last frame
+      if (this.animState === 'sit' && this.animFrame === 0) {
+        this.animFrame = 1; // stay seated
+      }
     }
 
     if (this.activeEmote !== null) {
@@ -333,7 +369,9 @@ export class Player {
     this.digTarget = state.digTarget;
     this.digProgress = state.digProgress;
     this.activeEmote = state.activeEmote;
+    this.dead = state.dead;
     this.color = state.color;
+    this.breedId = state.color; // server sends breedId as color
     this.name = state.name;
   }
 }

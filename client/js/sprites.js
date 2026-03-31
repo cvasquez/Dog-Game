@@ -1,4 +1,5 @@
-import { TILE, TILE_COLORS, DOG_COLORS, TILE_SIZE } from '../../shared/constants.js';
+import { TILE, TILE_COLORS, DOG_COLORS, TILE_SIZE, DOG_BREEDS } from '../../shared/constants.js';
+import { DOG_SPRITES, SPRITE_PALETTE } from '../../shared/sprite-data.js';
 
 const spriteCache = new Map();
 
@@ -144,56 +145,35 @@ function genTileSprite(tileType) {
   return c;
 }
 
-// Generate dog sprite (12x12 in a 16x16 canvas)
-function genDogSprite(colorIndex, frame, digging) {
-  const S = TILE_SIZE;
-  const c = createCanvas(S, S);
+// Generate dog sprite from sprite-data.js pixel arrays
+function genDogSprite(breedId, animState, frameIndex) {
+  const breed = DOG_BREEDS[breedId] || DOG_BREEDS[0];
+  const breedKey = breed.name.toLowerCase();
+  const breedData = DOG_SPRITES[breedKey];
+  if (!breedData) return null;
+
+  const frames = breedData[animState] || breedData.idle;
+  const pixelData = frames[frameIndex % frames.length];
+
+  // Resolve palette: indices 1-3 become breed-specific hex colors
+  const resolved = SPRITE_PALETTE.map(entry => {
+    if (entry === 'body') return breed.colors.body;
+    if (entry === 'dark') return breed.colors.dark;
+    if (entry === 'light') return breed.colors.light;
+    return entry;
+  });
+
+  const c = createCanvas(TILE_SIZE, TILE_SIZE);
   const ctx = c.getContext('2d');
-  const pal = DOG_COLORS[colorIndex] || DOG_COLORS[0];
-
-  const ox = 2; // offset for centering
-  const oy = 2;
-
-  // Body
-  drawRect(ctx, ox + 1, oy + 3, 10, 5, pal.body);
-  // Head
-  drawRect(ctx, ox + 7, oy + 1, 5, 5, pal.body);
-  // Ears
-  drawRect(ctx, ox + 8, oy, 2, 2, pal.dark);
-  drawRect(ctx, ox + 11, oy, 1, 2, pal.dark);
-  // Snout
-  drawRect(ctx, ox + 11, oy + 3, 1, 2, pal.light);
-  // Nose
-  drawRect(ctx, ox + 12, oy + 3, 1, 1, '#000');
-  // Eye
-  drawRect(ctx, ox + 10, oy + 2, 1, 1, '#FFF');
-  drawRect(ctx, ox + 10, oy + 2, 1, 1, '#222');
-  // Eye white with pupil
-  drawRect(ctx, ox + 9, oy + 2, 2, 1, '#FFF');
-  drawRect(ctx, ox + 10, oy + 2, 1, 1, '#111');
-
-  // Tail
-  drawRect(ctx, ox, oy + 3, 1, 2, pal.dark);
-
-  // Legs
-  const legColor = pal.dark;
-  if (digging) {
-    // Digging animation - alternating paw positions
-    const d = frame % 2;
-    drawRect(ctx, ox + 2, oy + 8, 2, 3 + d, legColor);
-    drawRect(ctx, ox + 5, oy + 8, 2, 4 - d, legColor);
-    drawRect(ctx, ox + 8, oy + 8, 2, 3 + d, legColor);
-  } else {
-    // Walk animation
-    const step = frame % 2;
-    drawRect(ctx, ox + 2, oy + 8, 2, 3 + step, legColor);
-    drawRect(ctx, ox + 5, oy + 8, 2, 4 - step, legColor);
-    drawRect(ctx, ox + 8, oy + 8, 2, 3, legColor);
+  for (let y = 0; y < 16; y++) {
+    const row = pixelData[y];
+    for (let x = 0; x < 16; x++) {
+      const idx = row.charCodeAt(x) - 48; // '0' = 48
+      if (idx === 0) continue;
+      ctx.fillStyle = resolved[idx];
+      ctx.fillRect(x, y, 1, 1);
+    }
   }
-
-  // Belly highlight
-  drawRect(ctx, ox + 3, oy + 6, 6, 1, pal.light);
-
   return c;
 }
 
@@ -451,10 +431,10 @@ export function getTileSprite(tileType) {
   return spriteCache.get(key);
 }
 
-export function getDogSprite(colorIndex, frame, digging, facing) {
-  const key = `dog_${colorIndex}_${frame}_${digging ? 1 : 0}`;
+export function getDogSprite(breedId, animState, frameIndex) {
+  const key = `dog_${breedId}_${animState}_${frameIndex}`;
   if (!spriteCache.has(key)) {
-    spriteCache.set(key, genDogSprite(colorIndex, frame, digging));
+    spriteCache.set(key, genDogSprite(breedId, animState, frameIndex));
   }
   return spriteCache.get(key);
 }

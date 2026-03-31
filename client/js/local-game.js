@@ -43,7 +43,7 @@ export class LocalGame {
     this.digProgress = 0;
   }
 
-  start(playerName, colorIndex, saveData) {
+  start(playerName, breedId, saveData) {
     // Generate or load world
     if (saveData) {
       this.seed = saveData.seed;
@@ -63,7 +63,7 @@ export class LocalGame {
     this.camera = new Camera(viewSize.width, viewSize.height);
 
     // Setup player
-    this.localPlayer = new Player('local', playerName, colorIndex);
+    this.localPlayer = new Player('local', playerName, breedId);
     this.localPlayer.isLocal = true;
     this.localPlayer.x = WORLD_WIDTH / 2;
     this.localPlayer.y = SURFACE_Y - 1;

@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dog Sprite Editor</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+.sidebar { width: 220px; background: #16213e; padding: 12px; display: flex; flex-direction: column; gap: 10px; border-right: 1px solid #333; overflow-y: auto; }
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.toolbar { display: flex; gap: 8px; padding: 8px 12px; background: #16213e; border-bottom: 1px solid #333; align-items: center; flex-wrap: wrap; }
+.canvas-area { flex: 1; display: flex; align-items: center; justify-content: center; gap: 40px; padding: 20px; overflow: auto; }
+label { font-size: 12px; color: #aaa; display: block; margin-bottom: 3px; }
+select, button { background: #0f3460; color: #e0e0e0; border: 1px solid #444; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+select:hover, button:hover { background: #1a4a7a; }
+button.active { background: #e94560; border-color: #e94560; }
+h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bottom: 4px; }
+
+/* Palette */
+.palette { display: flex; flex-wrap: wrap; gap: 4px; }
+.pal-btn { width: 32px; height: 32px; border: 2px solid transparent; border-radius: 4px; cursor: pointer; position: relative; }
+.pal-btn.selected { border-color: #fff; box-shadow: 0 0 6px rgba(255,255,255,0.5); }
+.pal-btn .idx { position: absolute; bottom: 1px; right: 2px; font-size: 8px; color: rgba(255,255,255,0.6); }
+
+/* Grid */
+.grid-wrap { position: relative; }
+.grid-canvas { image-rendering: pixelated; cursor: crosshair; border: 2px solid #444; }
+
+/* Preview */
+.preview-section { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.preview-canvas { image-rendering: pixelated; border: 1px solid #444; background: #0a0a1a; }
+.preview-controls { display: flex; gap: 6px; align-items: center; }
+
+/* Frame list */
+.frame-list { display: flex; gap: 4px; flex-wrap: wrap; }
+.frame-btn { width: 40px; height: 40px; image-rendering: pixelated; border: 2px solid transparent; cursor: pointer; background: #111; border-radius: 3px; }
+.frame-btn.selected { border-color: #4fc3f7; }
+.frame-btn canvas { width: 100%; height: 100%; image-rendering: pixelated; }
+
+/* Anim tabs */
+.anim-tabs { display: flex; flex-wrap: wrap; gap: 3px; }
+.anim-tab { padding: 4px 8px; font-size: 11px; border-radius: 3px; }
+.anim-tab.active { background: #e94560; border-color: #e94560; }
+
+/* Export area */
+.export-area { background: #111; padding: 8px; border-radius: 4px; font-size: 11px; max-height: 150px; overflow-y: auto; }
+#exportOutput { width: 100%; height: 100px; background: #0a0a1a; color: #76FF03; border: 1px solid #333; font-family: monospace; font-size: 10px; resize: vertical; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h3>Breed</h3>
+  <select id="breedSelect"></select>
+
+  <h3>Animation</h3>
+  <div class="anim-tabs" id="animTabs"></div>
+
+  <h3>Frames</h3>
+  <div class="frame-list" id="frameList"></div>
+  <div style="display:flex;gap:4px;margin-top:4px">
+    <button id="addFrame">+ Frame</button>
+    <button id="delFrame">- Frame</button>
+    <button id="dupeFrame">Dupe</button>
+  </div>
+
+  <h3>Palette</h3>
+  <div class="palette" id="palette"></div>
+
+  <h3>Tools</h3>
+  <div style="display:flex;gap:4px;flex-wrap:wrap">
+    <button id="toolPen" class="active">Pen</button>
+    <button id="toolErase">Erase</button>
+    <button id="toolFill">Fill</button>
+  </div>
+
+  <h3>Actions</h3>
+  <button id="clearFrame">Clear Frame</button>
+  <button id="mirrorH">Mirror Horiz</button>
+  <button id="shiftUp">Shift Up</button>
+  <button id="shiftDown">Shift Down</button>
+  <button id="shiftLeft">Shift Left</button>
+  <button id="shiftRight">Shift Right</button>
+
+  <h3>Import / Export</h3>
+  <button id="exportBtn">Copy All to Clipboard</button>
+  <button id="exportBreedBtn">Copy Breed</button>
+  <button id="importBtn">Import from Clipboard</button>
+</div>
+
+<div class="main">
+  <div class="toolbar">
+    <span style="font-weight:bold;color:#4fc3f7">Dog Sprite Editor</span>
+    <span style="flex:1"></span>
+    <span id="statusText" style="font-size:11px;color:#888"></span>
+  </div>
+  <div class="canvas-area">
+    <div class="grid-wrap">
+      <canvas id="gridCanvas" class="grid-canvas" width="384" height="384"></canvas>
+    </div>
+    <div class="preview-section">
+      <label>Preview (4x)</label>
+      <canvas id="preview4x" class="preview-canvas" width="64" height="64"></canvas>
+      <label>Preview (2x)</label>
+      <canvas id="preview2x" class="preview-canvas" width="32" height="32"></canvas>
+      <label>Preview (1x)</label>
+      <canvas id="preview1x" class="preview-canvas" width="16" height="16"></canvas>
+      <div class="preview-controls">
+        <button id="playBtn">Play</button>
+        <span id="fpsLabel" style="font-size:11px">8 FPS</span>
+      </div>
+      <label>Animation Preview (4x)</label>
+      <canvas id="animPreview" class="preview-canvas" width="64" height="64"></canvas>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { DOG_BREEDS } from '/shared/constants.js';
+import { DOG_SPRITES, SPRITE_PALETTE, ANIM_STATES } from '/shared/sprite-data.js';
+
+// Deep clone sprite data so we can edit freely
+let sprites = JSON.parse(JSON.stringify(DOG_SPRITES));
+
+const GRID_SIZE = 16;
+const CELL_SIZE = 24; // pixels per cell on editor grid
+
+// State
+let currentBreed = 'labrador';
+let currentAnim = 'idle';
+let currentFrame = 0;
+let currentPalIdx = 1;
+let currentTool = 'pen'; // pen, erase, fill
+let playing = false;
+let playTimer = null;
+let playFrame = 0;
+
+// DOM
+const breedSelect = document.getElementById('breedSelect');
+const animTabs = document.getElementById('animTabs');
+const frameList = document.getElementById('frameList');
+const paletteEl = document.getElementById('palette');
+const gridCanvas = document.getElementById('gridCanvas');
+const gridCtx = gridCanvas.getContext('2d');
+const preview1x = document.getElementById('preview1x');
+const preview2x = document.getElementById('preview2x');
+const preview4x = document.getElementById('preview4x');
+const animPreview = document.getElementById('animPreview');
+const statusText = document.getElementById('statusText');
+
+// ------ Init ------
+
+// Breed selector
+DOG_BREEDS.forEach((b, i) => {
+  const opt = document.createElement('option');
+  opt.value = b.name.toLowerCase();
+  opt.textContent = b.name;
+  breedSelect.appendChild(opt);
+});
+breedSelect.addEventListener('change', () => {
+  currentBreed = breedSelect.value;
+  currentFrame = 0;
+  rebuildUI();
+});
+
+// Anim tabs
+function buildAnimTabs() {
+  animTabs.innerHTML = '';
+  ANIM_STATES.forEach(state => {
+    const btn = document.createElement('button');
+    btn.className = 'anim-tab' + (state === currentAnim ? ' active' : '');
+    btn.textContent = state;
+    btn.addEventListener('click', () => {
+      currentAnim = state;
+      currentFrame = 0;
+      rebuildUI();
+    });
+    animTabs.appendChild(btn);
+  });
+}
+
+// Palette
+function resolvePalette() {
+  const breed = DOG_BREEDS.find(b => b.name.toLowerCase() === currentBreed) || DOG_BREEDS[0];
+  return SPRITE_PALETTE.map(entry => {
+    if (entry === 'body') return breed.colors.body;
+    if (entry === 'dark') return breed.colors.dark;
+    if (entry === 'light') return breed.colors.light;
+    return entry;
+  });
+}
+
+function buildPalette() {
+  paletteEl.innerHTML = '';
+  const resolved = resolvePalette();
+  resolved.forEach((color, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'pal-btn' + (i === currentPalIdx ? ' selected' : '');
+    if (i === 0) {
+      btn.style.background = 'repeating-conic-gradient(#666 0% 25%, #444 0% 50%) 50% / 8px 8px';
+    } else {
+      btn.style.background = color;
+    }
+    btn.innerHTML = `<span class="idx">${i}</span>`;
+    btn.addEventListener('click', () => {
+      currentPalIdx = i;
+      currentTool = 'pen';
+      buildPalette();
+      updateToolButtons();
+    });
+    paletteEl.appendChild(btn);
+  });
+}
+
+// Frame list
+function buildFrameList() {
+  frameList.innerHTML = '';
+  const frames = getFrames();
+  frames.forEach((frame, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'frame-btn' + (i === currentFrame ? ' selected' : '');
+    // Render mini preview
+    const c = renderFrame(frame, 40);
+    btn.appendChild(c);
+    btn.addEventListener('click', () => {
+      currentFrame = i;
+      rebuildUI();
+    });
+    frameList.appendChild(btn);
+  });
+}
+
+// ------ Data access ------
+
+function getFrames() {
+  return sprites[currentBreed]?.[currentAnim] || [];
+}
+
+function getCurrentPixels() {
+  const frames = getFrames();
+  if (currentFrame >= frames.length) return null;
+  return frames[currentFrame];
+}
+
+function setPixel(x, y, val) {
+  const frames = getFrames();
+  if (currentFrame >= frames.length) return;
+  const row = frames[currentFrame][y];
+  frames[currentFrame][y] = row.substring(0, x) + String(val) + row.substring(x + 1);
+}
+
+function getPixel(x, y) {
+  const pixels = getCurrentPixels();
+  if (!pixels) return 0;
+  return parseInt(pixels[y][x]) || 0;
+}
+
+function emptyFrame() {
+  return Array(16).fill('0000000000000000');
+}
+
+// ------ Rendering ------
+
+function renderFrame(pixelData, size) {
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const resolved = resolvePalette();
+  const scale = size / 16;
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const idx = parseInt(pixelData[y][x]) || 0;
+      if (idx === 0) continue;
+      ctx.fillStyle = resolved[idx];
+      ctx.fillRect(x * scale, y * scale, scale, scale);
+    }
+  }
+  return c;
+}
+
+function drawGrid() {
+  const pixels = getCurrentPixels();
+  const resolved = resolvePalette();
+
+  gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+
+  // Background
+  gridCtx.fillStyle = '#0a0a1a';
+  gridCtx.fillRect(0, 0, gridCanvas.width, gridCanvas.height);
+
+  // Checkerboard for transparency
+  for (let y = 0; y < GRID_SIZE; y++) {
+    for (let x = 0; x < GRID_SIZE; x++) {
+      const px = x * CELL_SIZE;
+      const py = y * CELL_SIZE;
+      gridCtx.fillStyle = (x + y) % 2 === 0 ? '#1a1a2e' : '#222244';
+      gridCtx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+
+      if (pixels) {
+        const idx = parseInt(pixels[y][x]) || 0;
+        if (idx > 0 && resolved[idx]) {
+          gridCtx.fillStyle = resolved[idx];
+          gridCtx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+        }
+      }
+
+      // Grid lines
+      gridCtx.strokeStyle = 'rgba(255,255,255,0.08)';
+      gridCtx.strokeRect(px + 0.5, py + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
+    }
+  }
+}
+
+function drawPreviews() {
+  const pixels = getCurrentPixels();
+  if (!pixels) return;
+
+  // 1x
+  const ctx1 = preview1x.getContext('2d');
+  ctx1.imageSmoothingEnabled = false;
+  ctx1.clearRect(0, 0, 16, 16);
+  const c1 = renderFrame(pixels, 16);
+  ctx1.drawImage(c1, 0, 0);
+
+  // 2x
+  const ctx2 = preview2x.getContext('2d');
+  ctx2.imageSmoothingEnabled = false;
+  ctx2.clearRect(0, 0, 32, 32);
+  ctx2.drawImage(c1, 0, 0, 32, 32);
+
+  // 4x
+  const ctx4 = preview4x.getContext('2d');
+  ctx4.imageSmoothingEnabled = false;
+  ctx4.clearRect(0, 0, 64, 64);
+  ctx4.drawImage(c1, 0, 0, 64, 64);
+}
+
+function drawAnimPreview() {
+  const frames = getFrames();
+  if (frames.length === 0) return;
+  const idx = playFrame % frames.length;
+  const pixels = frames[idx];
+  const ctx = animPreview.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, 64, 64);
+  const c = renderFrame(pixels, 16);
+  ctx.drawImage(c, 0, 0, 64, 64);
+}
+
+// ------ Input ------
+
+let painting = false;
+let paintButton = 0;
+
+function cellFromEvent(e) {
+  const rect = gridCanvas.getBoundingClientRect();
+  const scaleX = gridCanvas.width / rect.width;
+  const scaleY = gridCanvas.height / rect.height;
+  const x = Math.floor((e.clientX - rect.left) * scaleX / CELL_SIZE);
+  const y = Math.floor((e.clientY - rect.top) * scaleY / CELL_SIZE);
+  if (x < 0 || x >= 16 || y < 0 || y >= 16) return null;
+  return { x, y };
+}
+
+function paintCell(x, y) {
+  if (currentTool === 'pen') {
+    setPixel(x, y, currentPalIdx);
+  } else if (currentTool === 'erase') {
+    setPixel(x, y, 0);
+  } else if (currentTool === 'fill') {
+    floodFill(x, y, getPixel(x, y), currentPalIdx);
+  }
+  drawGrid();
+  drawPreviews();
+}
+
+function floodFill(x, y, target, replacement) {
+  if (target === replacement) return;
+  if (x < 0 || x >= 16 || y < 0 || y >= 16) return;
+  if (getPixel(x, y) !== target) return;
+  setPixel(x, y, replacement);
+  floodFill(x + 1, y, target, replacement);
+  floodFill(x - 1, y, target, replacement);
+  floodFill(x, y + 1, target, replacement);
+  floodFill(x, y - 1, target, replacement);
+}
+
+gridCanvas.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  painting = true;
+  paintButton = e.button;
+  const cell = cellFromEvent(e);
+  if (!cell) return;
+  if (e.button === 2) {
+    // Right click = erase
+    setPixel(cell.x, cell.y, 0);
+    drawGrid();
+    drawPreviews();
+  } else {
+    paintCell(cell.x, cell.y);
+  }
+});
+
+gridCanvas.addEventListener('mousemove', (e) => {
+  if (!painting) return;
+  const cell = cellFromEvent(e);
+  if (!cell) return;
+  if (paintButton === 2) {
+    setPixel(cell.x, cell.y, 0);
+    drawGrid();
+    drawPreviews();
+  } else if (currentTool !== 'fill') {
+    paintCell(cell.x, cell.y);
+  }
+});
+
+gridCanvas.addEventListener('mouseup', () => { painting = false; });
+gridCanvas.addEventListener('mouseleave', () => { painting = false; });
+gridCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ------ Tools ------
+
+function updateToolButtons() {
+  document.getElementById('toolPen').className = currentTool === 'pen' ? 'active' : '';
+  document.getElementById('toolErase').className = currentTool === 'erase' ? 'active' : '';
+  document.getElementById('toolFill').className = currentTool === 'fill' ? 'active' : '';
+}
+
+document.getElementById('toolPen').addEventListener('click', () => { currentTool = 'pen'; updateToolButtons(); });
+document.getElementById('toolErase').addEventListener('click', () => { currentTool = 'erase'; updateToolButtons(); });
+document.getElementById('toolFill').addEventListener('click', () => { currentTool = 'fill'; updateToolButtons(); });
+
+// Frame management
+document.getElementById('addFrame').addEventListener('click', () => {
+  if (!sprites[currentBreed]) sprites[currentBreed] = {};
+  if (!sprites[currentBreed][currentAnim]) sprites[currentBreed][currentAnim] = [];
+  sprites[currentBreed][currentAnim].push(emptyFrame());
+  currentFrame = sprites[currentBreed][currentAnim].length - 1;
+  rebuildUI();
+});
+
+document.getElementById('delFrame').addEventListener('click', () => {
+  const frames = getFrames();
+  if (frames.length <= 1) return;
+  frames.splice(currentFrame, 1);
+  if (currentFrame >= frames.length) currentFrame = frames.length - 1;
+  rebuildUI();
+});
+
+document.getElementById('dupeFrame').addEventListener('click', () => {
+  const frames = getFrames();
+  if (frames.length === 0) return;
+  const copy = frames[currentFrame].slice();
+  frames.splice(currentFrame + 1, 0, copy);
+  currentFrame++;
+  rebuildUI();
+});
+
+// Actions
+document.getElementById('clearFrame').addEventListener('click', () => {
+  const frames = getFrames();
+  if (currentFrame < frames.length) {
+    frames[currentFrame] = emptyFrame();
+    rebuildUI();
+  }
+});
+
+document.getElementById('mirrorH').addEventListener('click', () => {
+  const frames = getFrames();
+  if (currentFrame >= frames.length) return;
+  frames[currentFrame] = frames[currentFrame].map(row => row.split('').reverse().join(''));
+  rebuildUI();
+});
+
+function shiftPixels(dx, dy) {
+  const frames = getFrames();
+  if (currentFrame >= frames.length) return;
+  const old = frames[currentFrame];
+  const newFrame = emptyFrame();
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const sx = x - dx, sy = y - dy;
+      if (sx >= 0 && sx < 16 && sy >= 0 && sy < 16) {
+        newFrame[y] = newFrame[y].substring(0, x) + old[sy][sx] + newFrame[y].substring(x + 1);
+      }
+    }
+  }
+  frames[currentFrame] = newFrame;
+  rebuildUI();
+}
+
+document.getElementById('shiftUp').addEventListener('click', () => shiftPixels(0, -1));
+document.getElementById('shiftDown').addEventListener('click', () => shiftPixels(0, 1));
+document.getElementById('shiftLeft').addEventListener('click', () => shiftPixels(-1, 0));
+document.getElementById('shiftRight').addEventListener('click', () => shiftPixels(1, 0));
+
+// Playback
+document.getElementById('playBtn').addEventListener('click', () => {
+  playing = !playing;
+  document.getElementById('playBtn').textContent = playing ? 'Stop' : 'Play';
+  if (playing) {
+    playFrame = 0;
+    playTimer = setInterval(() => {
+      playFrame++;
+      drawAnimPreview();
+    }, 125); // 8 FPS
+  } else {
+    clearInterval(playTimer);
+  }
+});
+
+// ------ Export / Import ------
+
+function serializeBreed(breedKey) {
+  const data = sprites[breedKey];
+  let out = `const ${breedKey} = {\n`;
+  for (const anim of ANIM_STATES) {
+    const frames = data[anim] || [];
+    out += `  ${anim}: [`;
+    for (let f = 0; f < frames.length; f++) {
+      out += `[\n`;
+      for (let r = 0; r < 16; r++) {
+        out += `    "${frames[f][r]}",\n`;
+      }
+      out += `  ]`;
+      if (f < frames.length - 1) out += ', ';
+    }
+    out += `],\n`;
+  }
+  out += `};\n`;
+  return out;
+}
+
+function serializeAll() {
+  let out = `// Auto-generated by Dog Sprite Editor\n`;
+  out += `// Palette: 0=transparent, 1=body, 2=dark, 3=light, 4=black, 5=white, 6=pupil, 7=pink, 8=nose\n\n`;
+  out += `export const SPRITE_PALETTE = ${JSON.stringify(SPRITE_PALETTE)};\n\n`;
+  for (const key of Object.keys(sprites)) {
+    out += serializeBreed(key);
+    out += '\n';
+  }
+  out += `export const DOG_SPRITES = {\n`;
+  out += Object.keys(sprites).map(k => `  ${k},`).join('\n');
+  out += `\n};\n\n`;
+  out += `export const ANIM_STATES = ${JSON.stringify(ANIM_STATES)};\n`;
+  return out;
+}
+
+document.getElementById('exportBtn').addEventListener('click', async () => {
+  const text = serializeAll();
+  await navigator.clipboard.writeText(text);
+  statusText.textContent = 'All sprite data copied to clipboard!';
+  setTimeout(() => { statusText.textContent = ''; }, 3000);
+});
+
+document.getElementById('exportBreedBtn').addEventListener('click', async () => {
+  const text = serializeBreed(currentBreed);
+  await navigator.clipboard.writeText(text);
+  statusText.textContent = `${currentBreed} data copied to clipboard!`;
+  setTimeout(() => { statusText.textContent = ''; }, 3000);
+});
+
+document.getElementById('importBtn').addEventListener('click', async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    // Try to evaluate as module-like JS to extract DOG_SPRITES
+    // Simple approach: look for const declarations
+    const breedNames = Object.keys(sprites);
+    for (const name of breedNames) {
+      const regex = new RegExp(`const ${name} = \\{([\\s\\S]*?)\\};`, 'm');
+      const match = text.match(regex);
+      if (match) {
+        try {
+          const obj = new Function(`return {${match[1]}};`)();
+          sprites[name] = obj;
+        } catch (e) {
+          console.warn(`Failed to parse ${name}:`, e);
+        }
+      }
+    }
+    rebuildUI();
+    statusText.textContent = 'Imported from clipboard!';
+    setTimeout(() => { statusText.textContent = ''; }, 3000);
+  } catch (e) {
+    statusText.textContent = 'Import failed: ' + e.message;
+  }
+});
+
+// Keyboard shortcuts
+window.addEventListener('keydown', (e) => {
+  if (e.key >= '0' && e.key <= '8') {
+    currentPalIdx = parseInt(e.key);
+    currentTool = 'pen';
+    buildPalette();
+    updateToolButtons();
+    e.preventDefault();
+  }
+  if (e.key === 'e') { currentTool = 'erase'; updateToolButtons(); }
+  if (e.key === 'p') { currentTool = 'pen'; updateToolButtons(); }
+  if (e.key === 'f') { currentTool = 'fill'; updateToolButtons(); }
+  if (e.key === 'ArrowLeft' && e.ctrlKey) {
+    currentFrame = Math.max(0, currentFrame - 1);
+    rebuildUI();
+    e.preventDefault();
+  }
+  if (e.key === 'ArrowRight' && e.ctrlKey) {
+    const frames = getFrames();
+    currentFrame = Math.min(frames.length - 1, currentFrame + 1);
+    rebuildUI();
+    e.preventDefault();
+  }
+});
+
+// ------ Master rebuild ------
+
+function rebuildUI() {
+  buildAnimTabs();
+  buildFrameList();
+  buildPalette();
+  drawGrid();
+  drawPreviews();
+  drawAnimPreview();
+  statusText.textContent = `${currentBreed} / ${currentAnim} / frame ${currentFrame}`;
+}
+
+rebuildUI();
+// Start animation preview
+setInterval(drawAnimPreview, 125);
+</script>
+</body>
+</html>
