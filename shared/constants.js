@@ -153,6 +153,9 @@ export const DOG_BREEDS = [
       staminaRegen: 1.0,
     },
     freeEmote: 0, // Bark
+    // Hitbox derived from opaque sprite bounds (rows 5-15, cols 2-13)
+    hitboxWidth: 0.75,     // 12px
+    hitboxHeight: 0.6875,  // 11px
   },
   {
     id: 1,
@@ -167,6 +170,9 @@ export const DOG_BREEDS = [
       staminaRegen: 1.1,
     },
     freeEmote: 3, // Dig Here
+    // Hitbox derived from opaque sprite bounds (rows 5-14, cols 2-12)
+    hitboxWidth: 0.6875,   // 11px
+    hitboxHeight: 0.625,   // 10px
   },
   {
     id: 2,
@@ -181,6 +187,9 @@ export const DOG_BREEDS = [
       staminaRegen: 1.3, // great stamina regen (endurance breed)
     },
     freeEmote: 5, // Howl
+    // Hitbox derived from opaque sprite bounds (rows 5-14, cols 2-13)
+    hitboxWidth: 0.75,     // 12px
+    hitboxHeight: 0.625,   // 10px
   },
   {
     id: 3,
@@ -196,6 +205,9 @@ export const DOG_BREEDS = [
       lootBonus: 0.15,   // 15% chance for double loot
     },
     freeEmote: 4, // Celebrate
+    // Hitbox derived from opaque sprite bounds (rows 5-14, cols 2-13)
+    hitboxWidth: 0.75,     // 12px
+    hitboxHeight: 0.625,   // 10px
   },
 ];
 
