@@ -113,40 +113,50 @@ export class Player {
     else this.groundedTimer = 0;
 
     // --- CLIMBING ---
-    // Only cling if actively pressing toward the wall
-    const canCling = nextToWall && !this.grounded && !this.exhausted && this.stamina > 0;
+    // Ledge detection: if head is above the wall top and space above ledge is clear, mantle up
+    const ledgeSide = (wallLeft && input.left) ? -1 : (wallRight && input.right) ? 1 : 0;
+    if (ledgeSide !== 0 && !this.grounded && this.canMantle(world, ledgeSide)) {
+      this.performMantle(world, ledgeSide);
+    } else {
+      // Only cling if actively pressing toward the wall
+      const canCling = nextToWall && !this.grounded && !this.exhausted && this.stamina > 0;
 
-    if (canCling && !this.clinging && !this.grounded) {
-      const movingToward = (wallLeft && input.left) || (wallRight && input.right);
-      if (movingToward) {
-        this.clinging = true;
-        this.clingWallSide = wallLeft ? -1 : 1;
-        this.vx = 0;
-        this.vy = 0;
+      if (canCling && !this.clinging && !this.grounded) {
+        const movingToward = (wallLeft && input.left) || (wallRight && input.right);
+        if (movingToward) {
+          this.clinging = true;
+          this.clingWallSide = wallLeft ? -1 : 1;
+          this.vx = 0;
+          this.vy = 0;
+        }
       }
-    }
 
-    if (this.clinging) {
-      const stillOnWall = this.clingWallSide < 0 ? wallLeft : wallRight;
-      if (!stillOnWall || this.grounded) {
-        this.releaseCling();
-      } else if ((this.clingWallSide < 0 && input.right) ||
-                 (this.clingWallSide > 0 && input.left) || input.down) {
-        this.releaseCling();
-        this.vx = -this.clingWallSide * this.moveSpeed * 0.5;
-      } else if (this.stamina <= 0) {
-        this.triggerExhaustion();
+      if (this.clinging) {
+        const stillOnWall = this.clingWallSide < 0 ? wallLeft : wallRight;
+        if (!stillOnWall || this.grounded) {
+          this.releaseCling();
+        } else if ((this.clingWallSide < 0 && input.right) ||
+                   (this.clingWallSide > 0 && input.left) || input.down) {
+          this.releaseCling();
+          this.vx = -this.clingWallSide * this.moveSpeed * 0.5;
+        } else if (this.stamina <= 0) {
+          this.triggerExhaustion();
+        }
       }
     }
 
     // --- MOVEMENT ---
     if (this.clinging) {
-      this.vx = 0;
-      if (input.up && this.stamina > 0) {
+      // Check for mantle while climbing up
+      if (input.up && this.canMantle(world, this.clingWallSide)) {
+        this.performMantle(world, this.clingWallSide);
+      } else if (input.up && this.stamina > 0) {
+        this.vx = 0;
         this.climbing = true;
         this.vy = -CLIMB_SPEED;
         this.stamina -= STAMINA_CLIMB_COST;
       } else {
+        this.vx = 0;
         this.climbing = false;
         this.vy = CLING_SLIDE_SPEED;
         this.stamina -= STAMINA_CLING_COST;
@@ -306,6 +316,43 @@ export class Player {
     this.stamina = 0;
     this.releaseCling();
     this.vy = Math.min(this.vy, 2);
+  }
+
+  canMantle(world, side) {
+    // Check if the player's head is above the ledge and can step onto it
+    const wx = side < 0 ? this.x - PLAYER_WIDTH / 2 - 0.1 : this.x + PLAYER_WIDTH / 2 + 0.1;
+    const headY = this.y - PLAYER_HEIGHT + 0.1;
+    const feetY = this.y - 0.15;
+    const hasWallAtFeet = world.isSolid(Math.floor(wx), Math.floor(feetY));
+    const hasWallAtHead = world.isSolid(Math.floor(wx), Math.floor(headY));
+    if (!hasWallAtFeet || hasWallAtHead) return false;
+
+    // The ledge top: find the topmost solid tile in the wall column near the player
+    const wallTx = Math.floor(wx);
+    let ledgeY = Math.floor(feetY);
+    while (ledgeY > 0 && world.isSolid(wallTx, ledgeY - 1)) ledgeY--;
+
+    // Can mantle if the player's head is at or above the ledge
+    // and there's space on top of the ledge for the player
+    const topY = ledgeY - 1; // tile above the ledge
+    const onTopX = wallTx;
+    if (world.isSolid(onTopX, topY)) return false;
+    // Check there's room for the player on the ledge
+    if (this.collidesAt(world, onTopX + 0.5, ledgeY)) return false;
+
+    this._mantleLedgeY = ledgeY;
+    this._mantleX = onTopX + 0.5;
+    return true;
+  }
+
+  performMantle(world, side) {
+    // Snap player to the top of the ledge
+    this.x = this._mantleX;
+    this.y = this._mantleLedgeY;
+    this.vy = 0;
+    this.vx = 0;
+    this.grounded = true;
+    if (this.clinging) this.releaseCling();
   }
 
   checkWall(world, side) {
