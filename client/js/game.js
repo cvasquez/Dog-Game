@@ -53,6 +53,10 @@ export class Game {
     this.localPlayer.y = localData.y;
     if (localData.resources) this.localPlayer.resources = localData.resources;
     if (localData.unlockedEmotes) this.localPlayer.unlockedEmotes = localData.unlockedEmotes;
+    if (localData.ownedUpgrades) {
+      this.localPlayer.ownedUpgrades = localData.ownedUpgrades;
+      this.localPlayer.applyUpgrades();
+    }
     this.players.set(this.localPlayer.id, this.localPlayer);
 
     // Setup remote players
@@ -78,6 +82,9 @@ export class Game {
     };
     this.shop.onBuyEmote = (emoteId) => {
       this.network.sendBuyEmote(emoteId);
+    };
+    this.shop.onBuyUpgrade = (upgradeId) => {
+      this.network.sendBuyUpgrade(upgradeId);
     };
 
     // Show game canvas
@@ -192,6 +199,14 @@ export class Game {
         }
         if (msg.unlockedEmotes) {
           this.localPlayer.unlockedEmotes = msg.unlockedEmotes;
+        }
+        if (msg.ownedUpgrades) {
+          this.localPlayer.ownedUpgrades = msg.ownedUpgrades;
+          this.localPlayer.applyUpgrades();
+        }
+        // Refresh shop if open
+        if (this.shop.visible) {
+          this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades);
         }
         this.notify('Purchase successful!');
       }

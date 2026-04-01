@@ -362,6 +362,7 @@ export const MSG = {
   SAVE: 'save',
   BUY_EMOTE: 'buy_emote',
   BUY_DECORATION: 'buy_decoration',
+  BUY_UPGRADE: 'buy_upgrade',
   LOAD_WORLD: 'load_world',
   ROOM_JOINED: 'room_joined',
   STATE: 'state',

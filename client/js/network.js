@@ -93,6 +93,10 @@ export class Network {
     this.send({ type: MSG.BUY_DECORATION, decorationId });
   }
 
+  sendBuyUpgrade(upgradeId) {
+    this.send({ type: MSG.BUY_UPGRADE, upgradeId });
+  }
+
   sendSave() {
     this.send({ type: MSG.SAVE });
   }

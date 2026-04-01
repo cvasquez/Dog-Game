@@ -28,9 +28,17 @@ export function initDB() {
       player_name TEXT NOT NULL,
       resources TEXT DEFAULT '{}',
       unlocked_emotes TEXT DEFAULT '[0,1]',
+      owned_upgrades TEXT DEFAULT '[]',
       PRIMARY KEY (room_id, player_name)
     )
   `);
+
+  // Migration: add owned_upgrades column if missing
+  try {
+    db.exec(`ALTER TABLE players ADD COLUMN owned_upgrades TEXT DEFAULT '[]'`);
+  } catch {
+    // Column already exists
+  }
 
   return db;
 }
@@ -59,12 +67,12 @@ export function listWorlds() {
   return db.prepare('SELECT room_id, created_at, updated_at FROM worlds ORDER BY updated_at DESC').all();
 }
 
-export function savePlayer(roomId, playerName, resources, unlockedEmotes) {
+export function savePlayer(roomId, playerName, resources, unlockedEmotes, ownedUpgrades) {
   const stmt = db.prepare(`
-    INSERT OR REPLACE INTO players (room_id, player_name, resources, unlocked_emotes)
-    VALUES (?, ?, ?, ?)
+    INSERT OR REPLACE INTO players (room_id, player_name, resources, unlocked_emotes, owned_upgrades)
+    VALUES (?, ?, ?, ?, ?)
   `);
-  stmt.run(roomId, playerName, JSON.stringify(resources), JSON.stringify(unlockedEmotes));
+  stmt.run(roomId, playerName, JSON.stringify(resources), JSON.stringify(unlockedEmotes), JSON.stringify(ownedUpgrades || []));
 }
 
 export function loadPlayer(roomId, playerName) {
@@ -73,6 +81,7 @@ export function loadPlayer(roomId, playerName) {
   return {
     resources: JSON.parse(row.resources),
     unlockedEmotes: JSON.parse(row.unlocked_emotes),
+    ownedUpgrades: JSON.parse(row.owned_upgrades || '[]'),
   };
 }
 

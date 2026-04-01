@@ -3,6 +3,7 @@ import {
   RESOURCE_VALUE, HAZARD_TILES, GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION,
   MAX_FALL_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, SERVER_TICK_MS, MSG,
   DECORATIONS, EMOTES, PARK_TOP, PARK_BOTTOM, DOG_BREEDS, STAMINA_DIG_COST,
+  UPGRADES,
 } from '../shared/constants.js';
 import { generateWorld } from './world-gen.js';
 import { saveWorld, loadWorld, savePlayer, loadPlayer, listWorlds } from './persistence.js';
@@ -53,6 +54,8 @@ function createPlayer(id, name, breedId) {
     jumpForce: JUMP_FORCE * s.jumpForce,
     digSpeed: s.digSpeed,
     lootBonus: s.lootBonus || 0,
+    // Upgrades
+    ownedUpgrades: [],
     // Stamina
     maxStamina: 100 * s.maxStamina,
     stamina: 100 * s.maxStamina,
@@ -324,6 +327,9 @@ function tickRoom(room) {
       activeEmote: p.activeEmote,
       color: p.color,
       name: p.name,
+      stamina: p.stamina,
+      maxStamina: p.maxStamina,
+      exhausted: p.exhausted,
     });
   }
   broadcast(room, { type: MSG.STATE, players });
@@ -370,6 +376,8 @@ export function joinRoom(roomId, player, ws) {
   if (saved) {
     player.resources = saved.resources;
     player.unlockedEmotes = saved.unlockedEmotes;
+    player.ownedUpgrades = saved.ownedUpgrades || [];
+    applyServerUpgrades(player);
   }
 
   room.players.set(player.id, player);
@@ -383,7 +391,7 @@ export function leaveRoom(roomId, playerId) {
   const player = room.players.get(playerId);
   if (player) {
     // Save player data
-    savePlayer(roomId, player.name, player.resources, player.unlockedEmotes);
+    savePlayer(roomId, player.name, player.resources, player.unlockedEmotes, player.ownedUpgrades);
     room.players.delete(playerId);
     broadcast(room, { type: MSG.PLAYER_LEFT, playerId });
   }
@@ -427,7 +435,7 @@ export function tryLoadRoom(roomId) {
 function doSave(room) {
   saveWorld(room.id, room.seed, room.tiles, room.decorations);
   for (const [, player] of room.players) {
-    savePlayer(room.id, player.name, player.resources, player.unlockedEmotes);
+    savePlayer(room.id, player.name, player.resources, player.unlockedEmotes, player.ownedUpgrades);
   }
 }
 
@@ -492,6 +500,22 @@ export function handleMessage(roomId, playerId, msg) {
       break;
     }
 
+    case MSG.BUY_UPGRADE: {
+      const upgrade = UPGRADES.find(u => u.id === msg.upgradeId);
+      if (!upgrade) break;
+      if (player.ownedUpgrades.includes(msg.upgradeId)) break;
+      if (upgrade.requires != null && !player.ownedUpgrades.includes(upgrade.requires)) break;
+      if (!canAfford(player.resources, upgrade.cost)) {
+        sendTo(player, { type: MSG.ERROR, message: 'Cannot afford this upgrade' });
+        break;
+      }
+      deductCost(player.resources, upgrade.cost);
+      player.ownedUpgrades.push(msg.upgradeId);
+      applyServerUpgrades(player);
+      sendTo(player, { type: MSG.PURCHASE_RESULT, success: true, resources: player.resources, ownedUpgrades: player.ownedUpgrades });
+      break;
+    }
+
     case MSG.SAVE:
       doSave(room);
       broadcast(room, { type: MSG.SAVED });
@@ -513,6 +537,32 @@ function canAfford(resources, cost) {
 function deductCost(resources, cost) {
   for (const [key, amount] of Object.entries(cost)) {
     resources[key] = (resources[key] || 0) - amount;
+  }
+}
+
+function applyServerUpgrades(player) {
+  const breed = DOG_BREEDS[player.breedId] || DOG_BREEDS[0];
+  const s = breed.stats;
+  // Reset to base
+  player.moveSpeed = MOVE_SPEED * s.moveSpeed;
+  player.jumpForce = JUMP_FORCE * s.jumpForce;
+  player.digSpeed = s.digSpeed;
+  player.lootBonus = s.lootBonus || 0;
+  const baseMax = 100 * s.maxStamina;
+  const baseRegen = 1.2 * s.staminaRegen;
+  player.maxStamina = baseMax;
+  player.staminaRegenRate = baseRegen;
+  // Apply upgrades
+  for (const id of player.ownedUpgrades) {
+    const upgrade = UPGRADES.find(u => u.id === id);
+    if (!upgrade) continue;
+    const e = upgrade.effect;
+    if (e.moveSpeed) player.moveSpeed += MOVE_SPEED * s.moveSpeed * e.moveSpeed;
+    if (e.jumpForce) player.jumpForce += JUMP_FORCE * s.jumpForce * e.jumpForce;
+    if (e.digSpeed) player.digSpeed += s.digSpeed * e.digSpeed;
+    if (e.lootBonus) player.lootBonus += e.lootBonus;
+    if (e.maxStamina) player.maxStamina += baseMax * e.maxStamina;
+    if (e.staminaRegen) player.staminaRegenRate += baseRegen * e.staminaRegen;
   }
 }
 

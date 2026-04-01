@@ -489,6 +489,10 @@ export class Player {
     this.color = state.color;
     this.breedId = state.color; // server sends breedId as color
     this.name = state.name;
+    // Sync stamina from server for multiplayer
+    if (state.stamina != null) this.stamina = state.stamina;
+    if (state.maxStamina != null) this.maxStamina = state.maxStamina;
+    if (state.exhausted != null) this.exhausted = state.exhausted;
   }
 
   applyUpgrades() {

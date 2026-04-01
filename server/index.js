@@ -78,6 +78,7 @@ wss.on('connection', (ws) => {
           id: p.id, name: p.name, color: p.color,
           x: p.x, y: p.y, resources: p.resources,
           unlockedEmotes: p.unlockedEmotes,
+          ownedUpgrades: p.ownedUpgrades || [],
         });
       }
 
