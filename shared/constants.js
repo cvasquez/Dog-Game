@@ -293,6 +293,42 @@ export const EMOTES = [
   { id: 7, name: 'Diva', symbol: '\uD83D\uDC51', cost: { diamonds: 1 } },
 ];
 
+// Digging stamina cost per frame
+export const STAMINA_DIG_COST = 0.5;
+
+// Upgrades (collars, hats, etc.)
+export const UPGRADES = [
+  // Collars - stamina & regen
+  { id: 0, name: 'Leather Collar', icon: '🔵', desc: '+10% stamina', category: 'collar',
+    cost: { bones: 15 }, effect: { maxStamina: 0.1 } },
+  { id: 1, name: 'Studded Collar', icon: '⚫', desc: '+20% stamina, +10% regen', category: 'collar',
+    cost: { bones: 30, gems: 3 }, effect: { maxStamina: 0.2, staminaRegen: 0.1 }, requires: 0 },
+  { id: 2, name: 'Golden Collar', icon: '🟡', desc: '+35% stamina, +20% regen', category: 'collar',
+    cost: { gold: 3, gems: 5 }, effect: { maxStamina: 0.35, staminaRegen: 0.2 }, requires: 1 },
+
+  // Hats - speed & jump
+  { id: 3, name: 'Baseball Cap', icon: '🧢', desc: '+10% speed', category: 'hat',
+    cost: { bones: 20 }, effect: { moveSpeed: 0.1 } },
+  { id: 4, name: 'Hard Hat', icon: '⛑️', desc: '+15% speed, +10% jump', category: 'hat',
+    cost: { bones: 25, fossils: 2 }, effect: { moveSpeed: 0.15, jumpForce: 0.1 }, requires: 3 },
+  { id: 5, name: 'Crown', icon: '👑', desc: '+25% speed, +20% jump', category: 'hat',
+    cost: { gold: 2, diamonds: 1 }, effect: { moveSpeed: 0.25, jumpForce: 0.2 }, requires: 4 },
+
+  // Bandanas - dig power
+  { id: 6, name: 'Red Bandana', icon: '🟥', desc: '+15% dig speed', category: 'bandana',
+    cost: { bones: 10, gems: 1 }, effect: { digSpeed: 0.15 } },
+  { id: 7, name: 'Camo Bandana', icon: '🟩', desc: '+30% dig speed', category: 'bandana',
+    cost: { fossils: 3, gems: 5 }, effect: { digSpeed: 0.3 }, requires: 6 },
+  { id: 8, name: 'Diamond Bandana', icon: '💠', desc: '+50% dig speed, +10% loot', category: 'bandana',
+    cost: { diamonds: 2, crystals: 3 }, effect: { digSpeed: 0.5, lootBonus: 0.1 }, requires: 7 },
+
+  // Boots - special
+  { id: 9, name: 'Hiking Boots', icon: '🥾', desc: '+15% climb stamina efficiency', category: 'boots',
+    cost: { bones: 20, mushrooms: 2 }, effect: { climbEfficiency: 0.15 } },
+  { id: 10, name: 'Rocket Boots', icon: '🚀', desc: '+25% climb efficiency, +10% speed', category: 'boots',
+    cost: { gold: 3, crystals: 2 }, effect: { climbEfficiency: 0.25, moveSpeed: 0.1 }, requires: 9 },
+];
+
 // Network message types
 export const MSG = {
   JOIN: 'join',

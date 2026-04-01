@@ -1,7 +1,7 @@
 import {
   GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION, MAX_FALL_SPEED,
   PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, WORLD_WIDTH,
-  DOG_BREEDS, HAZARD_TILES, TILE,
+  DOG_BREEDS, HAZARD_TILES, TILE, UPGRADES, STAMINA_DIG_COST,
 } from '../../shared/constants.js';
 
 // Base stamina constants (modified by breed)
@@ -59,17 +59,30 @@ export class Player {
     this.idleTimer = 0;
     this.isLocal = false;
 
-    // Breed-adjusted stats
+    // Breed-adjusted base stats (before upgrades)
     const s = this.breed.stats;
-    this.moveSpeed = MOVE_SPEED * s.moveSpeed;
-    this.jumpForce = JUMP_FORCE * s.jumpForce;
-    this.digSpeed = s.digSpeed;
-    this.lootBonus = s.lootBonus || 0;
+    this.baseMoveSpeed = MOVE_SPEED * s.moveSpeed;
+    this.baseJumpForce = JUMP_FORCE * s.jumpForce;
+    this.baseDigSpeed = s.digSpeed;
+    this.baseLootBonus = s.lootBonus || 0;
+    this.baseMaxStamina = BASE_MAX_STAMINA * s.maxStamina;
+    this.baseStaminaRegen = BASE_STAMINA_REGEN_RATE * s.staminaRegen;
+    this.baseClimbEfficiency = 1.0;
+
+    // Active stats (recalculated when upgrades change)
+    this.moveSpeed = this.baseMoveSpeed;
+    this.jumpForce = this.baseJumpForce;
+    this.digSpeed = this.baseDigSpeed;
+    this.lootBonus = this.baseLootBonus;
+    this.climbEfficiency = 1.0;
+
+    // Upgrades
+    this.ownedUpgrades = [];
 
     // Stamina
-    this.maxStamina = BASE_MAX_STAMINA * s.maxStamina;
+    this.maxStamina = this.baseMaxStamina;
     this.stamina = this.maxStamina;
-    this.staminaRegenRate = BASE_STAMINA_REGEN_RATE * s.staminaRegen;
+    this.staminaRegenRate = this.baseStaminaRegen;
     this.climbing = false;
     this.clinging = false;
     this.clingWallSide = 0;
@@ -186,12 +199,12 @@ export class Player {
         this.vx = 0;
         this.climbing = true;
         this.vy = -CLIMB_SPEED;
-        this.stamina -= STAMINA_CLIMB_COST;
+        this.stamina -= STAMINA_CLIMB_COST / this.climbEfficiency;
       } else {
         this.vx = 0;
         this.climbing = false;
         this.vy = CLING_SLIDE_SPEED;
-        this.stamina -= STAMINA_CLING_COST;
+        this.stamina -= STAMINA_CLING_COST / this.climbEfficiency;
       }
       if (this.stamina < 0) this.stamina = 0;
 
@@ -493,5 +506,36 @@ export class Player {
     this.color = state.color;
     this.breedId = state.color; // server sends breedId as color
     this.name = state.name;
+  }
+
+  applyUpgrades() {
+    // Reset to base stats
+    this.moveSpeed = this.baseMoveSpeed;
+    this.jumpForce = this.baseJumpForce;
+    this.digSpeed = this.baseDigSpeed;
+    this.lootBonus = this.baseLootBonus;
+    this.climbEfficiency = this.baseClimbEfficiency;
+    const oldMax = this.maxStamina;
+    this.maxStamina = this.baseMaxStamina;
+    this.staminaRegenRate = this.baseStaminaRegen;
+
+    // Apply each owned upgrade's effects additively
+    for (const id of this.ownedUpgrades) {
+      const upgrade = UPGRADES.find(u => u.id === id);
+      if (!upgrade) continue;
+      const e = upgrade.effect;
+      if (e.moveSpeed) this.moveSpeed += this.baseMoveSpeed * e.moveSpeed;
+      if (e.jumpForce) this.jumpForce += this.baseJumpForce * e.jumpForce;
+      if (e.digSpeed) this.digSpeed += this.baseDigSpeed * e.digSpeed;
+      if (e.lootBonus) this.lootBonus += e.lootBonus;
+      if (e.maxStamina) this.maxStamina += this.baseMaxStamina * e.maxStamina;
+      if (e.staminaRegen) this.staminaRegenRate += this.baseStaminaRegen * e.staminaRegen;
+      if (e.climbEfficiency) this.climbEfficiency += e.climbEfficiency;
+    }
+
+    // Scale current stamina proportionally if max changed
+    if (oldMax > 0 && this.maxStamina !== oldMax) {
+      this.stamina = (this.stamina / oldMax) * this.maxStamina;
+    }
   }
 }
