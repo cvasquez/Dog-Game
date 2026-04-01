@@ -1,5 +1,5 @@
 import {
-  WORLD_WIDTH, WORLD_HEIGHT, TILE, SURFACE_Y, BIOMES,
+  WORLD_WIDTH, WORLD_HEIGHT, TILE, SURFACE_Y, BIOMES, placeShopFloors,
 } from '../../shared/constants.js';
 
 // Mulberry32 seeded PRNG
@@ -140,6 +140,9 @@ export function generateWorld(seed) {
       generateBiomeRoom(tiles, rand, biome, bx, by, bw, bh);
     }
   }
+
+  // --- Pass 7: Shop floors (undiggable platforms at surface) ---
+  placeShopFloors(tiles);
 
   return tiles;
 }

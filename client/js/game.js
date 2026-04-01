@@ -1,4 +1,4 @@
-import { TILE_SIZE, TILE, MSG, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, EMOTE_DISPLAY_FRAMES } from '../../shared/constants.js';
+import { TILE_SIZE, TILE, MSG, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, EMOTE_DISPLAY_FRAMES, getNearbyShop } from '../../shared/constants.js';
 import { World } from './world.js';
 import { Player } from './player.js';
 import { Camera } from './camera.js';
@@ -99,7 +99,7 @@ export class Game {
     // Add controls hint
     const hint = document.createElement('div');
     hint.className = 'controls-hint';
-    hint.innerHTML = 'WASD/Arrows: Move | Shift: Sprint<br>F/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>E: Emotes | B: Shop | Tab: Save';
+    hint.innerHTML = 'WASD/Arrows: Move | Shift: Sprint<br>F/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>E: Emotes | B: Shop (at surface) | Tab: Save';
     document.body.appendChild(hint);
 
     // Canvas click for decoration placement
@@ -244,12 +244,17 @@ export class Game {
   }
 
   update(dt) {
-    // Handle shop toggle
+    // Track nearby shop for prompt rendering
+    this.nearbyShop = getNearbyShop(this.localPlayer.x, this.localPlayer.y);
+
+    // Handle shop toggle — only when near a shop machine at the surface
     if (this.input.justPressed('KeyB')) {
       if (this.shop.visible) {
         this.shop.hide();
+      } else if (this.nearbyShop) {
+        this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, this.nearbyShop.type);
       } else {
-        this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades);
+        this.notify('Find a shop at the surface to buy items!');
       }
     }
 
@@ -350,6 +355,7 @@ export class Game {
     this.renderer.drawTiles(this.world, this.camera);
     this.renderer.drawParkZone(this.camera);
     this.renderer.drawDecorations(this.decorations, this.camera);
+    this.renderer.drawShopMachines(this.camera);
 
     // Draw all players
     for (const [id, player] of this.players) {
@@ -358,6 +364,11 @@ export class Game {
 
     // Draw particles
     this.particles.render(ctx, this.camera);
+
+    // Shop interaction prompt
+    if (this.nearbyShop && !this.shop.visible) {
+      this.renderer.drawShopPrompt(this.nearbyShop, this.camera);
+    }
 
     // Draw decoration placement preview
     if (this.placingDecoration !== null) {

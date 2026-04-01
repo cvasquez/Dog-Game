@@ -27,6 +27,7 @@ export const TILE = {
   // Obstacles
   LAVA: 20,
   GRANITE: 21,       // undiggable rock formations
+  SHOP_FLOOR: 22,    // undiggable shop platform
   // Biome tiles
   MUSHROOM_DIRT: 30,  // mushroom cavern soil
   MUSHROOM: 31,       // glowing mushroom (resource)
@@ -42,7 +43,7 @@ export const TILE = {
 export const SOLID_TILES = new Set([
   TILE.GRASS, TILE.DIRT, TILE.CLAY, TILE.STONE, TILE.BEDROCK,
   TILE.BONE, TILE.GEM, TILE.FOSSIL, TILE.GOLD, TILE.DIAMOND, TILE.ARTIFACT,
-  TILE.GRANITE,
+  TILE.GRANITE, TILE.SHOP_FLOOR,
   TILE.MUSHROOM_DIRT, TILE.MUSHROOM,
   TILE.CRYSTAL_ROCK, TILE.CRYSTAL,
   TILE.FROZEN_ICE, TILE.FROZEN_GEM,
@@ -60,6 +61,7 @@ export const HARDNESS = {
   [TILE.STONE]: 150,
   [TILE.BEDROCK]: Infinity,
   [TILE.GRANITE]: Infinity,
+  [TILE.SHOP_FLOOR]: Infinity,
   [TILE.BONE]: 40,
   [TILE.GEM]: 80,
   [TILE.FOSSIL]: 80,
@@ -236,6 +238,7 @@ export const TILE_COLORS = {
   // Obstacles
   [TILE.LAVA]: { top: '#FF6F00', main: '#E65100', accent: '#BF360C', animated: true },
   [TILE.GRANITE]: { top: '#5D4037', main: '#4E342E', accent: '#3E2723' },
+  [TILE.SHOP_FLOOR]: { top: '#607D8B', main: '#546E7A', accent: '#455A64' },
   // Mushroom biome
   [TILE.MUSHROOM_DIRT]: { top: '#5E4A8A', main: '#4A3670', accent: '#3B2860' },
   [TILE.MUSHROOM]: { top: '#4A3670', main: '#4A3670', gem: '#76FF03' },
@@ -436,6 +439,42 @@ export function calcDecorationBonuses(decorations) {
     }
   }
   return bonuses;
+}
+
+// Surface shop locations — three separate machines for each shop category
+export const SHOP_LOCATIONS = [
+  { x: 20, width: 2, type: 'decorations', name: 'Decorations', symbol: '\uD83C\uDFA8' },
+  { x: 32, width: 2, type: 'emotes', name: 'Emotes', symbol: '\uD83D\uDCAC' },
+  { x: 44, width: 2, type: 'upgrades', name: 'Upgrades', symbol: '\u2692\uFE0F' },
+];
+
+// Shop floor padding — extra undiggable tiles on each side of shop machine
+export const SHOP_FLOOR_PADDING = 1;
+
+// Returns the shop the player is near, or null
+export function getNearbyShop(playerX, playerY) {
+  if (playerY > SURFACE_Y + 1) return null; // must be at surface level
+  for (const shop of SHOP_LOCATIONS) {
+    const shopCenterX = shop.x + shop.width / 2;
+    const dist = Math.abs(playerX - shopCenterX);
+    if (dist < 2.5) return shop;
+  }
+  return null;
+}
+
+// Places shop floor tiles in a world tile array (call after world gen or on load)
+export function placeShopFloors(tiles) {
+  for (const shop of SHOP_LOCATIONS) {
+    const startX = shop.x - SHOP_FLOOR_PADDING;
+    const endX = shop.x + shop.width + SHOP_FLOOR_PADDING;
+    for (let x = startX; x < endX; x++) {
+      if (x > 0 && x < WORLD_WIDTH - 1) {
+        // Surface level and one below
+        tiles[SURFACE_Y * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;
+        tiles[(SURFACE_Y + 1) * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;
+      }
+    }
+  }
 }
 
 // Server tick rate

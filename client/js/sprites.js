@@ -1,4 +1,4 @@
-import { TILE, TILE_COLORS, DOG_COLORS, TILE_SIZE, DOG_BREEDS } from '../../shared/constants.js';
+import { TILE, TILE_COLORS, DOG_COLORS, TILE_SIZE, DOG_BREEDS, SHOP_LOCATIONS } from '../../shared/constants.js';
 import { DOG_SPRITES, SPRITE_PALETTE } from '../../shared/sprite-data.js';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase.js';
 
@@ -113,6 +113,20 @@ function genTileSprite(tileType) {
     ctx.fillRect(5, 2, 1, 1);
     ctx.fillRect(11, 9, 1, 1);
     ctx.fillRect(3, 14, 1, 1);
+  }
+  if (tileType === TILE.SHOP_FLOOR) {
+    // Cobblestone/paved look
+    ctx.fillStyle = '#455A64';
+    ctx.fillRect(0, 7, S, 1);
+    ctx.fillRect(7, 0, 1, 7);
+    ctx.fillRect(3, 8, 1, 8);
+    ctx.fillRect(11, 8, 1, 8);
+    // Light flecks
+    ctx.fillStyle = '#78909C';
+    ctx.fillRect(2, 3, 2, 1);
+    ctx.fillRect(9, 5, 2, 1);
+    ctx.fillRect(5, 11, 2, 1);
+    ctx.fillRect(13, 13, 2, 1);
   }
   if (tileType === TILE.LAVA) {
     // Animated lava surface glow
@@ -418,6 +432,104 @@ function drawCrystalDisplay() {
   return c;
 }
 
+// Shop machine sprites (2 tiles wide x 2 tiles tall, drawn on surface)
+function genShopMachineSprite(shopType) {
+  const W = TILE_SIZE * 2;
+  const H = TILE_SIZE * 2;
+  const c = createCanvas(W, H);
+  const ctx = c.getContext('2d');
+
+  if (shopType === 'decorations') {
+    // Wooden stand with paint palette theme
+    // Main body
+    drawRect(ctx, 4, 8, 24, 22, '#6D4C41');
+    drawRect(ctx, 2, 6, 28, 3, '#8D6E63');
+    // Roof
+    drawRect(ctx, 0, 3, 32, 4, '#5D4037');
+    drawRect(ctx, 2, 1, 28, 3, '#795548');
+    // Counter
+    drawRect(ctx, 3, 8, 26, 2, '#A1887F');
+    // Paint swatches
+    ctx.fillStyle = '#F44336'; ctx.fillRect(6, 12, 4, 4);
+    ctx.fillStyle = '#4CAF50'; ctx.fillRect(12, 12, 4, 4);
+    ctx.fillStyle = '#2196F3'; ctx.fillRect(18, 12, 4, 4);
+    ctx.fillStyle = '#FFC107'; ctx.fillRect(24, 12, 4, 4);
+    // Awning stripes
+    ctx.fillStyle = '#4E342E';
+    ctx.fillRect(0, 4, 4, 2);
+    ctx.fillRect(8, 4, 4, 2);
+    ctx.fillRect(16, 4, 4, 2);
+    ctx.fillRect(24, 4, 4, 2);
+    // Base
+    drawRect(ctx, 4, 28, 24, 4, '#4E342E');
+  } else if (shopType === 'emotes') {
+    // Teal booth with speech bubble
+    // Main body
+    drawRect(ctx, 4, 8, 24, 22, '#00695C');
+    drawRect(ctx, 2, 6, 28, 3, '#00897B');
+    // Roof
+    drawRect(ctx, 0, 3, 32, 4, '#004D40');
+    drawRect(ctx, 2, 1, 28, 3, '#00796B');
+    // Speech bubble icon
+    ctx.fillStyle = '#E0F2F1';
+    ctx.fillRect(9, 11, 14, 10);
+    ctx.fillRect(8, 12, 1, 8);
+    ctx.fillRect(23, 12, 1, 8);
+    ctx.fillRect(10, 10, 12, 1);
+    ctx.fillRect(10, 21, 4, 1);
+    ctx.fillRect(11, 22, 3, 1);
+    ctx.fillRect(12, 23, 2, 1);
+    // Dots inside bubble
+    ctx.fillStyle = '#00695C';
+    ctx.fillRect(12, 15, 2, 2);
+    ctx.fillRect(16, 15, 2, 2);
+    ctx.fillRect(20, 15, 2, 2);
+    // Awning stripes
+    ctx.fillStyle = '#004D40';
+    ctx.fillRect(0, 4, 4, 2);
+    ctx.fillRect(8, 4, 4, 2);
+    ctx.fillRect(16, 4, 4, 2);
+    ctx.fillRect(24, 4, 4, 2);
+    // Base
+    drawRect(ctx, 4, 28, 24, 4, '#004D40');
+  } else if (shopType === 'upgrades') {
+    // Dark metal forge/workshop
+    // Main body
+    drawRect(ctx, 4, 8, 24, 22, '#37474F');
+    drawRect(ctx, 2, 6, 28, 3, '#455A64');
+    // Roof
+    drawRect(ctx, 0, 3, 32, 4, '#263238');
+    drawRect(ctx, 2, 1, 28, 3, '#37474F');
+    // Anvil shape
+    ctx.fillStyle = '#78909C';
+    ctx.fillRect(10, 18, 12, 3);
+    ctx.fillRect(8, 17, 16, 2);
+    ctx.fillRect(12, 21, 8, 3);
+    // Hammer
+    ctx.fillStyle = '#8D6E63';
+    ctx.fillRect(20, 11, 2, 7);
+    ctx.fillStyle = '#90A4AE';
+    ctx.fillRect(18, 10, 6, 3);
+    // Spark effects
+    ctx.fillStyle = '#FF9800';
+    ctx.fillRect(11, 14, 1, 1);
+    ctx.fillRect(14, 13, 1, 1);
+    ctx.fillStyle = '#FFC107';
+    ctx.fillRect(9, 15, 1, 1);
+    ctx.fillRect(16, 14, 1, 1);
+    // Awning stripes
+    ctx.fillStyle = '#263238';
+    ctx.fillRect(0, 4, 4, 2);
+    ctx.fillRect(8, 4, 4, 2);
+    ctx.fillRect(16, 4, 4, 2);
+    ctx.fillRect(24, 4, 4, 2);
+    // Base
+    drawRect(ctx, 4, 28, 24, 4, '#263238');
+  }
+
+  return c;
+}
+
 // Sky gradient (cached)
 let skyGradientCanvas = null;
 
@@ -467,6 +579,14 @@ export function getDogSprite(breedId, animState, frameIndex) {
   const key = `dog_${breedId}_${animState}_${frameIndex}`;
   if (!spriteCache.has(key)) {
     spriteCache.set(key, genDogSprite(breedId, animState, frameIndex));
+  }
+  return spriteCache.get(key);
+}
+
+export function getShopMachineSprite(shopType) {
+  const key = 'shop_' + shopType;
+  if (!spriteCache.has(key)) {
+    spriteCache.set(key, genShopMachineSprite(shopType));
   }
   return spriteCache.get(key);
 }
