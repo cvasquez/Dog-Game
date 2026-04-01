@@ -1,3 +1,4 @@
+import { getFrameCount } from './sprites.js';
 import {
   GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION, MAX_FALL_SPEED,
   PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, WORLD_WIDTH,
@@ -374,15 +375,15 @@ export class Player {
 
     // Advance frame
     this.animTimer++;
-    const rates = { walk: 8, dig: 6, climb: 8, jump: 99, idle: 99, sit: 30 };
+    const rates = { walk: 8, dig: 6, climb: 8, jump: 8, idle: 99, sit: 30 };
     const rate = rates[this.animState] || 8;
-    const maxFrames = this.animState === 'sit' ? 2 : 2;
+    const maxFrames = getFrameCount(this.breedId, this.animState);
     if (this.animTimer > rate) {
       this.animFrame = (this.animFrame + 1) % maxFrames;
       this.animTimer = 0;
       // Sit: hold on last frame
       if (this.animState === 'sit' && this.animFrame === 0) {
-        this.animFrame = 1; // stay seated
+        this.animFrame = maxFrames - 1; // stay seated
       }
     }
 
