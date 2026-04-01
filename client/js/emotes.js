@@ -12,7 +12,7 @@ export class EmoteWheel {
     this.unlockedEmotes = [];
     this.cooldowns = {};
     this.selectedIndex = -1;
-    this.radius = 80;
+    this.radius = 130;
   }
 
   show(unlockedEmotes, mouseX, mouseY, cooldowns) {
@@ -83,6 +83,8 @@ export class EmoteWheel {
 
     const sliceAngle = (Math.PI * 2) / n;
 
+    const innerR = 30;
+
     for (let i = 0; i < n; i++) {
       const emoteId = this.unlockedEmotes[i];
       const emote = EMOTES[emoteId];
@@ -95,21 +97,21 @@ export class EmoteWheel {
       const onCooldown = !!(this.cooldowns[emoteId]);
       const cdRemaining = this.cooldowns[emoteId] || 0;
 
-      // Draw slice
+      // Draw slice (ring shape with inner cutout)
       ctx.beginPath();
-      ctx.moveTo(cx, cy);
       ctx.arc(cx, cy, this.radius, startAngle, endAngle);
+      ctx.arc(cx, cy, innerR, endAngle, startAngle, true);
       ctx.closePath();
 
       if (onCooldown) {
         ctx.fillStyle = 'rgba(60, 30, 30, 0.7)';
       } else if (isSelected) {
-        ctx.fillStyle = 'rgba(79, 195, 247, 0.4)';
+        ctx.fillStyle = 'rgba(79, 195, 247, 0.35)';
       } else {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
       }
       ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
       ctx.lineWidth = 1;
       ctx.stroke();
 
@@ -119,51 +121,79 @@ export class EmoteWheel {
         const cdFrac = cdRemaining / cdTotal;
         const sweepEnd = startAngle + sliceAngle * cdFrac;
         ctx.beginPath();
-        ctx.moveTo(cx, cy);
         ctx.arc(cx, cy, this.radius, startAngle, sweepEnd);
+        ctx.arc(cx, cy, innerR, sweepEnd, startAngle, true);
         ctx.closePath();
         ctx.fillStyle = 'rgba(200, 50, 50, 0.3)';
         ctx.fill();
       }
 
-      // Draw emote icon
-      const iconDist = this.radius * 0.6;
-      const ix = cx + Math.cos(midAngle) * iconDist;
-      const iy = cy + Math.sin(midAngle) * iconDist;
+      // --- Draw text along the slice ---
+      // Position emote symbol toward inner part of the ring
+      const symbolDist = innerR + (this.radius - innerR) * 0.32;
+      const sx = cx + Math.cos(midAngle) * symbolDist;
+      const sy = cy + Math.sin(midAngle) * symbolDist;
 
+      ctx.save();
       ctx.fillStyle = onCooldown ? '#888' : '#FFF';
-      ctx.font = isSelected ? 'bold 20px sans-serif' : '16px sans-serif';
+      ctx.font = isSelected ? 'bold 22px sans-serif' : '18px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(emote.symbol, ix, iy);
+      ctx.fillText(emote.symbol, sx, sy);
+      ctx.restore();
 
-      // Cooldown seconds text
-      if (onCooldown) {
-        const secs = Math.ceil(cdRemaining / 60);
-        ctx.fillStyle = '#FF6B6B';
-        ctx.font = 'bold 9px sans-serif';
-        ctx.fillText(secs + 's', ix, iy + 12);
-      }
+      // Buff description text — rotated to follow the slice angle
+      if (emote.buffDesc) {
+        const textDist = innerR + (this.radius - innerR) * 0.68;
+        const tx = cx + Math.cos(midAngle) * textDist;
+        const ty = cy + Math.sin(midAngle) * textDist;
 
-      // Label and buff desc for selected
-      if (isSelected) {
-        ctx.fillStyle = '#FFF';
-        ctx.font = '11px sans-serif';
-        ctx.fillText(emote.name, cx, cy - 4);
-        if (emote.buffDesc) {
-          ctx.fillStyle = onCooldown ? '#FF6B6B' : '#4FC3F7';
-          ctx.font = '8px sans-serif';
-          ctx.fillText(onCooldown ? `Cooldown ${Math.ceil(cdRemaining / 60)}s` : emote.buffDesc, cx, cy + 7);
+        ctx.save();
+        ctx.translate(tx, ty);
+        // Rotate text to follow the radial direction, keep it readable
+        let textAngle = midAngle;
+        // Flip text that would render upside-down
+        if (midAngle > Math.PI / 2 || midAngle < -Math.PI / 2) {
+          textAngle += Math.PI;
         }
+        ctx.rotate(textAngle);
+
+        const fontSize = isSelected ? 10 : 9;
+        ctx.font = (isSelected ? 'bold ' : '') + fontSize + 'px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        if (onCooldown) {
+          const secs = Math.ceil(cdRemaining / 60);
+          ctx.fillStyle = '#FF6B6B';
+          ctx.fillText('CD ' + secs + 's', 0, 0);
+        } else {
+          ctx.fillStyle = isSelected ? '#4FC3F7' : 'rgba(200, 200, 200, 0.8)';
+          ctx.fillText(emote.buffDesc, 0, 0);
+        }
+        ctx.restore();
       }
     }
 
-    // Center circle
+    // Center circle with selected emote name
     ctx.beginPath();
-    ctx.arc(cx, cy, 18, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
     ctx.fill();
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
+
+    // Show selected emote name in center
+    if (this.selectedIndex >= 0 && this.selectedIndex < n) {
+      const selEmote = EMOTES[this.unlockedEmotes[this.selectedIndex]];
+      if (selEmote) {
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(selEmote.name, cx, cy);
+      }
+    }
   }
 }
