@@ -103,7 +103,9 @@ export class Renderer {
     const sprite = getDogSprite(breedId, animState, player.animFrame || 0);
     if (!sprite) return;
 
-    const screenPos = camera.worldToScreen(player.x, player.y);
+    // Snap grounded players to tile grid to prevent sub-pixel overlap with ground
+    const renderY = player.grounded ? Math.floor(player.y) : player.y;
+    const screenPos = camera.worldToScreen(player.x, renderY);
     const sx = screenPos.x - TILE_SIZE / 2;
     const sy = screenPos.y - TILE_SIZE;
 

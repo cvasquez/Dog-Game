@@ -99,7 +99,7 @@ export class Game {
     // Add controls hint
     const hint = document.createElement('div');
     hint.className = 'controls-hint';
-    hint.innerHTML = 'WASD/Arrows: Move<br>Shift/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>E: Emotes | B: Shop (at surface) | Tab: Save';
+    hint.innerHTML = 'WASD/Arrows: Move | Shift: Sprint<br>F/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>E: Emotes | B: Shop (at surface) | Tab: Save';
     document.body.appendChild(hint);
 
     // Canvas click for decoration placement
@@ -308,7 +308,8 @@ export class Game {
       if (!player.isLocal) {
         player.interpolate(dt);
         // Derive animation state from server data
-        if (player.climbing || player.clinging) player.animState = 'climb';
+        if (player.mantling) player.animState = 'mantle';
+        else if (player.climbing || player.clinging) player.animState = 'climb';
         else if (player.digging) player.animState = 'dig';
         else if (Math.abs(player.vx) > 0.5) player.animState = 'walk';
         else player.animState = 'idle';
