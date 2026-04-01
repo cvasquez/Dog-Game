@@ -2,6 +2,7 @@ import {
   TILE_SIZE, TILE, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, HARDNESS,
   SOLID_TILES, WORLD_WIDTH, DECORATIONS,
   EMOTES, PARK_TOP, PARK_BOTTOM, STAMINA_DIG_COST, UPGRADES, EMOTE_DISPLAY_FRAMES,
+  getNearbyShop, placeShopFloors,
 } from '../../shared/constants.js';
 import { World } from './world.js';
 import { Player } from './player.js';
@@ -48,6 +49,8 @@ export class LocalGame {
     if (saveData) {
       this.seed = saveData.seed;
       this.worldId = saveData.id;
+      // Ensure shop floors exist (backwards compat with old saves)
+      placeShopFloors(saveData.tiles);
       this.world.loadFromArray(saveData.tiles);
       this.decorations = saveData.decorations || [];
     } else {
@@ -137,7 +140,7 @@ export class LocalGame {
     // Controls hint
     const hint = document.createElement('div');
     hint.className = 'controls-hint';
-    hint.innerHTML = 'WASD/Arrows: Move<br>Shift/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>R: Recall to surface (lose 50% loot)<br>E: Emotes | B: Shop | Tab: Save';
+    hint.innerHTML = 'WASD/Arrows: Move<br>Shift/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>R: Recall to surface (lose 50% loot)<br>E: Emotes | B: Shop (at surface) | Tab: Save';
     document.body.appendChild(hint);
 
     this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
@@ -168,10 +171,18 @@ export class LocalGame {
   }
 
   update(dt) {
-    // Shop toggle
+    // Track nearby shop for prompt rendering
+    this.nearbyShop = getNearbyShop(this.localPlayer.x, this.localPlayer.y);
+
+    // Shop toggle — only when near a shop machine at the surface
     if (this.input.justPressed('KeyB')) {
-      if (this.shop.visible) this.shop.hide();
-      else this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades);
+      if (this.shop.visible) {
+        this.shop.hide();
+      } else if (this.nearbyShop) {
+        this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, this.nearbyShop.type);
+      } else {
+        this.notify('Find a shop at the surface to buy items!');
+      }
     }
 
     // Save
@@ -252,7 +263,7 @@ export class LocalGame {
     }
 
     const tileType = this.world.getTile(tx, ty);
-    if (!SOLID_TILES.has(tileType) || tileType === TILE.BEDROCK || tileType === TILE.GRANITE) {
+    if (!SOLID_TILES.has(tileType) || tileType === TILE.BEDROCK || tileType === TILE.GRANITE || tileType === TILE.SHOP_FLOOR) {
       this.digTarget = null;
       this.digProgress = 0;
       p.digging = false;
@@ -327,12 +338,18 @@ export class LocalGame {
     this.renderer.drawTiles(this.world, this.camera);
     this.renderer.drawParkZone(this.camera);
     this.renderer.drawDecorations(this.decorations, this.camera);
+    this.renderer.drawShopMachines(this.camera);
 
     for (const [, player] of this.players) {
       this.renderer.drawPlayer(player, this.camera, player.isLocal);
     }
 
     this.particles.render(ctx, this.camera);
+
+    // Shop interaction prompt
+    if (this.nearbyShop && !this.shop.visible) {
+      this.renderer.drawShopPrompt(this.nearbyShop, this.camera);
+    }
 
     if (this.placingDecoration !== null) {
       const mouseWorld = this.screenToWorld(this.input.mouseX, this.input.mouseY);

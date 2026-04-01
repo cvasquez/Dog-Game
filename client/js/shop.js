@@ -5,8 +5,11 @@ export class Shop {
     this.overlay = document.getElementById('shopOverlay');
     this.itemsContainer = document.getElementById('shopItems');
     this.closeBtn = document.getElementById('shopClose');
+    this.tabsContainer = document.querySelector('.shop-tabs');
+    this.titleEl = document.querySelector('.shop-box h2');
     this.visible = false;
     this.currentTab = 'decorations';
+    this.lockedCategory = null; // when set, only this tab is shown
     this.playerResources = {};
     this.unlockedEmotes = [];
     this.ownedUpgrades = [];
@@ -17,6 +20,7 @@ export class Shop {
     // Tab switching
     document.querySelectorAll('.shop-tab').forEach(tab => {
       tab.addEventListener('click', () => {
+        if (this.lockedCategory) return; // tabs disabled in single-category mode
         this.currentTab = tab.dataset.tab;
         document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
@@ -27,18 +31,38 @@ export class Shop {
     this.closeBtn.addEventListener('click', () => this.hide());
   }
 
-  show(resources, unlockedEmotes, ownedUpgrades) {
+  show(resources, unlockedEmotes, ownedUpgrades, category) {
     this.playerResources = resources;
     this.unlockedEmotes = unlockedEmotes;
     this.ownedUpgrades = ownedUpgrades || [];
     this.visible = true;
     this.overlay.style.display = 'flex';
+
+    if (category) {
+      // Single-category mode — opened from a specific shop machine
+      this.lockedCategory = category;
+      this.currentTab = category;
+      this.tabsContainer.style.display = 'none';
+      const names = { decorations: 'Decorations Shop', emotes: 'Emotes Shop', upgrades: 'Upgrades Shop' };
+      this.titleEl.textContent = names[category] || 'Shop';
+    } else {
+      // Full shop mode (legacy)
+      this.lockedCategory = null;
+      this.tabsContainer.style.display = '';
+      this.titleEl.textContent = 'Shop';
+      // Activate correct tab
+      document.querySelectorAll('.shop-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.tab === this.currentTab);
+      });
+    }
+
     this.renderItems();
   }
 
   hide() {
     this.visible = false;
     this.overlay.style.display = 'none';
+    this.lockedCategory = null;
   }
 
   renderItems() {

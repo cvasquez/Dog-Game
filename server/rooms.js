@@ -4,7 +4,7 @@ import {
   MAX_FALL_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, SERVER_TICK_MS, MSG,
   DECORATIONS, EMOTES, PARK_TOP, PARK_BOTTOM, DOG_BREEDS, STAMINA_DIG_COST,
   UPGRADES, calcDecorationBonuses, BASE_MAX_STAMINA, BASE_STAMINA_REGEN_RATE,
-  STAMINA_REGEN_DELAY, EMOTE_DISPLAY_TICKS, RESPAWN_TICKS,
+  STAMINA_REGEN_DELAY, EMOTE_DISPLAY_TICKS, RESPAWN_TICKS, placeShopFloors,
 } from '../shared/constants.js';
 import { generateWorld } from './world-gen.js';
 import { saveWorld, loadWorld, savePlayer, loadPlayer, listWorlds } from './persistence.js';
@@ -255,7 +255,7 @@ function handleDigging(room, player) {
   }
 
   const tileType = getTile(room, tx, ty);
-  if (!SOLID_TILES.has(tileType) || tileType === TILE.BEDROCK || tileType === TILE.GRANITE) {
+  if (!SOLID_TILES.has(tileType) || tileType === TILE.BEDROCK || tileType === TILE.GRANITE || tileType === TILE.SHOP_FLOOR) {
     player.digging = false;
     player.digTarget = null;
     player.digProgress = 0;
@@ -439,6 +439,9 @@ export function tryLoadRoom(roomId) {
 
   const saved = loadWorld(roomId);
   if (!saved) return null;
+
+  // Ensure shop floors exist (backwards compat with old saves)
+  placeShopFloors(saved.tiles);
 
   const room = {
     id: roomId,

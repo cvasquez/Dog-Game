@@ -1,8 +1,8 @@
 import {
   TILE_SIZE, TILE, SURFACE_Y, WORLD_WIDTH, WORLD_HEIGHT,
-  PLAYER_WIDTH, PLAYER_HEIGHT, EMOTES, HARDNESS,
+  PLAYER_WIDTH, PLAYER_HEIGHT, EMOTES, HARDNESS, SHOP_LOCATIONS,
 } from '../../shared/constants.js';
-import { getTileSprite, getDogSprite, getDecorationSprite, getSkyGradient } from './sprites.js';
+import { getTileSprite, getDogSprite, getDecorationSprite, getSkyGradient, getShopMachineSprite } from './sprites.js';
 
 // Internal render resolution
 const RENDER_WIDTH = 640;
@@ -202,6 +202,48 @@ export class Renderer {
       this.ctx.fillStyle = 'rgba(139, 195, 74, 0.08)';
       this.ctx.fillRect(0, Math.floor(sy), this.renderWidth, height);
     }
+  }
+
+  drawShopMachines(camera) {
+    for (const shop of SHOP_LOCATIONS) {
+      const sprite = getShopMachineSprite(shop.type);
+      if (!sprite) continue;
+      // Machine sits on surface: bottom at SURFACE_Y, so top at SURFACE_Y - 2
+      const sx = shop.x * TILE_SIZE - camera.x;
+      const sy = (SURFACE_Y - 2) * TILE_SIZE - camera.y;
+      this.ctx.drawImage(sprite, Math.floor(sx), Math.floor(sy));
+    }
+  }
+
+  drawShopPrompt(nearbyShop, camera) {
+    if (!nearbyShop) return;
+    const shopCenterX = (nearbyShop.x + nearbyShop.width / 2) * TILE_SIZE;
+    const sx = shopCenterX - camera.x;
+    const sy = (SURFACE_Y - 3) * TILE_SIZE - camera.y;
+
+    // Background pill
+    const text = `[B] ${nearbyShop.name}`;
+    this.ctx.font = '5px "Press Start 2P", monospace';
+    const tw = this.ctx.measureText(text).width;
+    const pad = 3;
+
+    this.ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    const rx = Math.floor(sx - tw / 2 - pad);
+    const ry = Math.floor(sy - 4);
+    const rw = tw + pad * 2;
+    const rh = 10;
+    this.ctx.fillRect(rx, ry, rw, rh);
+
+    // Border
+    this.ctx.strokeStyle = '#8D6E63';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(rx, ry, rw, rh);
+
+    // Text
+    this.ctx.fillStyle = '#FFF3E0';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(text, Math.floor(sx), Math.floor(sy));
   }
 
   // Draw placement preview when in decoration placement mode
