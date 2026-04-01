@@ -55,7 +55,7 @@ export const HAZARD_TILES = new Set([TILE.LAVA]);
 // Tile hardness (frames to dig, Infinity = undiggable)
 export const HARDNESS = {
   [TILE.GRASS]: 30,
-  [TILE.DIRT]: 60,
+  [TILE.DIRT]: 45,
   [TILE.CLAY]: 90,
   [TILE.STONE]: 150,
   [TILE.BEDROCK]: Infinity,
