@@ -27,7 +27,7 @@ timeout 3 node server/index.js
 
 The game runs in **multiplayer** (Express + WebSocket server) and **single-player** (static files, works on GitHub Pages). The client dynamically imports `game.js` only when multiplayer is chosen; single-player uses `local-game.js` which runs the full game loop locally with localStorage saves.
 
-Deployed to GitHub Pages at https://cvasquez.github.io/Dog-Game (single-player only).
+Deployed to GitHub Pages at https://cvasquez.github.io/Dog-Game (single-player only). GitHub Pages is configured to deploy from the `main` branch.
 
 ### Directory Layout
 
@@ -69,3 +69,5 @@ Client sends `INPUT` messages with `{left, right, up, down, jump, dig}` booleans
 - **New tile type:** Add to `TILE` enum in constants.js, add to `SOLID_TILES`/`HAZARD_TILES` if needed, add `HARDNESS` and `TILE_COLORS` entries, add `RESOURCE_NAMES`/`RESOURCE_VALUE` if it's a resource, add rendering in `sprites.js`'s `genTileSprite`, add generation logic in both `server/world-gen.js` and `client/js/world-gen.js`.
 - **New breed:** Add to `DOG_BREEDS` array in constants.js (colors + stat multipliers), add sprite data in `sprite-data.js` for all 6 animation states, add breed button in `client/index.html`.
 - **New decoration:** Add to `DECORATIONS` in constants.js, add draw function in `sprites.js`, add cost.
+- **New upgrade:** Add to `UPGRADES` in constants.js with id, name, icon, desc, category, cost, effect (stat multipliers), and optional `requires` (prerequisite upgrade id). Server-side `applyServerUpgrades()` in `rooms.js` and client-side `applyUpgrades()` in `player.js` handle stat recalculation.
+- **Tuning balance:** All gameplay constants (stamina, climbing, movement feel, tile hardness, dig cost) are in `shared/constants.js`.
