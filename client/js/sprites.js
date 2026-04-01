@@ -591,6 +591,15 @@ export function getShopMachineSprite(shopType) {
   return spriteCache.get(key);
 }
 
+export function getFrameCount(breedId, animState) {
+  const breed = DOG_BREEDS[breedId] || DOG_BREEDS[0];
+  const breedKey = breed.name.toLowerCase();
+  const breedData = customSprites[breedKey] || DOG_SPRITES[breedKey];
+  if (!breedData) return 1;
+  const frames = breedData[animState] || breedData.idle;
+  return frames ? frames.length : 1;
+}
+
 export function getDecorationSprite(decId) {
   const key = 'dec_' + decId;
   if (!spriteCache.has(key)) {
