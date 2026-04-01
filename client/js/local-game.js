@@ -1,6 +1,6 @@
 import {
   TILE_SIZE, TILE, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, HARDNESS,
-  SOLID_TILES, WORLD_WIDTH, PLAYER_WIDTH, PLAYER_HEIGHT, DECORATIONS,
+  SOLID_TILES, WORLD_WIDTH, DECORATIONS,
   EMOTES, PARK_TOP, PARK_BOTTOM, STAMINA_DIG_COST, UPGRADES, EMOTE_DISPLAY_FRAMES,
 } from '../../shared/constants.js';
 import { World } from './world.js';
@@ -238,16 +238,16 @@ export class LocalGame {
 
     // Determine target tile based on direction or facing
     let tx = Math.floor(p.x);
-    let ty = Math.floor(p.y - PLAYER_HEIGHT / 2);
+    let ty = Math.floor(p.y - p.hitboxHeight / 2);
 
     if (input.down) ty = Math.floor(p.y + 0.1);
-    else if (input.up) ty = Math.floor(p.y - PLAYER_HEIGHT) - 1;
-    else if (input.left) { tx = Math.floor(p.x - PLAYER_WIDTH / 2 - 0.1); ty = Math.floor(p.y - 0.5); }
-    else if (input.right) { tx = Math.floor(p.x + PLAYER_WIDTH / 2 + 0.1); ty = Math.floor(p.y - 0.5); }
+    else if (input.up) ty = Math.floor(p.y - p.hitboxHeight) - 1;
+    else if (input.left) { tx = Math.floor(p.x - p.hitboxWidth / 2 - 0.1); ty = Math.floor(p.y - 0.5); }
+    else if (input.right) { tx = Math.floor(p.x + p.hitboxWidth / 2 + 0.1); ty = Math.floor(p.y - 0.5); }
     else {
       // Dig in facing direction
-      if (p.facing > 0) tx = Math.floor(p.x + PLAYER_WIDTH / 2 + 0.1);
-      else tx = Math.floor(p.x - PLAYER_WIDTH / 2 - 0.1);
+      if (p.facing > 0) tx = Math.floor(p.x + p.hitboxWidth / 2 + 0.1);
+      else tx = Math.floor(p.x - p.hitboxWidth / 2 - 0.1);
       ty = Math.floor(p.y - 0.5);
     }
 

@@ -53,6 +53,9 @@ function createPlayer(id, name, breedId) {
     // Emote ability system
     emoteBuff: null,        // { effect, timer } — active buff from emote
     emoteCooldowns: {},     // { [emoteId]: ticksRemaining }
+    // Per-breed hitbox dimensions (derived from opaque sprite bounds)
+    hitboxWidth: breed.hitboxWidth || PLAYER_WIDTH,
+    hitboxHeight: breed.hitboxHeight || PLAYER_HEIGHT,
     // Breed stats
     moveSpeed: MOVE_SPEED * s.moveSpeed,
     jumpForce: JUMP_FORCE * s.jumpForce,
@@ -85,11 +88,11 @@ function isSolid(room, x, y) {
   return SOLID_TILES.has(getTile(room, x, y));
 }
 
-// AABB collision check against tile grid
-function collidesAt(room, px, py) {
-  const left = Math.floor(px - PLAYER_WIDTH / 2);
-  const right = Math.floor(px + PLAYER_WIDTH / 2 - 0.01);
-  const top = Math.floor(py - PLAYER_HEIGHT);
+// AABB collision check against tile grid (uses per-player hitbox dimensions)
+function collidesAt(room, px, py, pw, ph) {
+  const left = Math.floor(px - pw / 2);
+  const right = Math.floor(px + pw / 2 - 0.01);
+  const top = Math.floor(py - ph);
   const bottom = Math.floor(py - 0.01);
 
   for (let ty = top; ty <= bottom; ty++) {
@@ -103,9 +106,9 @@ function collidesAt(room, px, py) {
 function checkHazards(room, player) {
   const cx = Math.floor(player.x);
   const cy = Math.floor(player.y - 0.01);
-  const cy2 = Math.floor(player.y - PLAYER_HEIGHT / 2);
+  const cy2 = Math.floor(player.y - player.hitboxHeight / 2);
   for (const ty of [cy, cy2]) {
-    for (const tx of [cx, Math.floor(player.x - PLAYER_WIDTH / 2), Math.floor(player.x + PLAYER_WIDTH / 2 - 0.01)]) {
+    for (const tx of [cx, Math.floor(player.x - player.hitboxWidth / 2), Math.floor(player.x + player.hitboxWidth / 2 - 0.01)]) {
       if (HAZARD_TILES.has(getTile(room, tx, ty))) {
         player.dead = true;
         player.respawnTimer = RESPAWN_TICKS;
@@ -153,19 +156,21 @@ function updatePlayer(room, player, dt) {
   if (player.vy > MAX_FALL_SPEED) player.vy = MAX_FALL_SPEED;
 
   // Move X
+  const pw = player.hitboxWidth;
+  const ph = player.hitboxHeight;
   const newX = player.x + player.vx * dt;
-  if (!collidesAt(room, newX, player.y)) {
+  if (!collidesAt(room, newX, player.y, pw, ph)) {
     player.x = newX;
   } else {
     // Push to nearest non-colliding X
-    if (player.vx > 0) player.x = Math.floor(player.x + PLAYER_WIDTH / 2) - PLAYER_WIDTH / 2;
-    else if (player.vx < 0) player.x = Math.floor(player.x - PLAYER_WIDTH / 2) + 1 + PLAYER_WIDTH / 2;
+    if (player.vx > 0) player.x = Math.floor(player.x + pw / 2) - pw / 2;
+    else if (player.vx < 0) player.x = Math.floor(player.x - pw / 2) + 1 + pw / 2;
     player.vx = 0;
   }
 
   // Move Y
   const newY = player.y + player.vy * dt;
-  if (!collidesAt(room, player.x, newY)) {
+  if (!collidesAt(room, player.x, newY, pw, ph)) {
     player.y = newY;
     player.grounded = false;
   } else {
@@ -173,18 +178,18 @@ function updatePlayer(room, player, dt) {
       // Landing
       player.y = Math.floor(player.y) + 0.01;
       // Find the exact ground
-      while (!collidesAt(room, player.x, player.y + 0.1)) player.y += 0.1;
+      while (!collidesAt(room, player.x, player.y + 0.1, pw, ph)) player.y += 0.1;
       player.grounded = true;
     } else {
       // Hit ceiling
-      player.y = Math.floor(player.y - PLAYER_HEIGHT) + PLAYER_HEIGHT + 1;
+      player.y = Math.floor(player.y - ph) + ph + 1;
     }
     player.vy = 0;
   }
 
   // Clamp position
-  player.x = Math.max(1 + PLAYER_WIDTH / 2, Math.min(WORLD_WIDTH - 1 - PLAYER_WIDTH / 2, player.x));
-  player.y = Math.max(PLAYER_HEIGHT, Math.min(WORLD_HEIGHT - 1, player.y));
+  player.x = Math.max(1 + pw / 2, Math.min(WORLD_WIDTH - 1 - pw / 2, player.x));
+  player.y = Math.max(ph, Math.min(WORLD_HEIGHT - 1, player.y));
 
   // Stamina: regen on ground, exhaustion recovery
   if (player.exhausted) {
@@ -236,16 +241,16 @@ function handleDigging(room, player) {
 
   // Determine dig target based on input direction
   let tx = Math.floor(player.x);
-  let ty = Math.floor(player.y - PLAYER_HEIGHT / 2);
+  let ty = Math.floor(player.y - player.hitboxHeight / 2);
 
   if (inp.down) ty = Math.floor(player.y + 0.1);
-  else if (inp.up) ty = Math.floor(player.y - PLAYER_HEIGHT) - 1;
-  else if (inp.left) { tx = Math.floor(player.x - PLAYER_WIDTH / 2 - 0.1); ty = Math.floor(player.y - 0.5); }
-  else if (inp.right) { tx = Math.floor(player.x + PLAYER_WIDTH / 2 + 0.1); ty = Math.floor(player.y - 0.5); }
+  else if (inp.up) ty = Math.floor(player.y - player.hitboxHeight) - 1;
+  else if (inp.left) { tx = Math.floor(player.x - player.hitboxWidth / 2 - 0.1); ty = Math.floor(player.y - 0.5); }
+  else if (inp.right) { tx = Math.floor(player.x + player.hitboxWidth / 2 + 0.1); ty = Math.floor(player.y - 0.5); }
   else {
     // Dig in facing direction
-    if (player.facing > 0) tx = Math.floor(player.x + PLAYER_WIDTH / 2 + 0.1);
-    else tx = Math.floor(player.x - PLAYER_WIDTH / 2 - 0.1);
+    if (player.facing > 0) tx = Math.floor(player.x + player.hitboxWidth / 2 + 0.1);
+    else tx = Math.floor(player.x - player.hitboxWidth / 2 - 0.1);
     ty = Math.floor(player.y - 0.5);
   }
 

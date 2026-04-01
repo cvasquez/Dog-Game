@@ -83,6 +83,10 @@ export class Player {
     this.jumpWasCut = false;   // prevents cutting jump velocity every frame
     this.wasGrounded = false;
 
+    // Per-breed hitbox dimensions (derived from opaque sprite bounds)
+    this.hitboxWidth = this.breed.hitboxWidth || PLAYER_WIDTH;
+    this.hitboxHeight = this.breed.hitboxHeight || PLAYER_HEIGHT;
+
     // Lava damage
     this.dead = false;
     this.respawnTimer = 0;
@@ -267,9 +271,9 @@ export class Player {
       this.x = newX;
     } else {
       if (this.vx > 0) {
-        this.x = Math.floor(newX + PLAYER_WIDTH / 2) - PLAYER_WIDTH / 2;
+        this.x = Math.floor(newX + this.hitboxWidth / 2) - this.hitboxWidth / 2;
       } else if (this.vx < 0) {
-        this.x = Math.floor(newX - PLAYER_WIDTH / 2) + 1 + PLAYER_WIDTH / 2;
+        this.x = Math.floor(newX - this.hitboxWidth / 2) + 1 + this.hitboxWidth / 2;
       }
       this.vx = 0;
     }
@@ -287,13 +291,13 @@ export class Player {
         this.grounded = true;
         if (this.clinging) this.releaseCling();
       } else {
-        this.y = Math.floor(this.y - PLAYER_HEIGHT) + PLAYER_HEIGHT + 1;
+        this.y = Math.floor(this.y - this.hitboxHeight) + this.hitboxHeight + 1;
         if (this.clinging) this.vy = 0;
       }
       this.vy = 0;
     }
 
-    this.x = Math.max(1 + PLAYER_WIDTH / 2, Math.min(WORLD_WIDTH - 1 - PLAYER_WIDTH / 2, this.x));
+    this.x = Math.max(1 + this.hitboxWidth / 2, Math.min(WORLD_WIDTH - 1 - this.hitboxWidth / 2, this.x));
 
     // Animation state machine
     let newState;
@@ -350,9 +354,9 @@ export class Player {
     // Check tiles around player's position for lava
     const cx = Math.floor(this.x);
     const cy = Math.floor(this.y - 0.01);
-    const cy2 = Math.floor(this.y - PLAYER_HEIGHT / 2);
+    const cy2 = Math.floor(this.y - this.hitboxHeight / 2);
     for (const ty of [cy, cy2]) {
-      for (const tx of [cx, Math.floor(this.x - PLAYER_WIDTH / 2), Math.floor(this.x + PLAYER_WIDTH / 2 - 0.01)]) {
+      for (const tx of [cx, Math.floor(this.x - this.hitboxWidth / 2), Math.floor(this.x + this.hitboxWidth / 2 - 0.01)]) {
         if (HAZARD_TILES.has(world.getTile(tx, ty))) {
           this.die();
           return;
@@ -382,8 +386,8 @@ export class Player {
 
   canMantle(world, side) {
     // Check if the player's head is above the ledge and can step onto it
-    const wx = side < 0 ? this.x - PLAYER_WIDTH / 2 - 0.1 : this.x + PLAYER_WIDTH / 2 + 0.1;
-    const headY = this.y - PLAYER_HEIGHT + 0.1;
+    const wx = side < 0 ? this.x - this.hitboxWidth / 2 - 0.1 : this.x + this.hitboxWidth / 2 + 0.1;
+    const headY = this.y - this.hitboxHeight + 0.1;
     const feetY = this.y - 0.15;
     const hasWallAtFeet = world.isSolid(Math.floor(wx), Math.floor(feetY));
     const hasWallAtHead = world.isSolid(Math.floor(wx), Math.floor(headY));
@@ -404,9 +408,9 @@ export class Player {
     const margin = 0.05;
     let mantleX;
     if (side < 0) {
-      mantleX = wallTx + 1 + PLAYER_WIDTH / 2 + margin;
+      mantleX = wallTx + 1 + this.hitboxWidth / 2 + margin;
     } else {
-      mantleX = wallTx - PLAYER_WIDTH / 2 - margin;
+      mantleX = wallTx - this.hitboxWidth / 2 - margin;
     }
 
     // Check there's room for the player at the mantle position
@@ -429,9 +433,9 @@ export class Player {
   }
 
   checkWall(world, side) {
-    const wx = side < 0 ? this.x - PLAYER_WIDTH / 2 - 0.1 : this.x + PLAYER_WIDTH / 2 + 0.1;
-    const headY = this.y - PLAYER_HEIGHT + 0.1;
-    const midY = this.y - PLAYER_HEIGHT / 2;
+    const wx = side < 0 ? this.x - this.hitboxWidth / 2 - 0.1 : this.x + this.hitboxWidth / 2 + 0.1;
+    const headY = this.y - this.hitboxHeight + 0.1;
+    const midY = this.y - this.hitboxHeight / 2;
     const feetY = this.y - 0.15;
     return world.isSolid(Math.floor(wx), Math.floor(headY)) ||
            world.isSolid(Math.floor(wx), Math.floor(midY)) ||
@@ -439,9 +443,9 @@ export class Player {
   }
 
   collidesAt(world, px, py) {
-    const left = Math.floor(px - PLAYER_WIDTH / 2);
-    const right = Math.floor(px + PLAYER_WIDTH / 2 - 0.01);
-    const top = Math.floor(py - PLAYER_HEIGHT);
+    const left = Math.floor(px - this.hitboxWidth / 2);
+    const right = Math.floor(px + this.hitboxWidth / 2 - 0.01);
+    const top = Math.floor(py - this.hitboxHeight);
     const bottom = Math.floor(py - 0.01);
     for (let ty = top; ty <= bottom; ty++) {
       for (let tx = left; tx <= right; tx++) {
@@ -453,9 +457,9 @@ export class Player {
 
   collidesAtH(world, px, py) {
     const inset = 0.15;
-    const left = Math.floor(px - PLAYER_WIDTH / 2);
-    const right = Math.floor(px + PLAYER_WIDTH / 2 - 0.01);
-    const top = Math.floor(py - PLAYER_HEIGHT + inset);
+    const left = Math.floor(px - this.hitboxWidth / 2);
+    const right = Math.floor(px + this.hitboxWidth / 2 - 0.01);
+    const top = Math.floor(py - this.hitboxHeight + inset);
     const bottom = Math.floor(py - 0.01 - inset);
     for (let ty = top; ty <= bottom; ty++) {
       for (let tx = left; tx <= right; tx++) {
