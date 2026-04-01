@@ -212,6 +212,9 @@ export class LocalGame {
     this.localPlayer.updateEmoteTimers(this.decorations);
 
     if (this.input.justPressed('Escape')) {
+      if (this.shop.visible) {
+        this.shop.hide();
+      }
       this.placingDecoration = null;
     }
 

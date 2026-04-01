@@ -289,8 +289,11 @@ export class Game {
     // Tick emote buff/cooldown timers
     this.localPlayer.updateEmoteTimers(this.decorations);
 
-    // Cancel decoration placement on Escape
+    // Cancel decoration placement or close shop on Escape
     if (this.input.justPressed('Escape')) {
+      if (this.shop.visible) {
+        this.shop.hide();
+      }
       this.placingDecoration = null;
     }
 
