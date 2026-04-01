@@ -42,6 +42,9 @@ export class LocalGame {
     // Digging state
     this.digTarget = null;
     this.digProgress = 0;
+
+    // Persistent tile damage: Map of "x,y" -> accumulated dig progress
+    this.tileDamage = new Map();
   }
 
   start(playerName, breedId, saveData) {
@@ -242,7 +245,6 @@ export class LocalGame {
 
     if (!isDigging) {
       this.digTarget = null;
-      this.digProgress = 0;
       p.digging = false;
       return;
     }
@@ -265,21 +267,20 @@ export class LocalGame {
     const tileType = this.world.getTile(tx, ty);
     if (!SOLID_TILES.has(tileType) || tileType === TILE.BEDROCK || tileType === TILE.GRANITE || tileType === TILE.SHOP_FLOOR) {
       this.digTarget = null;
-      this.digProgress = 0;
       p.digging = false;
       return;
     }
 
-    // Check if target changed
+    // Update target (load existing tile damage if any)
+    const tileKey = tx + ',' + ty;
     if (!this.digTarget || this.digTarget.x !== tx || this.digTarget.y !== ty) {
       this.digTarget = { x: tx, y: ty };
-      this.digProgress = 0;
+      this.digProgress = this.tileDamage.get(tileKey) || 0;
     }
 
     // Digging costs stamina
     if (p.stamina <= 0 || p.exhausted) {
       this.digTarget = null;
-      this.digProgress = 0;
       p.digging = false;
       return;
     }
@@ -290,6 +291,9 @@ export class LocalGame {
     if (p.stamina < 0) p.stamina = 0;
     this.digProgress += (p.digSpeed || 1);
     p.digProgress = this.digProgress;
+
+    // Persist damage on the tile
+    this.tileDamage.set(tileKey, this.digProgress);
 
     const hardness = HARDNESS[tileType] || 3;
     if (this.digProgress >= hardness) {
@@ -322,6 +326,7 @@ export class LocalGame {
         this.notify(`+${amount} ${resourceName}!`);
       }
 
+      this.tileDamage.delete(tileKey);
       this.digTarget = null;
       this.digProgress = 0;
       p.digging = false;

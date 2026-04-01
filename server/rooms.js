@@ -245,7 +245,6 @@ function handleDigging(room, player) {
   if (!inp.dig) {
     player.digging = false;
     player.digTarget = null;
-    player.digProgress = 0;
     return;
   }
 
@@ -268,20 +267,19 @@ function handleDigging(room, player) {
   if (!SOLID_TILES.has(tileType) || tileType === TILE.BEDROCK || tileType === TILE.GRANITE || tileType === TILE.SHOP_FLOOR) {
     player.digging = false;
     player.digTarget = null;
-    player.digProgress = 0;
     return;
   }
 
-  // Check if target changed
+  // Update target (load existing tile damage if any)
+  const tileKey = tx + ',' + ty;
   if (!player.digTarget || player.digTarget.x !== tx || player.digTarget.y !== ty) {
     player.digTarget = { x: tx, y: ty };
-    player.digProgress = 0;
+    player.digProgress = room.tileDamage.get(tileKey) || 0;
   }
 
   // Digging costs stamina
   if (player.stamina <= 0 || player.exhausted) {
     player.digTarget = null;
-    player.digProgress = 0;
     player.digging = false;
     return;
   }
@@ -290,6 +288,9 @@ function handleDigging(room, player) {
   player.stamina -= STAMINA_DIG_COST;
   if (player.stamina < 0) player.stamina = 0;
   player.digProgress += (player.digSpeed || 1);
+
+  // Persist damage on the tile
+  room.tileDamage.set(tileKey, player.digProgress);
 
   const hardness = HARDNESS[tileType] || 3;
   if (player.digProgress >= hardness) {
@@ -316,6 +317,7 @@ function handleDigging(room, player) {
       });
     }
 
+    room.tileDamage.delete(tileKey);
     player.digging = false;
     player.digTarget = null;
     player.digProgress = 0;
@@ -383,6 +385,7 @@ export function createRoom(hostPlayer, ws) {
     tiles,
     players: new Map(),
     decorations: [],
+    tileDamage: new Map(),
     tickInterval: null,
     autoSaveInterval: null,
   };
@@ -459,6 +462,7 @@ export function tryLoadRoom(roomId) {
     tiles: saved.tiles,
     players: new Map(),
     decorations: saved.decorations || [],
+    tileDamage: new Map(),
     tickInterval: null,
     autoSaveInterval: null,
   };
