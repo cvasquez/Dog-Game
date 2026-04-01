@@ -54,27 +54,27 @@ export const HAZARD_TILES = new Set([TILE.LAVA]);
 
 // Tile hardness (frames to dig, Infinity = undiggable)
 export const HARDNESS = {
-  [TILE.GRASS]: 8,
-  [TILE.DIRT]: 12,
-  [TILE.CLAY]: 16,
-  [TILE.STONE]: 25,
+  [TILE.GRASS]: 30,
+  [TILE.DIRT]: 60,
+  [TILE.CLAY]: 90,
+  [TILE.STONE]: 150,
   [TILE.BEDROCK]: Infinity,
   [TILE.GRANITE]: Infinity,
-  [TILE.BONE]: 3,
-  [TILE.GEM]: 8,
-  [TILE.FOSSIL]: 8,
-  [TILE.GOLD]: 15,
-  [TILE.DIAMOND]: 15,
-  [TILE.ARTIFACT]: 15,
+  [TILE.BONE]: 40,
+  [TILE.GEM]: 80,
+  [TILE.FOSSIL]: 80,
+  [TILE.GOLD]: 120,
+  [TILE.DIAMOND]: 150,
+  [TILE.ARTIFACT]: 150,
   // Biome tiles
-  [TILE.MUSHROOM_DIRT]: 4,
-  [TILE.MUSHROOM]: 5,
-  [TILE.CRYSTAL_ROCK]: 12,
-  [TILE.CRYSTAL]: 10,
-  [TILE.FROZEN_ICE]: 6,
-  [TILE.FROZEN_GEM]: 8,
-  [TILE.ANCIENT_BRICK]: 18,
-  [TILE.ANCIENT_RELIC]: 12,
+  [TILE.MUSHROOM_DIRT]: 50,
+  [TILE.MUSHROOM]: 60,
+  [TILE.CRYSTAL_ROCK]: 100,
+  [TILE.CRYSTAL]: 80,
+  [TILE.FROZEN_ICE]: 70,
+  [TILE.FROZEN_GEM]: 80,
+  [TILE.ANCIENT_BRICK]: 180,
+  [TILE.ANCIENT_RELIC]: 120,
 };
 
 // Resource values (currency)
@@ -294,7 +294,7 @@ export const EMOTES = [
 ];
 
 // Digging stamina cost per frame
-export const STAMINA_DIG_COST = 1.0;
+export const STAMINA_DIG_COST = 1.5;
 
 // Upgrades (collars, hats, etc.)
 export const UPGRADES = [
