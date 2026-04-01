@@ -106,9 +106,10 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
   <button id="shiftLeft">Shift Left</button>
   <button id="shiftRight">Shift Right</button>
 
-  <h3>Cloud Save</h3>
-  <button id="cloudSaveBtn">Save to Cloud</button>
-  <button id="cloudLoadBtn">Load from Cloud</button>
+  <h3>Cloud</h3>
+  <button id="cloudSaveBtn">Save Breed</button>
+  <button id="cloudSaveAllBtn">Save All</button>
+  <button id="cloudLoadBtn">Browse Sprites</button>
   <div id="cloudStatus" class="cloud-status"></div>
 
   <h3>Import / Export</h3>
@@ -144,24 +145,7 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
   </div>
 </div>
 
-<!-- Save modal -->
-<div class="modal-overlay" id="saveModal">
-  <div class="modal">
-    <h3>Save Sprite to Cloud</h3>
-    <label>Sprite Name</label>
-    <input type="text" id="saveName" placeholder="My awesome labrador">
-    <label>Author</label>
-    <input type="text" id="saveAuthor" placeholder="anonymous">
-    <label><input type="checkbox" id="savePublic" checked> Public (visible to others)</label>
-    <div class="btn-row">
-      <button id="saveConfirmBtn">Save</button>
-      <button id="saveCancelBtn">Cancel</button>
-    </div>
-    <div id="saveStatus" class="cloud-status"></div>
-  </div>
-</div>
-
-<!-- Load modal -->
+<!-- Load/Browse modal -->
 <div class="modal-overlay" id="loadModal">
   <div class="modal">
     <h3>Load Sprite from Cloud</h3>
@@ -182,11 +166,12 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
 import { DOG_BREEDS } from '../../shared/constants.js';
 import { DOG_SPRITES, SPRITE_PALETTE, ANIM_STATES } from '../../shared/sprite-data.js';
 
-// Deep clone sprite data so we can edit freely
+// Working sprite data — will be replaced by DB data on load
 let sprites = JSON.parse(JSON.stringify(DOG_SPRITES));
-
-// Editable palette — starts as a copy, custom colors get appended (max 16 entries, indices 0-f)
 let customPalette = [...SPRITE_PALETTE];
+
+// Track Supabase row IDs per breed so we can update in place
+const dbRowIds = {}; // breed_key -> uuid
 
 const GRID_SIZE = 16;
 const CELL_SIZE = 24; // pixels per cell on editor grid
@@ -735,24 +720,9 @@ rebuildUI();
 // Start animation preview
 setInterval(drawAnimPreview, 125);
 
-// ------ Cloud Save/Load (Supabase) ------
+// ------ Supabase (database-first) ------
 
-const SUPABASE_URL = window.SUPABASE_URL || localStorage.getItem('DOG_GAME_SUPABASE_URL') || '';
-const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || localStorage.getItem('DOG_GAME_SUPABASE_KEY') || '';
-
-let supabaseClient = null;
-
-function initSupabase() {
-  if (supabaseClient) return supabaseClient;
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || typeof window.supabase === 'undefined') return null;
-  try {
-    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    return supabaseClient;
-  } catch (e) {
-    console.warn('Supabase init failed:', e);
-    return null;
-  }
-}
+import { getSupabaseClient, isSupabaseConfigured } from '../js/supabase.js';
 
 function showCloudStatus(msg, isError) {
   const el = document.getElementById('cloudStatus');
@@ -761,59 +731,121 @@ function showCloudStatus(msg, isError) {
   setTimeout(() => { el.textContent = ''; }, 4000);
 }
 
-// Save modal
-document.getElementById('cloudSaveBtn').addEventListener('click', () => {
-  const sb = initSupabase();
-  if (!sb) {
-    showCloudStatus('Supabase not configured. Set SUPABASE_URL and key in localStorage.', true);
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// Load all sprites from Supabase on startup
+async function loadSpritesFromDB() {
+  if (!isSupabaseConfigured()) {
+    showCloudStatus('Using local sprites (Supabase not configured)', true);
     return;
   }
-  document.getElementById('saveName').value = `${currentBreed} sprite`;
-  document.getElementById('saveAuthor').value = localStorage.getItem('DOG_GAME_AUTHOR') || 'anonymous';
-  document.getElementById('saveModal').classList.add('open');
-});
-
-document.getElementById('saveCancelBtn').addEventListener('click', () => {
-  document.getElementById('saveModal').classList.remove('open');
-});
-
-document.getElementById('saveConfirmBtn').addEventListener('click', async () => {
-  const sb = initSupabase();
+  const sb = getSupabaseClient();
   if (!sb) return;
-  const name = document.getElementById('saveName').value.trim() || `${currentBreed} sprite`;
-  const author = document.getElementById('saveAuthor').value.trim() || 'anonymous';
-  const isPublic = document.getElementById('savePublic').checked;
-  localStorage.setItem('DOG_GAME_AUTHOR', author);
 
-  const saveStatus = document.getElementById('saveStatus');
-  saveStatus.textContent = 'Saving...';
-  saveStatus.className = 'cloud-status';
+  showCloudStatus('Loading sprites from database...', false);
 
-  const spriteData = sprites[currentBreed];
-  const { error } = await sb.from('custom_sprites').insert({
-    name,
-    breed_key: currentBreed,
-    sprite_data: spriteData,
-    palette: customPalette,
-    author,
-    is_public: isPublic,
-  });
+  const { data, error } = await sb.from('custom_sprites')
+    .select('id, name, breed_key, sprite_data, palette, author, updated_at')
+    .eq('is_public', true)
+    .order('updated_at', { ascending: false });
 
   if (error) {
-    saveStatus.textContent = 'Save failed: ' + error.message;
-    saveStatus.className = 'cloud-status err';
-  } else {
-    saveStatus.textContent = 'Saved!';
-    saveStatus.className = 'cloud-status ok';
-    setTimeout(() => {
-      document.getElementById('saveModal').classList.remove('open');
-      saveStatus.textContent = '';
-    }, 1000);
-    showCloudStatus(`Saved "${name}" to cloud`, false);
+    showCloudStatus('DB load failed: ' + error.message, true);
+    return;
   }
+
+  if (!data || data.length === 0) {
+    showCloudStatus('No sprites in DB. Using local defaults.', true);
+    return;
+  }
+
+  // Use the most recent sprite per breed, populate working state
+  const loaded = [];
+  for (const row of data) {
+    const key = row.breed_key;
+    if (!dbRowIds[key]) {
+      dbRowIds[key] = row.id;
+      sprites[key] = JSON.parse(JSON.stringify(row.sprite_data));
+      if (row.palette) {
+        customPalette.length = 0;
+        row.palette.forEach(p => customPalette.push(p));
+      }
+      loaded.push(key);
+    }
+  }
+
+  rebuildUI();
+  showCloudStatus(`Loaded ${loaded.length} breeds from DB: ${loaded.join(', ')}`, false);
+}
+
+// Save current breed to DB (upsert — update if row exists, insert if not)
+async function saveBreedToDB(breedKey) {
+  const sb = getSupabaseClient();
+  if (!sb) {
+    showCloudStatus('Supabase not configured', true);
+    return false;
+  }
+
+  const spriteData = sprites[breedKey];
+  const rowId = dbRowIds[breedKey];
+
+  if (rowId) {
+    // Update existing row
+    const { error } = await sb.from('custom_sprites')
+      .update({
+        sprite_data: spriteData,
+        palette: customPalette,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', rowId);
+    if (error) {
+      showCloudStatus('Save failed: ' + error.message, true);
+      return false;
+    }
+  } else {
+    // Insert new row
+    const { data, error } = await sb.from('custom_sprites')
+      .insert({
+        name: `${breedKey} (default)`,
+        breed_key: breedKey,
+        sprite_data: spriteData,
+        palette: customPalette,
+        author: 'editor',
+        is_public: true,
+      })
+      .select('id');
+    if (error) {
+      showCloudStatus('Save failed: ' + error.message, true);
+      return false;
+    }
+    if (data && data[0]) dbRowIds[breedKey] = data[0].id;
+  }
+  return true;
+}
+
+// Save current breed
+document.getElementById('cloudSaveBtn').addEventListener('click', async () => {
+  showCloudStatus('Saving ' + currentBreed + '...', false);
+  const ok = await saveBreedToDB(currentBreed);
+  if (ok) showCloudStatus(`Saved ${currentBreed}`, false);
 });
 
-// Load modal
+// Save all breeds
+document.getElementById('cloudSaveAllBtn').addEventListener('click', async () => {
+  showCloudStatus('Saving all breeds...', false);
+  let saved = 0;
+  for (const breedKey of Object.keys(sprites)) {
+    const ok = await saveBreedToDB(breedKey);
+    if (ok) saved++;
+  }
+  showCloudStatus(`Saved ${saved} breeds`, false);
+});
+
+// Browse / load modal
 const loadBreedFilter = document.getElementById('loadBreedFilter');
 DOG_BREEDS.forEach(b => {
   const opt = document.createElement('option');
@@ -823,9 +855,8 @@ DOG_BREEDS.forEach(b => {
 });
 
 document.getElementById('cloudLoadBtn').addEventListener('click', () => {
-  const sb = initSupabase();
-  if (!sb) {
-    showCloudStatus('Supabase not configured. Set SUPABASE_URL and key in localStorage.', true);
+  if (!isSupabaseConfigured()) {
+    showCloudStatus('Supabase not configured', true);
     return;
   }
   document.getElementById('loadModal').classList.add('open');
@@ -840,21 +871,19 @@ document.getElementById('loadRefreshBtn').addEventListener('click', loadSpriteLi
 loadBreedFilter.addEventListener('change', loadSpriteList);
 
 async function loadSpriteList() {
-  const sb = initSupabase();
+  const sb = getSupabaseClient();
   if (!sb) return;
   const listEl = document.getElementById('spriteList');
   listEl.innerHTML = '<div style="color:#888;font-size:12px">Loading...</div>';
 
   let query = sb.from('custom_sprites')
-    .select('id, name, breed_key, author, created_at, sprite_data, palette')
+    .select('id, name, breed_key, author, updated_at, sprite_data, palette')
     .eq('is_public', true)
-    .order('created_at', { ascending: false })
+    .order('updated_at', { ascending: false })
     .limit(50);
 
   const breedFilter = loadBreedFilter.value;
-  if (breedFilter) {
-    query = query.eq('breed_key', breedFilter);
-  }
+  if (breedFilter) query = query.eq('breed_key', breedFilter);
 
   const { data, error } = await query;
 
@@ -862,7 +891,6 @@ async function loadSpriteList() {
     listEl.innerHTML = `<div class="cloud-status err">Error: ${error.message}</div>`;
     return;
   }
-
   if (!data || data.length === 0) {
     listEl.innerHTML = '<div style="color:#888;font-size:12px">No sprites found.</div>';
     return;
@@ -872,11 +900,11 @@ async function loadSpriteList() {
   for (const row of data) {
     const item = document.createElement('div');
     item.className = 'sprite-item';
-
-    const date = new Date(row.created_at).toLocaleDateString();
+    const date = new Date(row.updated_at).toLocaleDateString();
+    const isActive = dbRowIds[row.breed_key] === row.id;
     item.innerHTML = `
       <div class="sprite-info">
-        <div class="name">${escapeHtml(row.name)}</div>
+        <div class="name">${escapeHtml(row.name)}${isActive ? ' (active)' : ''}</div>
         <div class="meta">${escapeHtml(row.breed_key)} by ${escapeHtml(row.author || 'anonymous')} - ${date}</div>
       </div>
       <div class="sprite-actions">
@@ -886,17 +914,15 @@ async function loadSpriteList() {
     `;
 
     item.querySelector('.load-btn').addEventListener('click', () => {
-      // Apply loaded sprite data to current editor state
-      const breedKey = row.breed_key;
-      if (row.sprite_data) {
-        sprites[breedKey] = JSON.parse(JSON.stringify(row.sprite_data));
-      }
+      const key = row.breed_key;
+      sprites[key] = JSON.parse(JSON.stringify(row.sprite_data));
       if (row.palette) {
         customPalette.length = 0;
         row.palette.forEach(p => customPalette.push(p));
       }
-      currentBreed = breedKey;
-      breedSelect.value = breedKey;
+      dbRowIds[key] = row.id; // track this row for future saves
+      currentBreed = key;
+      breedSelect.value = key;
       currentFrame = 0;
       rebuildUI();
       document.getElementById('loadModal').classList.remove('open');
@@ -910,6 +936,7 @@ async function loadSpriteList() {
       if (delError) {
         showCloudStatus('Delete failed: ' + delError.message, true);
       } else {
+        if (dbRowIds[row.breed_key] === row.id) delete dbRowIds[row.breed_key];
         item.remove();
         showCloudStatus(`Deleted "${row.name}"`, false);
       }
@@ -919,18 +946,15 @@ async function loadSpriteList() {
   }
 }
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
 // Close modals on overlay click
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) overlay.classList.remove('open');
   });
 });
+
+// Load sprites from DB on startup
+loadSpritesFromDB();
 </script>
 </body>
 </html>
