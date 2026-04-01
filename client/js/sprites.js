@@ -1,7 +1,38 @@
 import { TILE, TILE_COLORS, DOG_COLORS, TILE_SIZE, DOG_BREEDS } from '../../shared/constants.js';
 import { DOG_SPRITES, SPRITE_PALETTE } from '../../shared/sprite-data.js';
+import { getSupabaseClient, isSupabaseConfigured } from './supabase.js';
 
 const spriteCache = new Map();
+
+// Custom sprite overrides loaded from Supabase (breed_key -> sprite_data)
+const customSprites = {};
+let customPalette = null;
+
+// Load custom sprites from Supabase (non-blocking, falls back to defaults)
+export async function loadCustomSprites() {
+  if (!isSupabaseConfigured()) return;
+  const sb = getSupabaseClient();
+  if (!sb) return;
+  try {
+    const { data, error } = await sb
+      .from('custom_sprites')
+      .select('breed_key, sprite_data, palette')
+      .eq('is_public', true)
+      .order('updated_at', { ascending: false });
+    if (error || !data) return;
+    // Use the most recent custom sprite per breed
+    for (const row of data) {
+      if (!customSprites[row.breed_key]) {
+        customSprites[row.breed_key] = row.sprite_data;
+        if (!customPalette && row.palette) customPalette = row.palette;
+      }
+    }
+    // Clear sprite cache so new sprites are rendered
+    spriteCache.forEach((v, k) => { if (k.startsWith('dog_')) spriteCache.delete(k); });
+  } catch (e) {
+    console.warn('Failed to load custom sprites:', e);
+  }
+}
 
 function createCanvas(w, h) {
   const c = document.createElement('canvas');
@@ -145,18 +176,19 @@ function genTileSprite(tileType) {
   return c;
 }
 
-// Generate dog sprite from sprite-data.js pixel arrays
+// Generate dog sprite from sprite-data.js pixel arrays (or custom overrides)
 function genDogSprite(breedId, animState, frameIndex) {
   const breed = DOG_BREEDS[breedId] || DOG_BREEDS[0];
   const breedKey = breed.name.toLowerCase();
-  const breedData = DOG_SPRITES[breedKey];
+  const breedData = customSprites[breedKey] || DOG_SPRITES[breedKey];
   if (!breedData) return null;
 
   const frames = breedData[animState] || breedData.idle;
   const pixelData = frames[frameIndex % frames.length];
 
   // Resolve palette: indices 1-3 become breed-specific hex colors
-  const resolved = SPRITE_PALETTE.map(entry => {
+  const palette = customPalette || SPRITE_PALETTE;
+  const resolved = palette.map(entry => {
     if (entry === 'body') return breed.colors.body;
     if (entry === 'dark') return breed.colors.dark;
     if (entry === 'light') return breed.colors.light;

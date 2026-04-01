@@ -46,6 +46,25 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
 /* Export area */
 .export-area { background: #111; padding: 8px; border-radius: 4px; font-size: 11px; max-height: 150px; overflow-y: auto; }
 #exportOutput { width: 100%; height: 100px; background: #0a0a1a; color: #76FF03; border: 1px solid #333; font-family: monospace; font-size: 10px; resize: vertical; }
+
+/* Cloud save modal */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: #16213e; border: 1px solid #444; border-radius: 8px; padding: 20px; min-width: 400px; max-width: 600px; max-height: 80vh; overflow-y: auto; }
+.modal h3 { margin-bottom: 12px; }
+.modal input[type="text"] { background: #0a0a1a; color: #e0e0e0; border: 1px solid #444; padding: 6px 8px; border-radius: 4px; font-size: 13px; width: 100%; margin-bottom: 8px; }
+.modal .btn-row { display: flex; gap: 8px; margin-top: 12px; }
+.sprite-list { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+.sprite-item { display: flex; align-items: center; gap: 10px; padding: 8px; background: #0f3460; border-radius: 4px; cursor: pointer; border: 1px solid transparent; }
+.sprite-item:hover { border-color: #4fc3f7; }
+.sprite-item .sprite-info { flex: 1; }
+.sprite-item .sprite-info .name { font-weight: bold; font-size: 13px; }
+.sprite-item .sprite-info .meta { font-size: 11px; color: #888; }
+.sprite-item .sprite-actions { display: flex; gap: 4px; }
+.sprite-item .sprite-actions button { font-size: 11px; padding: 3px 6px; }
+.cloud-status { font-size: 11px; padding: 4px 0; }
+.cloud-status.ok { color: #76FF03; }
+.cloud-status.err { color: #e94560; }
 </style>
 </head>
 <body>
@@ -87,6 +106,11 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
   <button id="shiftLeft">Shift Left</button>
   <button id="shiftRight">Shift Right</button>
 
+  <h3>Cloud Save</h3>
+  <button id="cloudSaveBtn">Save to Cloud</button>
+  <button id="cloudLoadBtn">Load from Cloud</button>
+  <div id="cloudStatus" class="cloud-status"></div>
+
   <h3>Import / Export</h3>
   <button id="exportBtn">Copy All to Clipboard</button>
   <button id="exportBreedBtn">Copy Breed</button>
@@ -119,6 +143,40 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
     </div>
   </div>
 </div>
+
+<!-- Save modal -->
+<div class="modal-overlay" id="saveModal">
+  <div class="modal">
+    <h3>Save Sprite to Cloud</h3>
+    <label>Sprite Name</label>
+    <input type="text" id="saveName" placeholder="My awesome labrador">
+    <label>Author</label>
+    <input type="text" id="saveAuthor" placeholder="anonymous">
+    <label><input type="checkbox" id="savePublic" checked> Public (visible to others)</label>
+    <div class="btn-row">
+      <button id="saveConfirmBtn">Save</button>
+      <button id="saveCancelBtn">Cancel</button>
+    </div>
+    <div id="saveStatus" class="cloud-status"></div>
+  </div>
+</div>
+
+<!-- Load modal -->
+<div class="modal-overlay" id="loadModal">
+  <div class="modal">
+    <h3>Load Sprite from Cloud</h3>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <select id="loadBreedFilter"><option value="">All breeds</option></select>
+      <button id="loadRefreshBtn">Refresh</button>
+    </div>
+    <div class="sprite-list" id="spriteList"></div>
+    <div class="btn-row">
+      <button id="loadCancelBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
 <script type="module">
 import { DOG_BREEDS } from '../../shared/constants.js';
@@ -676,6 +734,203 @@ function rebuildUI() {
 rebuildUI();
 // Start animation preview
 setInterval(drawAnimPreview, 125);
+
+// ------ Cloud Save/Load (Supabase) ------
+
+const SUPABASE_URL = window.SUPABASE_URL || localStorage.getItem('DOG_GAME_SUPABASE_URL') || '';
+const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || localStorage.getItem('DOG_GAME_SUPABASE_KEY') || '';
+
+let supabaseClient = null;
+
+function initSupabase() {
+  if (supabaseClient) return supabaseClient;
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || typeof window.supabase === 'undefined') return null;
+  try {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    return supabaseClient;
+  } catch (e) {
+    console.warn('Supabase init failed:', e);
+    return null;
+  }
+}
+
+function showCloudStatus(msg, isError) {
+  const el = document.getElementById('cloudStatus');
+  el.textContent = msg;
+  el.className = 'cloud-status ' + (isError ? 'err' : 'ok');
+  setTimeout(() => { el.textContent = ''; }, 4000);
+}
+
+// Save modal
+document.getElementById('cloudSaveBtn').addEventListener('click', () => {
+  const sb = initSupabase();
+  if (!sb) {
+    showCloudStatus('Supabase not configured. Set SUPABASE_URL and key in localStorage.', true);
+    return;
+  }
+  document.getElementById('saveName').value = `${currentBreed} sprite`;
+  document.getElementById('saveAuthor').value = localStorage.getItem('DOG_GAME_AUTHOR') || 'anonymous';
+  document.getElementById('saveModal').classList.add('open');
+});
+
+document.getElementById('saveCancelBtn').addEventListener('click', () => {
+  document.getElementById('saveModal').classList.remove('open');
+});
+
+document.getElementById('saveConfirmBtn').addEventListener('click', async () => {
+  const sb = initSupabase();
+  if (!sb) return;
+  const name = document.getElementById('saveName').value.trim() || `${currentBreed} sprite`;
+  const author = document.getElementById('saveAuthor').value.trim() || 'anonymous';
+  const isPublic = document.getElementById('savePublic').checked;
+  localStorage.setItem('DOG_GAME_AUTHOR', author);
+
+  const saveStatus = document.getElementById('saveStatus');
+  saveStatus.textContent = 'Saving...';
+  saveStatus.className = 'cloud-status';
+
+  const spriteData = sprites[currentBreed];
+  const { error } = await sb.from('custom_sprites').insert({
+    name,
+    breed_key: currentBreed,
+    sprite_data: spriteData,
+    palette: customPalette,
+    author,
+    is_public: isPublic,
+  });
+
+  if (error) {
+    saveStatus.textContent = 'Save failed: ' + error.message;
+    saveStatus.className = 'cloud-status err';
+  } else {
+    saveStatus.textContent = 'Saved!';
+    saveStatus.className = 'cloud-status ok';
+    setTimeout(() => {
+      document.getElementById('saveModal').classList.remove('open');
+      saveStatus.textContent = '';
+    }, 1000);
+    showCloudStatus(`Saved "${name}" to cloud`, false);
+  }
+});
+
+// Load modal
+const loadBreedFilter = document.getElementById('loadBreedFilter');
+DOG_BREEDS.forEach(b => {
+  const opt = document.createElement('option');
+  opt.value = b.name.toLowerCase();
+  opt.textContent = b.name;
+  loadBreedFilter.appendChild(opt);
+});
+
+document.getElementById('cloudLoadBtn').addEventListener('click', () => {
+  const sb = initSupabase();
+  if (!sb) {
+    showCloudStatus('Supabase not configured. Set SUPABASE_URL and key in localStorage.', true);
+    return;
+  }
+  document.getElementById('loadModal').classList.add('open');
+  loadSpriteList();
+});
+
+document.getElementById('loadCancelBtn').addEventListener('click', () => {
+  document.getElementById('loadModal').classList.remove('open');
+});
+
+document.getElementById('loadRefreshBtn').addEventListener('click', loadSpriteList);
+loadBreedFilter.addEventListener('change', loadSpriteList);
+
+async function loadSpriteList() {
+  const sb = initSupabase();
+  if (!sb) return;
+  const listEl = document.getElementById('spriteList');
+  listEl.innerHTML = '<div style="color:#888;font-size:12px">Loading...</div>';
+
+  let query = sb.from('custom_sprites')
+    .select('id, name, breed_key, author, created_at, sprite_data, palette')
+    .eq('is_public', true)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  const breedFilter = loadBreedFilter.value;
+  if (breedFilter) {
+    query = query.eq('breed_key', breedFilter);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    listEl.innerHTML = `<div class="cloud-status err">Error: ${error.message}</div>`;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    listEl.innerHTML = '<div style="color:#888;font-size:12px">No sprites found.</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  for (const row of data) {
+    const item = document.createElement('div');
+    item.className = 'sprite-item';
+
+    const date = new Date(row.created_at).toLocaleDateString();
+    item.innerHTML = `
+      <div class="sprite-info">
+        <div class="name">${escapeHtml(row.name)}</div>
+        <div class="meta">${escapeHtml(row.breed_key)} by ${escapeHtml(row.author || 'anonymous')} - ${date}</div>
+      </div>
+      <div class="sprite-actions">
+        <button class="load-btn">Load</button>
+        <button class="delete-btn" style="background:#5a1a1a">Del</button>
+      </div>
+    `;
+
+    item.querySelector('.load-btn').addEventListener('click', () => {
+      // Apply loaded sprite data to current editor state
+      const breedKey = row.breed_key;
+      if (row.sprite_data) {
+        sprites[breedKey] = JSON.parse(JSON.stringify(row.sprite_data));
+      }
+      if (row.palette) {
+        customPalette.length = 0;
+        row.palette.forEach(p => customPalette.push(p));
+      }
+      currentBreed = breedKey;
+      breedSelect.value = breedKey;
+      currentFrame = 0;
+      rebuildUI();
+      document.getElementById('loadModal').classList.remove('open');
+      showCloudStatus(`Loaded "${row.name}"`, false);
+    });
+
+    item.querySelector('.delete-btn').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!confirm(`Delete "${row.name}"?`)) return;
+      const { error: delError } = await sb.from('custom_sprites').delete().eq('id', row.id);
+      if (delError) {
+        showCloudStatus('Delete failed: ' + delError.message, true);
+      } else {
+        item.remove();
+        showCloudStatus(`Deleted "${row.name}"`, false);
+      }
+    });
+
+    listEl.appendChild(item);
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
 </script>
 </body>
 </html>
