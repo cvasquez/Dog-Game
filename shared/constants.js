@@ -114,6 +114,30 @@ export const MAX_FALL_SPEED = 12.0;
 export const PLAYER_WIDTH = 0.75;
 export const PLAYER_HEIGHT = 0.75;
 
+// Stamina
+export const BASE_MAX_STAMINA = 100;
+export const BASE_STAMINA_REGEN_RATE = 1.2;  // per frame on ground
+export const STAMINA_REGEN_DELAY = 30;        // frames on ground before regen starts
+export const STAMINA_EXHAUSTION_TIME = 45;    // frames locked out when fully drained
+
+// Climbing
+export const STAMINA_CLING_COST = 0.4;       // per frame while clinging
+export const STAMINA_CLIMB_COST = 1.0;       // per frame while climbing up
+export const STAMINA_CLIMB_JUMP = 20;        // flat cost per wall-jump
+export const CLIMB_SPEED = 2.5;              // tiles/sec climbing up
+export const CLING_SLIDE_SPEED = 0.5;        // tiles/sec sliding down while clinging
+export const CLIMB_JUMP_FORCE = -9.0;        // wall-jump vertical force
+
+// Movement feel
+export const ACCEL_GROUND = 0.8;       // ground acceleration per frame
+export const ACCEL_AIR = 0.5;          // air acceleration (less control)
+export const DECEL_GROUND = 0.7;       // ground deceleration multiplier (no input)
+export const DECEL_AIR = 0.95;         // air deceleration multiplier (preserve momentum)
+export const COYOTE_TIME = 6;          // frames after leaving edge where jump still works
+export const JUMP_BUFFER_TIME = 6;     // frames before landing where jump input is remembered
+export const JUMP_CUT_MULTIPLIER = 0.4; // vy multiplied by this when releasing jump early
+export const APEX_GRAVITY_MULT = 0.5;  // reduced gravity near jump apex for floaty feel
+
 // Dog breeds with stats
 export const DOG_BREEDS = [
   {
