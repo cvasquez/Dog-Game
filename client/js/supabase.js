@@ -1,7 +1,7 @@
 // Supabase client configuration
 // Replace these with your actual Supabase project values
-const SUPABASE_URL = window.SUPABASE_URL || 'https://YOUR_PROJECT.supabase.co';
-const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'YOUR_ANON_KEY';
+const SUPABASE_URL = window.SUPABASE_URL || 'https://qwvmbmjanuyinlqzmymt.supabase.co';
+const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'sb_publishable_TL41nSN0-SyAvpd3xgHUlw_N7fRqQIO';
 
 let _client = null;
 
