@@ -287,7 +287,7 @@ export class Player {
         this.grounded = true;
         if (this.clinging) this.releaseCling();
       } else {
-        this.y = Math.floor(this.y - this.hitboxHeight) + this.hitboxHeight + 1;
+        this.y = Math.floor(this.y - this.hitboxHeight) + this.hitboxHeight;
         if (this.clinging) this.vy = 0;
       }
       this.vy = 0;
