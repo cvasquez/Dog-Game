@@ -2,9 +2,9 @@ import {
   WORLD_WIDTH, WORLD_HEIGHT, TILE, SOLID_TILES, HARDNESS, RESOURCE_NAMES,
   RESOURCE_VALUE, HAZARD_TILES, GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION,
   MAX_FALL_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, SERVER_TICK_MS, MSG,
-  DECORATIONS, EMOTES, PARK_TOP, PARK_BOTTOM, DOG_BREEDS, STAMINA_DIG_COST,
+  DECORATIONS, EMOTES, PARK_TOP, PARK_BOTTOM, DOG_BREEDS, STAMINA_DIG_COST, SPRINT_SPEED_MULT, STAMINA_SPRINT_COST,
   UPGRADES, calcDecorationBonuses, BASE_MAX_STAMINA, BASE_STAMINA_REGEN_RATE,
-  STAMINA_REGEN_DELAY, EMOTE_DISPLAY_TICKS, RESPAWN_TICKS,
+  STAMINA_REGEN_DELAY, STAMINA_EXHAUSTION_TIME, EMOTE_DISPLAY_TICKS, RESPAWN_TICKS,
 } from '../shared/constants.js';
 import { generateWorld } from './world-gen.js';
 import { saveWorld, loadWorld, savePlayer, loadPlayer, listWorlds } from './persistence.js';
@@ -139,7 +139,17 @@ function updatePlayer(room, player, dt) {
   const inp = player.input;
 
   // Horizontal movement (use breed speed)
-  const speed = player.moveSpeed || MOVE_SPEED;
+  const baseSpeed = player.moveSpeed || MOVE_SPEED;
+  const sprinting = inp.sprint && !player.exhausted && player.stamina > 0 && player.grounded && (inp.left || inp.right);
+  const speed = sprinting ? baseSpeed * SPRINT_SPEED_MULT : baseSpeed;
+  if (sprinting) {
+    player.stamina -= STAMINA_SPRINT_COST;
+    if (player.stamina <= 0) {
+      player.exhausted = true;
+      player.exhaustionTimer = STAMINA_EXHAUSTION_TIME;
+      player.stamina = 0;
+    }
+  }
   if (inp.left) { player.vx = -speed; player.facing = -1; }
   else if (inp.right) { player.vx = speed; player.facing = 1; }
   else { player.vx *= FRICTION; if (Math.abs(player.vx) < 0.1) player.vx = 0; }
@@ -479,6 +489,7 @@ export function handleMessage(roomId, playerId, msg) {
         down: !!msg.down,
         jump: !!msg.jump,
         dig: !!msg.dig,
+        sprint: !!msg.sprint,
       };
       break;
 

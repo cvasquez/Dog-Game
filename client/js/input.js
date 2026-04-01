@@ -39,8 +39,8 @@ export class Input {
   get up() { return this.isDown('ArrowUp') || this.isDown('KeyW'); }
   get down() { return this.isDown('ArrowDown') || this.isDown('KeyS'); }
   get jump() { return this.isDown('Space'); }
-  // Dig requires holding Shift or J or K
-  get dig() { return this.isDown('ShiftLeft') || this.isDown('ShiftRight') || this.isDown('KeyJ') || this.isDown('KeyK'); }
+  get dig() { return this.isDown('KeyF') || this.isDown('KeyJ') || this.isDown('KeyK'); }
+  get sprint() { return this.isDown('ShiftLeft') || this.isDown('ShiftRight'); }
 
   getState() {
     return {
@@ -50,6 +50,7 @@ export class Input {
       down: this.down,
       jump: this.jump,
       dig: this.dig,
+      sprint: this.sprint,
     };
   }
 }
