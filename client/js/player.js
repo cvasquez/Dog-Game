@@ -1,7 +1,7 @@
 import {
   GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION, MAX_FALL_SPEED,
   PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, WORLD_WIDTH,
-  DOG_BREEDS, HAZARD_TILES, TILE, UPGRADES, EMOTES, STAMINA_DIG_COST,
+  DOG_BREEDS, HAZARD_TILES, TILE, UPGRADES, EMOTES, STAMINA_DIG_COST, SPRINT_SPEED_MULT, STAMINA_SPRINT_COST,
   BASE_MAX_STAMINA, BASE_STAMINA_REGEN_RATE, STAMINA_REGEN_DELAY, RESPAWN_FRAMES,
   STAMINA_EXHAUSTION_TIME, STAMINA_CLING_COST, STAMINA_CLIMB_COST,
   STAMINA_CLIMB_JUMP, CLIMB_SPEED, CLING_SLIDE_SPEED, CLIMB_JUMP_FORCE,
@@ -217,8 +217,16 @@ export class Player {
     } else {
       this.climbing = false;
 
+      // Sprint: boost speed while holding sprint with stamina
+      const sprinting = input.sprint && !this.exhausted && this.stamina > 0 && this.grounded && (input.left || input.right);
+      const effectiveSpeed = sprinting ? this.moveSpeed * SPRINT_SPEED_MULT : this.moveSpeed;
+      if (sprinting) {
+        this.stamina -= STAMINA_SPRINT_COST;
+        if (this.stamina <= 0) this.triggerExhaustion();
+      }
+
       // Acceleration-based horizontal movement
-      const targetVx = input.left ? -this.moveSpeed : input.right ? this.moveSpeed : 0;
+      const targetVx = input.left ? -effectiveSpeed : input.right ? effectiveSpeed : 0;
       if (targetVx !== 0) {
         if (input.left) this.facing = -1;
         if (input.right) this.facing = 1;
@@ -227,8 +235,8 @@ export class Player {
         const turning = (this.vx > 0 && targetVx < 0) || (this.vx < 0 && targetVx > 0);
         this.vx += Math.sign(targetVx) * accel * (turning ? 1.5 : 1);
         // Clamp to max speed
-        if (Math.abs(this.vx) > this.moveSpeed) {
-          this.vx = Math.sign(this.vx) * this.moveSpeed;
+        if (Math.abs(this.vx) > effectiveSpeed) {
+          this.vx = Math.sign(this.vx) * effectiveSpeed;
         }
       } else {
         // Decelerate

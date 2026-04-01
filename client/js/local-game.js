@@ -137,7 +137,7 @@ export class LocalGame {
     // Controls hint
     const hint = document.createElement('div');
     hint.className = 'controls-hint';
-    hint.innerHTML = 'WASD/Arrows: Move<br>Shift/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>R: Recall to surface (lose 50% loot)<br>E: Emotes | B: Shop | Tab: Save';
+    hint.innerHTML = 'WASD/Arrows: Move | Shift: Sprint<br>F/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>R: Recall to surface (lose 50% loot)<br>E: Emotes | B: Shop | Tab: Save';
     document.body.appendChild(hint);
 
     this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));

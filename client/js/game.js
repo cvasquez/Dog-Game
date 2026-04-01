@@ -99,7 +99,7 @@ export class Game {
     // Add controls hint
     const hint = document.createElement('div');
     hint.className = 'controls-hint';
-    hint.innerHTML = 'WASD/Arrows: Move<br>Shift/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>E: Emotes | B: Shop | Tab: Save';
+    hint.innerHTML = 'WASD/Arrows: Move | Shift: Sprint<br>F/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>E: Emotes | B: Shop | Tab: Save';
     document.body.appendChild(hint);
 
     // Canvas click for decoration placement
