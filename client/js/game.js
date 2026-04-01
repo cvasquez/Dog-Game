@@ -1,4 +1,4 @@
-import { TILE_SIZE, TILE, MSG, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES } from '../../shared/constants.js';
+import { TILE_SIZE, TILE, MSG, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, EMOTE_DISPLAY_FRAMES } from '../../shared/constants.js';
 import { World } from './world.js';
 import { Player } from './player.js';
 import { Camera } from './camera.js';
@@ -189,7 +189,7 @@ export class Game {
       const p = this.players.get(msg.playerId);
       if (p) {
         p.activeEmote = msg.emoteId;
-        p.emoteTimer = 60;
+        p.emoteTimer = EMOTE_DISPLAY_FRAMES;
         // Show buff activation for remote players (visual only)
         if (msg.buffDuration && !p.isLocal) {
           p.emoteBuff = { emoteId: msg.emoteId, timer: Math.round(msg.buffDuration * 60) };
@@ -274,7 +274,7 @@ export class Game {
         if (!this.localPlayer.emoteCooldowns[selected]) {
           this.network.sendEmote(selected);
           this.localPlayer.activeEmote = selected;
-          this.localPlayer.emoteTimer = 60;
+          this.localPlayer.emoteTimer = EMOTE_DISPLAY_FRAMES;
           this.localPlayer.activateEmoteBuff(selected);
           this.localPlayer.applyUpgrades(this.decorations);
         }

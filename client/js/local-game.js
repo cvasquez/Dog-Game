@@ -1,7 +1,7 @@
 import {
   TILE_SIZE, TILE, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, HARDNESS,
   SOLID_TILES, WORLD_WIDTH, PLAYER_WIDTH, PLAYER_HEIGHT, DECORATIONS,
-  EMOTES, PARK_TOP, PARK_BOTTOM, STAMINA_DIG_COST, UPGRADES,
+  EMOTES, PARK_TOP, PARK_BOTTOM, STAMINA_DIG_COST, UPGRADES, EMOTE_DISPLAY_FRAMES,
 } from '../../shared/constants.js';
 import { World } from './world.js';
 import { Player } from './player.js';
@@ -188,7 +188,7 @@ export class LocalGame {
       this.emoteWheel.hide();
       if (selected !== null && !this.localPlayer.emoteCooldowns[selected]) {
         this.localPlayer.activeEmote = selected;
-        this.localPlayer.emoteTimer = 60;
+        this.localPlayer.emoteTimer = EMOTE_DISPLAY_FRAMES;
         this.localPlayer.activateEmoteBuff(selected);
         this.localPlayer.applyUpgrades(this.decorations);
       }

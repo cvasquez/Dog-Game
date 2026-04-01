@@ -340,6 +340,14 @@ export const EMOTES = [
 // Digging stamina cost per frame
 export const STAMINA_DIG_COST = 1.5;
 
+// Emote bubble display duration (how long the symbol shows above player)
+export const EMOTE_DISPLAY_TICKS = 40;    // server ticks (~2s at 20Hz)
+export const EMOTE_DISPLAY_FRAMES = 60;   // client frames (~1s at 60fps)
+
+// Respawn delay after death
+export const RESPAWN_TICKS = 90;          // server ticks (~4.5s at 20Hz)
+export const RESPAWN_FRAMES = 90;         // client frames (~1.5s at 60fps)
+
 // Upgrades (collars, hats, etc.)
 export const UPGRADES = [
   // Collars - stamina & regen

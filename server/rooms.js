@@ -3,7 +3,8 @@ import {
   RESOURCE_VALUE, HAZARD_TILES, GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION,
   MAX_FALL_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, SERVER_TICK_MS, MSG,
   DECORATIONS, EMOTES, PARK_TOP, PARK_BOTTOM, DOG_BREEDS, STAMINA_DIG_COST,
-  UPGRADES, calcDecorationBonuses,
+  UPGRADES, calcDecorationBonuses, BASE_MAX_STAMINA, BASE_STAMINA_REGEN_RATE,
+  STAMINA_REGEN_DELAY, EMOTE_DISPLAY_TICKS, RESPAWN_TICKS,
 } from '../shared/constants.js';
 import { generateWorld } from './world-gen.js';
 import { saveWorld, loadWorld, savePlayer, loadPlayer, listWorlds } from './persistence.js';
@@ -60,9 +61,9 @@ function createPlayer(id, name, breedId) {
     // Upgrades
     ownedUpgrades: [],
     // Stamina
-    maxStamina: 100 * s.maxStamina,
-    stamina: 100 * s.maxStamina,
-    staminaRegenRate: 1.2 * s.staminaRegen,
+    maxStamina: BASE_MAX_STAMINA * s.maxStamina,
+    stamina: BASE_MAX_STAMINA * s.maxStamina,
+    staminaRegenRate: BASE_STAMINA_REGEN_RATE * s.staminaRegen,
     exhausted: false,
     exhaustionTimer: 0,
     groundedTimer: 0,
@@ -107,7 +108,7 @@ function checkHazards(room, player) {
     for (const tx of [cx, Math.floor(player.x - PLAYER_WIDTH / 2), Math.floor(player.x + PLAYER_WIDTH / 2 - 0.01)]) {
       if (HAZARD_TILES.has(getTile(room, tx, ty))) {
         player.dead = true;
-        player.respawnTimer = 90;
+        player.respawnTimer = RESPAWN_TICKS;
         return;
       }
     }
@@ -195,7 +196,7 @@ function updatePlayer(room, player, dt) {
   } else {
     player.groundedTimer = 0;
   }
-  if (player.grounded && !player.exhausted && player.groundedTimer > 30) {
+  if (player.grounded && !player.exhausted && player.groundedTimer > STAMINA_REGEN_DELAY) {
     player.stamina = Math.min(player.maxStamina, player.stamina + player.staminaRegenRate);
   }
 
@@ -486,7 +487,7 @@ export function handleMessage(roomId, playerId, msg) {
       }
       // Display emote bubble
       player.activeEmote = msg.emoteId;
-      player.emoteTimer = 40; // ~2 seconds at 20Hz
+      player.emoteTimer = EMOTE_DISPLAY_TICKS;
       // Activate buff
       if (emDef.effect) {
         const durationTicks = Math.round(emDef.duration * (1000 / SERVER_TICK_MS));
@@ -589,8 +590,8 @@ function applyServerUpgrades(player, room) {
   player.jumpForce = JUMP_FORCE * s.jumpForce;
   player.digSpeed = s.digSpeed;
   player.lootBonus = s.lootBonus || 0;
-  const baseMax = 100 * s.maxStamina;
-  const baseRegen = 1.2 * s.staminaRegen;
+  const baseMax = BASE_MAX_STAMINA * s.maxStamina;
+  const baseRegen = BASE_STAMINA_REGEN_RATE * s.staminaRegen;
   player.maxStamina = baseMax;
   player.staminaRegenRate = baseRegen;
 
