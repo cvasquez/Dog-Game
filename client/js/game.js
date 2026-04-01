@@ -8,7 +8,7 @@ import { ParticleSystem } from './particles.js';
 import { Network } from './network.js';
 import { HUD } from './hud.js';
 import { Shop } from './shop.js';
-import { EmoteWheel } from './emotes.js';
+import { ActionBar } from './emotes.js';
 
 export class Game {
   constructor() {
@@ -21,7 +21,7 @@ export class Game {
     this.network = new Network();
     this.hud = new HUD();
     this.shop = new Shop();
-    this.emoteWheel = new EmoteWheel();
+    this.actionBar = new ActionBar();
 
     this.localPlayer = null;
     this.players = new Map();
@@ -91,6 +91,7 @@ export class Game {
     this.canvas.style.display = 'block';
     document.getElementById('lobby').style.display = 'none';
     document.getElementById('hud').style.display = 'block';
+    this.actionBar.show();
 
     // Update HUD
     this.hud.setRoomCode(this.roomId);
@@ -263,28 +264,21 @@ export class Game {
       this.network.sendSave();
     }
 
-    // Handle emote wheel
-    if (this.input.isDown('KeyE')) {
-      this.emoteWheel.show(
-        this.localPlayer.unlockedEmotes,
-        this.input.mouseX,
-        this.input.mouseY,
-        this.localPlayer.emoteCooldowns,
-      );
-    } else if (this.emoteWheel.visible) {
-      const selected = this.emoteWheel.getSelected();
-      this.emoteWheel.hide();
-      if (selected !== null) {
-        // Check cooldown client-side before sending
-        if (!this.localPlayer.emoteCooldowns[selected]) {
-          this.network.sendEmote(selected);
-          this.localPlayer.activeEmote = selected;
+    // Action bar — number keys 1-8 trigger emotes
+    for (let k = 1; k <= 8; k++) {
+      if (this.input.justPressed('Digit' + k)) {
+        const emoteId = this.actionBar.getEmoteForSlot(k);
+        if (emoteId != null && !this.localPlayer.emoteCooldowns[emoteId]) {
+          this.network.sendEmote(emoteId);
+          this.localPlayer.activeEmote = emoteId;
           this.localPlayer.emoteTimer = EMOTE_DISPLAY_FRAMES;
-          this.localPlayer.activateEmoteBuff(selected);
+          this.localPlayer.activateEmoteBuff(emoteId);
           this.localPlayer.applyUpgrades(this.decorations);
         }
       }
     }
+    this.actionBar.update(this.localPlayer.unlockedEmotes, this.localPlayer.emoteCooldowns);
+    this.actionBar.activeEmoteId = this.localPlayer.emoteBuff ? this.localPlayer.emoteBuff.emoteId : null;
 
     // Tick emote buff/cooldown timers
     this.localPlayer.updateEmoteTimers(this.decorations);
@@ -382,8 +376,7 @@ export class Game {
       this.renderer.drawPlacementPreview(tx, ty, this.placingDecoration, valid, this.camera);
     }
 
-    // Draw emote wheel
-    this.emoteWheel.render();
+    // Action bar is HTML-based, no canvas render needed
   }
 
   handleCanvasClick(e) {

@@ -21,7 +21,7 @@ export class HUD {
     this.buffIndicator = document.createElement('div');
     this.buffIndicator.id = 'buffIndicator';
     this.buffIndicator.style.cssText = `
-      position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: 56px; left: 50%; transform: translateX(-50%);
       display: none; padding: 3px 10px; border-radius: 4px;
       background: rgba(0,0,0,0.7); border: 1px solid #4FC3F7;
       color: #4FC3F7; font-size: 11px; font-family: 'Press Start 2P', monospace;
