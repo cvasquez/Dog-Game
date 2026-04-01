@@ -27,14 +27,19 @@ export class Renderer {
     const scaleY = window.innerHeight / RENDER_HEIGHT;
     this.scale = Math.max(scaleX, scaleY);
 
-    this.canvas.width = Math.ceil(window.innerWidth / this.scale);
-    this.canvas.height = Math.ceil(window.innerHeight / this.scale);
+    const logicalW = Math.ceil(window.innerWidth / this.scale);
+    const logicalH = Math.ceil(window.innerHeight / this.scale);
+
+    // Use devicePixelRatio for sharper text rendering
+    this.canvas.width = logicalW * ratio;
+    this.canvas.height = logicalH * ratio;
     this.canvas.style.width = window.innerWidth + 'px';
     this.canvas.style.height = window.innerHeight + 'px';
+    this.ctx.scale(ratio, ratio);
     this.ctx.imageSmoothingEnabled = false;
 
-    this.renderWidth = this.canvas.width;
-    this.renderHeight = this.canvas.height;
+    this.renderWidth = logicalW;
+    this.renderHeight = logicalH;
   }
 
   getViewSize() {
