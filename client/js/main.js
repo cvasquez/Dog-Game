@@ -7,16 +7,31 @@ let game = null;
 // Load custom sprites from Supabase in the background (non-blocking)
 loadCustomSprites().catch(() => {});
 
-// Render breed preview sprites in lobby
+// Render animated breed preview sprites in lobby
 function renderBreedPreviews() {
+  const WALK_FRAMES = 2;
+  const FRAME_INTERVAL = 300; // ms per frame
   for (let i = 0; i < DOG_BREEDS.length; i++) {
     const container = document.getElementById('breedIcon' + i);
     if (!container) continue;
-    const sprite = getDogSprite(i, 'idle', 0);
-    if (sprite) {
-      container.innerHTML = '';
-      container.appendChild(sprite);
+    const canvas = document.createElement('canvas');
+    canvas.width = 16;
+    canvas.height = 16;
+    const ctx = canvas.getContext('2d');
+    container.innerHTML = '';
+    container.appendChild(canvas);
+
+    let frame = 0;
+    function drawFrame() {
+      const sprite = getDogSprite(i, 'walk', frame);
+      if (sprite) {
+        ctx.clearRect(0, 0, 16, 16);
+        ctx.drawImage(sprite, 0, 0);
+      }
+      frame = (frame + 1) % WALK_FRAMES;
     }
+    drawFrame();
+    setInterval(drawFrame, FRAME_INTERVAL);
   }
 }
 renderBreedPreviews();
