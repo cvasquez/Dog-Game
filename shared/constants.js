@@ -107,7 +107,7 @@ export const RESOURCE_NAMES = {
 
 // Base physics constants (modified by breed)
 export const GRAVITY = 0.6;
-export const MOVE_SPEED = 3.0;
+export const MOVE_SPEED = 1.8;
 export const JUMP_FORCE = -8.0;
 export const FRICTION = 0.8;
 export const MAX_FALL_SPEED = 12.0;
