@@ -12,7 +12,7 @@ export class EmoteWheel {
     this.unlockedEmotes = [];
     this.cooldowns = {};
     this.selectedIndex = -1;
-    this.radius = 130;
+    this.radius = 80;
   }
 
   show(unlockedEmotes, mouseX, mouseY, cooldowns) {
@@ -27,12 +27,22 @@ export class EmoteWheel {
     this.visible = true;
     this.canvas.style.display = 'block';
 
-    // Position and size the canvas
-    const size = this.radius * 2 + 40;
+    // Size the canvas with padding for labels
+    const pad = 40;
+    const size = this.radius * 2 + pad;
     this.canvas.width = size;
     this.canvas.height = size;
-    this.canvas.style.left = (this.centerX - size / 2) + 'px';
-    this.canvas.style.top = (this.centerY - size / 2) + 'px';
+
+    // Clamp position so the wheel stays fully on screen
+    const half = size / 2;
+    const clampedX = Math.max(half, Math.min(window.innerWidth - half, this.centerX));
+    const clampedY = Math.max(half, Math.min(window.innerHeight - half, this.centerY));
+    this.canvas.style.left = (clampedX - half) + 'px';
+    this.canvas.style.top = (clampedY - half) + 'px';
+
+    // Offset center for selection math if clamped
+    this._drawOffsetX = clampedX - this.centerX;
+    this._drawOffsetY = clampedY - this.centerY;
 
     this.updateSelection();
   }
@@ -47,7 +57,7 @@ export class EmoteWheel {
     const dy = this.mouseY - this.centerY;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (dist < 20) {
+    if (dist < 15) {
       this.selectedIndex = -1;
       return;
     }
@@ -83,8 +93,6 @@ export class EmoteWheel {
 
     const sliceAngle = (Math.PI * 2) / n;
 
-    const innerR = 30;
-
     for (let i = 0; i < n; i++) {
       const emoteId = this.unlockedEmotes[i];
       const emote = EMOTES[emoteId];
@@ -97,21 +105,21 @@ export class EmoteWheel {
       const onCooldown = !!(this.cooldowns[emoteId]);
       const cdRemaining = this.cooldowns[emoteId] || 0;
 
-      // Draw slice (ring shape with inner cutout)
+      // Draw slice
       ctx.beginPath();
+      ctx.moveTo(cx, cy);
       ctx.arc(cx, cy, this.radius, startAngle, endAngle);
-      ctx.arc(cx, cy, innerR, endAngle, startAngle, true);
       ctx.closePath();
 
       if (onCooldown) {
         ctx.fillStyle = 'rgba(60, 30, 30, 0.7)';
       } else if (isSelected) {
-        ctx.fillStyle = 'rgba(79, 195, 247, 0.35)';
+        ctx.fillStyle = 'rgba(79, 195, 247, 0.4)';
       } else {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
       }
       ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
       ctx.lineWidth = 1;
       ctx.stroke();
 
@@ -121,78 +129,59 @@ export class EmoteWheel {
         const cdFrac = cdRemaining / cdTotal;
         const sweepEnd = startAngle + sliceAngle * cdFrac;
         ctx.beginPath();
+        ctx.moveTo(cx, cy);
         ctx.arc(cx, cy, this.radius, startAngle, sweepEnd);
-        ctx.arc(cx, cy, innerR, sweepEnd, startAngle, true);
         ctx.closePath();
         ctx.fillStyle = 'rgba(200, 50, 50, 0.3)';
         ctx.fill();
       }
 
-      // --- Draw text along the slice ---
-      // Position emote symbol toward inner part of the ring
-      const symbolDist = innerR + (this.radius - innerR) * 0.32;
-      const sx = cx + Math.cos(midAngle) * symbolDist;
-      const sy = cy + Math.sin(midAngle) * symbolDist;
+      // Draw emote icon
+      const iconDist = this.radius * 0.6;
+      const ix = cx + Math.cos(midAngle) * iconDist;
+      const iy = cy + Math.sin(midAngle) * iconDist;
 
-      ctx.save();
       ctx.fillStyle = onCooldown ? '#888' : '#FFF';
-      ctx.font = isSelected ? 'bold 22px sans-serif' : '18px sans-serif';
+      ctx.font = isSelected ? 'bold 20px sans-serif' : '16px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(emote.symbol, sx, sy);
-      ctx.restore();
+      ctx.fillText(emote.symbol, ix, iy);
 
-      // Buff description text — rotated to follow the slice angle
-      if (emote.buffDesc) {
-        const textDist = innerR + (this.radius - innerR) * 0.68;
-        const tx = cx + Math.cos(midAngle) * textDist;
-        const ty = cy + Math.sin(midAngle) * textDist;
-
-        ctx.save();
-        ctx.translate(tx, ty);
-        // Rotate text to follow the radial direction, keep it readable
-        let textAngle = midAngle;
-        // Flip text that would render upside-down
-        if (midAngle > Math.PI / 2 || midAngle < -Math.PI / 2) {
-          textAngle += Math.PI;
-        }
-        ctx.rotate(textAngle);
-
-        const fontSize = isSelected ? 10 : 9;
-        ctx.font = (isSelected ? 'bold ' : '') + fontSize + 'px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
-        if (onCooldown) {
-          const secs = Math.ceil(cdRemaining / 60);
-          ctx.fillStyle = '#FF6B6B';
-          ctx.fillText('CD ' + secs + 's', 0, 0);
-        } else {
-          ctx.fillStyle = isSelected ? '#4FC3F7' : 'rgba(200, 200, 200, 0.8)';
-          ctx.fillText(emote.buffDesc, 0, 0);
-        }
-        ctx.restore();
+      // Cooldown seconds text below icon
+      if (onCooldown) {
+        const secs = Math.ceil(cdRemaining / 60);
+        ctx.fillStyle = '#FF6B6B';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.fillText(secs + 's', ix, iy + 12);
       }
     }
 
-    // Center circle with selected emote name
+    // Center circle
     ctx.beginPath();
-    ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 18, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
     ctx.fill();
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Show selected emote name in center
+    // Show selected emote info in center
     if (this.selectedIndex >= 0 && this.selectedIndex < n) {
-      const selEmote = EMOTES[this.unlockedEmotes[this.selectedIndex]];
+      const emoteId = this.unlockedEmotes[this.selectedIndex];
+      const selEmote = EMOTES[emoteId];
+      const onCooldown = !!(this.cooldowns[emoteId]);
       if (selEmote) {
         ctx.fillStyle = '#FFF';
-        ctx.font = 'bold 11px sans-serif';
+        ctx.font = 'bold 10px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(selEmote.name, cx, cy);
+        ctx.fillText(selEmote.name, cx, cy - 5);
+        if (selEmote.buffDesc) {
+          ctx.fillStyle = onCooldown ? '#FF6B6B' : '#4FC3F7';
+          ctx.font = '7px sans-serif';
+          const label = onCooldown ? 'CD ' + Math.ceil((this.cooldowns[emoteId] || 0) / 60) + 's' : selEmote.buffDesc;
+          ctx.fillText(label, cx, cy + 5);
+        }
       }
     }
   }
