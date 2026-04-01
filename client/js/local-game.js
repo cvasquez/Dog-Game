@@ -1,7 +1,7 @@
 import {
   TILE_SIZE, TILE, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, HARDNESS,
   SOLID_TILES, WORLD_WIDTH, PLAYER_WIDTH, PLAYER_HEIGHT, DECORATIONS,
-  EMOTES, PARK_TOP, PARK_BOTTOM,
+  EMOTES, PARK_TOP, PARK_BOTTOM, STAMINA_DIG_COST, UPGRADES,
 } from '../../shared/constants.js';
 import { World } from './world.js';
 import { Player } from './player.js';
@@ -74,6 +74,10 @@ export class LocalGame {
       this.localPlayer.y = saveData.player.y;
       this.localPlayer.resources = saveData.player.resources;
       this.localPlayer.unlockedEmotes = saveData.player.unlockedEmotes;
+      if (saveData.player.ownedUpgrades) {
+        this.localPlayer.ownedUpgrades = saveData.player.ownedUpgrades;
+        this.localPlayer.applyUpgrades();
+      }
     }
 
     this.players.set('local', this.localPlayer);
@@ -102,8 +106,24 @@ export class LocalGame {
       this.deductCost(emoteDef.cost);
       this.localPlayer.unlockedEmotes.push(emoteId);
       this.hud.updateResources(this.localPlayer.resources);
-      this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes);
+      this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades);
       this.notify('Emote unlocked!');
+    };
+    this.shop.onBuyUpgrade = (upgradeId) => {
+      const upgrade = UPGRADES.find(u => u.id === upgradeId);
+      if (!upgrade) return;
+      if (this.localPlayer.ownedUpgrades.includes(upgradeId)) return;
+      if (upgrade.requires != null && !this.localPlayer.ownedUpgrades.includes(upgrade.requires)) return;
+      if (!this.canAfford(upgrade.cost)) {
+        this.notify('Cannot afford this upgrade');
+        return;
+      }
+      this.deductCost(upgrade.cost);
+      this.localPlayer.ownedUpgrades.push(upgradeId);
+      this.localPlayer.applyUpgrades();
+      this.hud.updateResources(this.localPlayer.resources);
+      this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades);
+      this.notify(`${upgrade.name} equipped!`);
     };
 
     // Show game
@@ -151,7 +171,7 @@ export class LocalGame {
     // Shop toggle
     if (this.input.justPressed('KeyB')) {
       if (this.shop.visible) this.shop.hide();
-      else this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes);
+      else this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades);
     }
 
     // Save
@@ -239,8 +259,18 @@ export class LocalGame {
       this.digProgress = 0;
     }
 
+    // Digging costs stamina
+    if (p.stamina <= 0 || p.exhausted) {
+      this.digTarget = null;
+      this.digProgress = 0;
+      p.digging = false;
+      return;
+    }
+
     p.digging = true;
     p.digTarget = { x: tx, y: ty, tile: tileType };
+    p.stamina -= STAMINA_DIG_COST;
+    if (p.stamina < 0) p.stamina = 0;
     this.digProgress += (p.digSpeed || 1);
     p.digProgress = this.digProgress;
 
@@ -389,6 +419,7 @@ export class LocalGame {
         y: this.localPlayer.y,
         resources: this.localPlayer.resources,
         unlockedEmotes: this.localPlayer.unlockedEmotes,
+        ownedUpgrades: this.localPlayer.ownedUpgrades,
       },
       savedAt: Date.now(),
     };

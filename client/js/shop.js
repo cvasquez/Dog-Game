@@ -1,4 +1,4 @@
-import { DECORATIONS, EMOTES } from '../../shared/constants.js';
+import { DECORATIONS, EMOTES, UPGRADES } from '../../shared/constants.js';
 
 export class Shop {
   constructor() {
@@ -9,8 +9,10 @@ export class Shop {
     this.currentTab = 'decorations';
     this.playerResources = {};
     this.unlockedEmotes = [];
+    this.ownedUpgrades = [];
     this.onBuyDecoration = null;
     this.onBuyEmote = null;
+    this.onBuyUpgrade = null;
 
     // Tab switching
     document.querySelectorAll('.shop-tab').forEach(tab => {
@@ -25,9 +27,10 @@ export class Shop {
     this.closeBtn.addEventListener('click', () => this.hide());
   }
 
-  show(resources, unlockedEmotes) {
+  show(resources, unlockedEmotes, ownedUpgrades) {
     this.playerResources = resources;
     this.unlockedEmotes = unlockedEmotes;
+    this.ownedUpgrades = ownedUpgrades || [];
     this.visible = true;
     this.overlay.style.display = 'flex';
     this.renderItems();
@@ -59,7 +62,7 @@ export class Shop {
         });
         this.itemsContainer.appendChild(el);
       }
-    } else {
+    } else if (this.currentTab === 'emotes') {
       for (const emote of EMOTES) {
         const owned = this.unlockedEmotes.includes(emote.id);
         const canAfford = emote.cost ? this.checkAfford(emote.cost) : false;
@@ -90,6 +93,45 @@ export class Shop {
         if (!owned && emote.cost) {
           el.querySelector('.shop-item-buy').addEventListener('click', () => {
             if (this.onBuyEmote) this.onBuyEmote(emote.id);
+          });
+        }
+        this.itemsContainer.appendChild(el);
+      }
+    } else if (this.currentTab === 'upgrades') {
+      for (const upgrade of UPGRADES) {
+        const owned = this.ownedUpgrades.includes(upgrade.id);
+        const canAfford = this.checkAfford(upgrade.cost);
+        const locked = upgrade.requires != null && !this.ownedUpgrades.includes(upgrade.requires);
+        const prereq = locked ? UPGRADES.find(u => u.id === upgrade.requires) : null;
+
+        const el = document.createElement('div');
+        el.className = 'shop-item';
+
+        let btnText, btnDisabled;
+        if (owned) {
+          btnText = 'Owned';
+          btnDisabled = true;
+        } else if (locked) {
+          btnText = 'Locked';
+          btnDisabled = true;
+        } else {
+          btnText = 'Buy';
+          btnDisabled = !canAfford;
+        }
+
+        el.innerHTML = `
+          <div class="shop-item-icon" style="background:rgba(255,255,255,0.1);font-size:24px">${upgrade.icon}</div>
+          <div class="shop-item-info">
+            <div class="shop-item-name">${upgrade.name}</div>
+            <div class="shop-item-desc" style="font-size:11px;color:#aaa">${upgrade.desc}</div>
+            <div class="shop-item-cost">${locked ? 'Requires: ' + prereq.name : this.formatCost(upgrade.cost)}</div>
+          </div>
+          <button class="shop-item-buy" ${btnDisabled ? 'disabled' : ''}>${btnText}</button>
+        `;
+
+        if (!owned && !locked) {
+          el.querySelector('.shop-item-buy').addEventListener('click', () => {
+            if (this.onBuyUpgrade) this.onBuyUpgrade(upgrade.id);
           });
         }
         this.itemsContainer.appendChild(el);

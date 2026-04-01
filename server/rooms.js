@@ -2,7 +2,7 @@ import {
   WORLD_WIDTH, WORLD_HEIGHT, TILE, SOLID_TILES, HARDNESS, RESOURCE_NAMES,
   RESOURCE_VALUE, HAZARD_TILES, GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION,
   MAX_FALL_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, SERVER_TICK_MS, MSG,
-  DECORATIONS, EMOTES, PARK_TOP, PARK_BOTTOM, DOG_BREEDS,
+  DECORATIONS, EMOTES, PARK_TOP, PARK_BOTTOM, DOG_BREEDS, STAMINA_DIG_COST,
 } from '../shared/constants.js';
 import { generateWorld } from './world-gen.js';
 import { saveWorld, loadWorld, savePlayer, loadPlayer, listWorlds } from './persistence.js';
@@ -53,6 +53,13 @@ function createPlayer(id, name, breedId) {
     jumpForce: JUMP_FORCE * s.jumpForce,
     digSpeed: s.digSpeed,
     lootBonus: s.lootBonus || 0,
+    // Stamina
+    maxStamina: 100 * s.maxStamina,
+    stamina: 100 * s.maxStamina,
+    staminaRegenRate: 1.2 * s.staminaRegen,
+    exhausted: false,
+    exhaustionTimer: 0,
+    groundedTimer: 0,
     ws: null,
   };
 }
@@ -172,6 +179,20 @@ function updatePlayer(room, player, dt) {
   player.x = Math.max(1 + PLAYER_WIDTH / 2, Math.min(WORLD_WIDTH - 1 - PLAYER_WIDTH / 2, player.x));
   player.y = Math.max(PLAYER_HEIGHT, Math.min(WORLD_HEIGHT - 1, player.y));
 
+  // Stamina: regen on ground, exhaustion recovery
+  if (player.exhausted) {
+    player.exhaustionTimer--;
+    if (player.exhaustionTimer <= 0) player.exhausted = false;
+  }
+  if (player.grounded) {
+    player.groundedTimer++;
+  } else {
+    player.groundedTimer = 0;
+  }
+  if (player.grounded && !player.exhausted && player.groundedTimer > 30) {
+    player.stamina = Math.min(player.maxStamina, player.stamina + player.staminaRegenRate);
+  }
+
   // Digging
   handleDigging(room, player);
 
@@ -220,7 +241,17 @@ function handleDigging(room, player) {
     player.digProgress = 0;
   }
 
+  // Digging costs stamina
+  if (player.stamina <= 0 || player.exhausted) {
+    player.digTarget = null;
+    player.digProgress = 0;
+    player.digging = false;
+    return;
+  }
+
   player.digging = true;
+  player.stamina -= STAMINA_DIG_COST;
+  if (player.stamina < 0) player.stamina = 0;
   player.digProgress += (player.digSpeed || 1);
 
   const hardness = HARDNESS[tileType] || 3;

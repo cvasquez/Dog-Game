@@ -228,7 +228,7 @@ export class Game {
       if (this.shop.visible) {
         this.shop.hide();
       } else {
-        this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes);
+        this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades);
       }
     }
 

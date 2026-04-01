@@ -54,27 +54,27 @@ export const HAZARD_TILES = new Set([TILE.LAVA]);
 
 // Tile hardness (frames to dig, Infinity = undiggable)
 export const HARDNESS = {
-  [TILE.GRASS]: 2,
-  [TILE.DIRT]: 3,
-  [TILE.CLAY]: 8,
-  [TILE.STONE]: 15,
+  [TILE.GRASS]: 30,
+  [TILE.DIRT]: 60,
+  [TILE.CLAY]: 90,
+  [TILE.STONE]: 150,
   [TILE.BEDROCK]: Infinity,
   [TILE.GRANITE]: Infinity,
-  [TILE.BONE]: 3,
-  [TILE.GEM]: 8,
-  [TILE.FOSSIL]: 8,
-  [TILE.GOLD]: 15,
-  [TILE.DIAMOND]: 15,
-  [TILE.ARTIFACT]: 15,
+  [TILE.BONE]: 40,
+  [TILE.GEM]: 80,
+  [TILE.FOSSIL]: 80,
+  [TILE.GOLD]: 120,
+  [TILE.DIAMOND]: 150,
+  [TILE.ARTIFACT]: 150,
   // Biome tiles
-  [TILE.MUSHROOM_DIRT]: 4,
-  [TILE.MUSHROOM]: 5,
-  [TILE.CRYSTAL_ROCK]: 12,
-  [TILE.CRYSTAL]: 10,
-  [TILE.FROZEN_ICE]: 6,
-  [TILE.FROZEN_GEM]: 8,
-  [TILE.ANCIENT_BRICK]: 18,
-  [TILE.ANCIENT_RELIC]: 12,
+  [TILE.MUSHROOM_DIRT]: 50,
+  [TILE.MUSHROOM]: 60,
+  [TILE.CRYSTAL_ROCK]: 100,
+  [TILE.CRYSTAL]: 80,
+  [TILE.FROZEN_ICE]: 70,
+  [TILE.FROZEN_GEM]: 80,
+  [TILE.ANCIENT_BRICK]: 180,
+  [TILE.ANCIENT_RELIC]: 120,
 };
 
 // Resource values (currency)
@@ -113,6 +113,30 @@ export const FRICTION = 0.8;
 export const MAX_FALL_SPEED = 12.0;
 export const PLAYER_WIDTH = 0.75;
 export const PLAYER_HEIGHT = 0.75;
+
+// Stamina
+export const BASE_MAX_STAMINA = 100;
+export const BASE_STAMINA_REGEN_RATE = 1.2;  // per frame on ground
+export const STAMINA_REGEN_DELAY = 30;        // frames on ground before regen starts
+export const STAMINA_EXHAUSTION_TIME = 45;    // frames locked out when fully drained
+
+// Climbing
+export const STAMINA_CLING_COST = 0.4;       // per frame while clinging
+export const STAMINA_CLIMB_COST = 1.0;       // per frame while climbing up
+export const STAMINA_CLIMB_JUMP = 20;        // flat cost per wall-jump
+export const CLIMB_SPEED = 2.5;              // tiles/sec climbing up
+export const CLING_SLIDE_SPEED = 0.5;        // tiles/sec sliding down while clinging
+export const CLIMB_JUMP_FORCE = -9.0;        // wall-jump vertical force
+
+// Movement feel
+export const ACCEL_GROUND = 0.8;       // ground acceleration per frame
+export const ACCEL_AIR = 0.5;          // air acceleration (less control)
+export const DECEL_GROUND = 0.7;       // ground deceleration multiplier (no input)
+export const DECEL_AIR = 0.95;         // air deceleration multiplier (preserve momentum)
+export const COYOTE_TIME = 6;          // frames after leaving edge where jump still works
+export const JUMP_BUFFER_TIME = 6;     // frames before landing where jump input is remembered
+export const JUMP_CUT_MULTIPLIER = 0.4; // vy multiplied by this when releasing jump early
+export const APEX_GRAVITY_MULT = 0.5;  // reduced gravity near jump apex for floaty feel
 
 // Dog breeds with stats
 export const DOG_BREEDS = [
@@ -291,6 +315,42 @@ export const EMOTES = [
   { id: 5, name: 'Howl', symbol: '\uD83C\uDF19', cost: { fossils: 1 } },
   { id: 6, name: 'Rich Dog', symbol: '\uD83D\uDCB0', cost: { gold: 1 } },
   { id: 7, name: 'Diva', symbol: '\uD83D\uDC51', cost: { diamonds: 1 } },
+];
+
+// Digging stamina cost per frame
+export const STAMINA_DIG_COST = 1.5;
+
+// Upgrades (collars, hats, etc.)
+export const UPGRADES = [
+  // Collars - stamina & regen
+  { id: 0, name: 'Leather Collar', icon: '🔵', desc: '+10% stamina', category: 'collar',
+    cost: { bones: 15 }, effect: { maxStamina: 0.1 } },
+  { id: 1, name: 'Studded Collar', icon: '⚫', desc: '+20% stamina, +10% regen', category: 'collar',
+    cost: { bones: 30, gems: 3 }, effect: { maxStamina: 0.2, staminaRegen: 0.1 }, requires: 0 },
+  { id: 2, name: 'Golden Collar', icon: '🟡', desc: '+35% stamina, +20% regen', category: 'collar',
+    cost: { gold: 3, gems: 5 }, effect: { maxStamina: 0.35, staminaRegen: 0.2 }, requires: 1 },
+
+  // Hats - speed & jump
+  { id: 3, name: 'Baseball Cap', icon: '🧢', desc: '+10% speed', category: 'hat',
+    cost: { bones: 20 }, effect: { moveSpeed: 0.1 } },
+  { id: 4, name: 'Hard Hat', icon: '⛑️', desc: '+15% speed, +10% jump', category: 'hat',
+    cost: { bones: 25, fossils: 2 }, effect: { moveSpeed: 0.15, jumpForce: 0.1 }, requires: 3 },
+  { id: 5, name: 'Crown', icon: '👑', desc: '+25% speed, +20% jump', category: 'hat',
+    cost: { gold: 2, diamonds: 1 }, effect: { moveSpeed: 0.25, jumpForce: 0.2 }, requires: 4 },
+
+  // Bandanas - dig power
+  { id: 6, name: 'Red Bandana', icon: '🟥', desc: '+15% dig speed', category: 'bandana',
+    cost: { bones: 10, gems: 1 }, effect: { digSpeed: 0.15 } },
+  { id: 7, name: 'Camo Bandana', icon: '🟩', desc: '+30% dig speed', category: 'bandana',
+    cost: { fossils: 3, gems: 5 }, effect: { digSpeed: 0.3 }, requires: 6 },
+  { id: 8, name: 'Diamond Bandana', icon: '💠', desc: '+50% dig speed, +10% loot', category: 'bandana',
+    cost: { diamonds: 2, crystals: 3 }, effect: { digSpeed: 0.5, lootBonus: 0.1 }, requires: 7 },
+
+  // Boots - special
+  { id: 9, name: 'Hiking Boots', icon: '🥾', desc: '+15% climb stamina efficiency', category: 'boots',
+    cost: { bones: 20, mushrooms: 2 }, effect: { climbEfficiency: 0.15 } },
+  { id: 10, name: 'Rocket Boots', icon: '🚀', desc: '+25% climb efficiency, +10% speed', category: 'boots',
+    cost: { gold: 3, crystals: 2 }, effect: { climbEfficiency: 0.25, moveSpeed: 0.1 }, requires: 9 },
 ];
 
 // Network message types
