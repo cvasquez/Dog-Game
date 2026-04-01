@@ -225,7 +225,7 @@ export class LocalGame {
       this.recallToSurface();
     }
 
-    if (!this.shop.visible && !this.emoteWheel.visible) {
+    if (!this.shop.visible) {
       const inputState = this.input.getState();
       this.localPlayer.predictUpdate(inputState, this.world, dt);
       this.handleDigging(inputState);

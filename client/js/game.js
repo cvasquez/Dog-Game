@@ -291,7 +291,7 @@ export class Game {
       this.placingDecoration = null;
     }
 
-    if (!this.shop.visible && !this.emoteWheel.visible) {
+    if (!this.shop.visible) {
       // Send input to server
       const inputState = this.input.getState();
       this.network.sendInput(inputState);
