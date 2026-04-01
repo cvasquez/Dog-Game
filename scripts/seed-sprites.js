@@ -1,0 +1,78 @@
+#!/usr/bin/env node
+// Seed Supabase with the built-in sprite data from sprite-data.js
+// Usage: node scripts/seed-sprites.js
+
+import { DOG_SPRITES, SPRITE_PALETTE, ANIM_STATES } from '../shared/sprite-data.js';
+
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://qwvmbmjanuyinlqzmymt.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_TL41nSN0-SyAvpd3xgHUlw_N7fRqQIO';
+
+async function supabaseRequest(path, method, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`Supabase ${method} ${path} failed (${res.status}): ${text}`);
+  }
+  return text ? JSON.parse(text) : null;
+}
+
+async function main() {
+  console.log('Seeding sprites to Supabase...');
+  console.log(`URL: ${SUPABASE_URL}`);
+  console.log(`Breeds: ${Object.keys(DOG_SPRITES).join(', ')}`);
+  console.log(`Palette: ${SPRITE_PALETTE.length} entries`);
+  console.log();
+
+  for (const breedKey of Object.keys(DOG_SPRITES)) {
+    const spriteData = DOG_SPRITES[breedKey];
+
+    // Check if this breed already exists
+    const existing = await supabaseRequest(
+      `/custom_sprites?breed_key=eq.${breedKey}&name=eq.${encodeURIComponent(breedKey + ' (default)')}&select=id`,
+      'GET'
+    );
+
+    if (existing && existing.length > 0) {
+      // Update existing row
+      const id = existing[0].id;
+      console.log(`  Updating ${breedKey} (id: ${id})...`);
+      await supabaseRequest(
+        `/custom_sprites?id=eq.${id}`,
+        'PATCH',
+        {
+          sprite_data: spriteData,
+          palette: SPRITE_PALETTE,
+          updated_at: new Date().toISOString(),
+        }
+      );
+    } else {
+      // Insert new row
+      console.log(`  Inserting ${breedKey}...`);
+      await supabaseRequest('/custom_sprites', 'POST', {
+        name: `${breedKey} (default)`,
+        breed_key: breedKey,
+        sprite_data: spriteData,
+        palette: SPRITE_PALETTE,
+        author: 'system',
+        is_public: true,
+      });
+    }
+  }
+
+  console.log();
+  console.log('Done! All sprites seeded.');
+}
+
+main().catch(err => {
+  console.error('Seed failed:', err.message);
+  process.exit(1);
+});
