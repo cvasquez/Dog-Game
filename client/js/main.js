@@ -1,6 +1,10 @@
 import { LocalGame } from './local-game.js';
+import { loadCustomSprites } from './sprites.js';
 
 let game = null;
+
+// Load custom sprites from Supabase in the background (non-blocking)
+loadCustomSprites().catch(() => {});
 
 // DOM elements
 const lobby = document.getElementById('lobby');
