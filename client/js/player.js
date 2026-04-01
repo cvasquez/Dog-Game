@@ -216,26 +216,21 @@ export class Player {
       // Acceleration-based horizontal movement
       const targetVx = input.left ? -this.moveSpeed : input.right ? this.moveSpeed : 0;
       if (targetVx !== 0) {
-        // Accelerate toward target
         if (input.left) this.facing = -1;
         if (input.right) this.facing = 1;
         const accel = this.grounded ? ACCEL_GROUND : ACCEL_AIR;
-        if (Math.abs(this.vx) < Math.abs(targetVx)) {
-          this.vx += Math.sign(targetVx) * accel;
-          if (Math.abs(this.vx) > Math.abs(targetVx)) this.vx = targetVx;
-        } else {
-          // Turning: decelerate faster then accelerate
-          this.vx += Math.sign(targetVx) * accel * 1.5;
+        // Accelerate toward target, with faster turning
+        const turning = (this.vx > 0 && targetVx < 0) || (this.vx < 0 && targetVx > 0);
+        this.vx += Math.sign(targetVx) * accel * (turning ? 1.5 : 1);
+        // Clamp to max speed
+        if (Math.abs(this.vx) > this.moveSpeed) {
+          this.vx = Math.sign(this.vx) * this.moveSpeed;
         }
       } else {
         // Decelerate
         const decel = this.grounded ? DECEL_GROUND : DECEL_AIR;
-        if (this.grounded) {
-          this.vx *= decel;
-          if (Math.abs(this.vx) < 0.1) this.vx = 0;
-        } else {
-          this.vx *= decel; // preserve air momentum
-        }
+        this.vx *= decel;
+        if (Math.abs(this.vx) < 0.1) this.vx = 0;
       }
 
       // Jump with coyote time and buffer
