@@ -99,6 +99,8 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
   </div>
 
   <h3>Actions</h3>
+  <button id="copyFrame">Copy Frame</button>
+  <button id="pasteFrame">Paste Frame</button>
   <button id="clearFrame">Clear Frame</button>
   <button id="mirrorH">Mirror Horiz</button>
   <button id="shiftUp">Shift Up</button>
@@ -553,6 +555,28 @@ document.getElementById('clearFrame').addEventListener('click', () => {
     frames[currentFrame] = emptyFrame();
     rebuildUI();
   }
+});
+
+let copiedFrame = null;
+
+document.getElementById('copyFrame').addEventListener('click', () => {
+  const pixels = getCurrentPixels();
+  if (!pixels) return;
+  copiedFrame = pixels.slice();
+  statusText.textContent = 'Frame copied';
+  setTimeout(() => { statusText.textContent = ''; }, 2000);
+});
+
+document.getElementById('pasteFrame').addEventListener('click', () => {
+  if (!copiedFrame) {
+    statusText.textContent = 'Nothing to paste';
+    setTimeout(() => { statusText.textContent = ''; }, 2000);
+    return;
+  }
+  const frames = getFrames();
+  if (currentFrame >= frames.length) return;
+  frames[currentFrame] = copiedFrame.slice();
+  rebuildUI();
 });
 
 document.getElementById('mirrorH').addEventListener('click', () => {
