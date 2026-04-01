@@ -71,3 +71,72 @@ Client sends `INPUT` messages with `{left, right, up, down, jump, dig}` booleans
 - **New decoration:** Add to `DECORATIONS` in constants.js, add draw function in `sprites.js`, add cost.
 - **New upgrade:** Add to `UPGRADES` in constants.js with id, name, icon, desc, category, cost, effect (stat multipliers), and optional `requires` (prerequisite upgrade id). Server-side `applyServerUpgrades()` in `rooms.js` and client-side `applyUpgrades()` in `player.js` handle stat recalculation.
 - **Tuning balance:** All gameplay constants (stamina, climbing, movement feel, tile hardness, dig cost) are in `shared/constants.js`.
+
+## Frontend Design Guidelines
+
+When building or modifying UI for this game, follow these principles to create distinctive, polished interfaces that avoid generic "AI slop" aesthetics.
+
+### Design Thinking
+
+Before coding any UI, consider:
+
+- **Context**: This is a pixel art digging game with dogs. The aesthetic should feel playful, tactile, and grounded in the pixel art world — not like a corporate SaaS dashboard.
+- **Tone**: Lean into the game's personality — earthy, underground, charming, slightly rugged. Think retro game UI meets cozy exploration.
+- **Consistency**: UI elements should feel like they belong in the same world as the pixel sprites and tile-based terrain.
+
+### Typography
+
+- Prefer pixel-style or characterful fonts that complement the game's retro aesthetic (e.g., Press Start 2P, Silkscreen, or similar bitmap-inspired fonts).
+- Avoid generic system fonts (Arial, Inter, Roboto) for game-facing UI. These break the pixel art immersion.
+- Use readable body fonts where needed for longer text, but pair them with a distinctive display font for headings and labels.
+
+### Color & Theme
+
+- Draw colors from the game's existing palette — earth tones, stone grays, warm browns, lava oranges, gem-like accent colors.
+- Use CSS variables for theming consistency across lobby, HUD, and menus.
+- Avoid: purple-on-white gradients, generic blue primary buttons, washed-out neutral palettes. These scream "AI-generated."
+- Dominant earthy tones with sharp gem/mineral accents (ruby red, sapphire blue, emerald green) match the digging theme.
+
+### Layout & Spatial Design
+
+- Game UI (HUD, menus, breed picker) should use pixel-snapped sizing where possible — borders, padding, and margins that align to the tile grid.
+- The lobby and menus can break from strict pixel grids but should still feel handcrafted, not template-generated.
+- Use generous spacing and clear visual hierarchy. Avoid cramming elements together.
+- Asymmetry and personality are welcome — not every element needs to be perfectly centered.
+
+### Motion & Interaction
+
+- Prefer CSS-only animations for HTML UI elements.
+- Canvas animations should use the existing particle system and rendering pipeline.
+- Micro-interactions (hover effects on breed buttons, menu transitions) should feel snappy and game-like, not floaty corporate animations.
+- Prioritize responsiveness — interactions should feel instant in a game context.
+
+### Visual Details & Atmosphere
+
+- Add depth through textures and effects that match the underground theme:
+  - Subtle noise/grain overlays for a dig-site feel
+  - Vignette effects on the game canvas
+  - Layered backgrounds with parallax for menus
+  - Border styles that evoke stone, dirt, or carved surfaces
+- Avoid: flat white backgrounds, generic card layouts, drop shadows that look like Material Design.
+
+### What to Avoid
+
+**Never produce generic AI aesthetics:**
+- Overused fonts (Inter, Roboto, Arial, system-ui as display fonts)
+- Purple/blue gradient hero sections
+- Perfectly symmetrical, predictable grid layouts with rounded cards
+- Cookie-cutter component patterns that ignore the game's personality
+- Generic placeholder imagery or icons — use pixel art or game-themed elements
+
+### Canvas & Game-Specific UI
+
+- HUD elements rendered on canvas should use the existing sprite and color systems from `sprites.js` and `constants.js`.
+- New HUD elements should match the pixel density and rendering style of existing ones.
+- Overlays (pause screens, death screens, inventory) should integrate with the canvas pipeline, not awkwardly float HTML on top unless there's a clear UX reason.
+- Respect the existing 16x16 tile grid and sprite dimensions when designing in-game UI.
+
+### Guiding Principle
+
+Every UI element should feel like it was designed specifically for a game about dogs digging underground. If you could swap the UI into a random web app and it would still look "fine," it's too generic. Commit to the game's identity.
+

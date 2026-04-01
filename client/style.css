@@ -1,10 +1,48 @@
+/* === Dog Digging Game — Earthy Underground Theme === */
+
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root {
+  /* Earth palette */
+  --dirt-deep: #2C1810;
+  --dirt-mid: #3E2723;
+  --dirt-light: #5D4037;
+  --stone-dark: #37474F;
+  --stone-mid: #546E7A;
+  --stone-light: #78909C;
+  --clay: #BF6B50;
+  --grass: #4CAF50;
+  --grass-dark: #2E7D32;
+
+  /* Gem accents */
+  --gem-gold: #FFD700;
+  --gem-ruby: #E53935;
+  --gem-emerald: #43A047;
+  --gem-diamond: #4DD0E1;
+  --gem-purple: #CE93D8;
+
+  /* UI colors */
+  --bg-surface: #3A2518;
+  --bg-inset: #261108;
+  --border-stone: #6D4C41;
+  --border-highlight: #8D6E63;
+  --border-shadow: #1A0E08;
+  --text-primary: #E8D5B0;
+  --text-dim: #A0876C;
+  --text-bright: #FFF3E0;
+
+  /* Pixel grid unit */
+  --px: 4px;
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  background: #1a1a2e;
+  background: var(--dirt-deep);
   overflow: hidden;
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  color: #fff;
+  font-family: 'Press Start 2P', monospace;
+  color: var(--text-primary);
+  image-rendering: pixelated;
 }
 
 #gameCanvas {
@@ -16,38 +54,106 @@ body {
   display: none;
 }
 
-/* Lobby */
+/* ========== LOBBY ========== */
 #lobby {
   position: fixed;
   top: 0; left: 0; width: 100vw; height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
   z-index: 100;
+
+  /* Layered earth gradient */
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(0,0,0,0.04) 3px,
+      rgba(0,0,0,0.04) 4px
+    ),
+    linear-gradient(180deg,
+      #1B5E20 0%,
+      #2E7D32 3%,
+      #33691E 5%,
+      #5D4037 12%,
+      #4E342E 25%,
+      #3E2723 50%,
+      #2C1810 75%,
+      #1A0E08 100%
+    );
+}
+
+/* Dirt/grass texture overlay */
+#lobby::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image:
+    radial-gradient(circle at 20% 8%, rgba(76,175,80,0.15) 0%, transparent 2%),
+    radial-gradient(circle at 45% 6%, rgba(76,175,80,0.12) 0%, transparent 1.5%),
+    radial-gradient(circle at 70% 9%, rgba(76,175,80,0.1) 0%, transparent 2%),
+    radial-gradient(circle at 15% 30%, rgba(255,215,0,0.03) 0%, transparent 4%),
+    radial-gradient(circle at 80% 60%, rgba(255,107,0,0.02) 0%, transparent 5%),
+    radial-gradient(circle at 50% 85%, rgba(230,81,0,0.03) 0%, transparent 6%);
+  pointer-events: none;
+}
+
+/* Vignette */
+#lobby::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%);
+  pointer-events: none;
 }
 
 .lobby-box {
-  background: rgba(255,255,255,0.08);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 16px;
-  padding: 32px;
-  width: 380px;
+  position: relative;
+  z-index: 1;
+  width: 400px;
+  padding: 28px 24px;
   text-align: center;
+
+  /* Stone-carved panel */
+  background:
+    linear-gradient(180deg,
+      rgba(93,64,55,0.95) 0%,
+      rgba(62,39,35,0.97) 40%,
+      rgba(44,24,16,0.98) 100%
+    );
+
+  /* Double-border stone frame */
+  border: 3px solid var(--border-stone);
+  outline: 2px solid var(--border-shadow);
+  outline-offset: 0px;
+  box-shadow:
+    inset 0 1px 0 var(--border-highlight),
+    inset 0 -1px 0 var(--border-shadow),
+    0 0 0 4px rgba(0,0,0,0.3),
+    0 8px 32px rgba(0,0,0,0.6);
 }
 
 .lobby-box h1 {
-  font-size: 28px;
-  margin-bottom: 4px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 16px;
+  color: var(--gem-gold);
+  text-shadow:
+    1px 1px 0 #8B6914,
+    2px 2px 0 rgba(0,0,0,0.5);
+  margin-bottom: 8px;
+  line-height: 1.4;
+  letter-spacing: -0.5px;
 }
 
 .subtitle {
-  color: rgba(255,255,255,0.6);
-  font-size: 14px;
+  font-size: 8px;
+  color: var(--text-dim);
   margin-bottom: 24px;
+  line-height: 1.6;
 }
 
+/* Form elements */
 .form-group {
   margin-bottom: 16px;
   text-align: left;
@@ -55,106 +161,232 @@ body {
 
 .form-group label {
   display: block;
-  font-size: 13px;
-  color: rgba(255,255,255,0.7);
-  margin-bottom: 6px;
+  font-size: 8px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 input[type="text"] {
   width: 100%;
-  padding: 10px 14px;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 8px;
-  color: #fff;
-  font-size: 15px;
+  padding: 10px 12px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: var(--text-bright);
+  background: var(--bg-inset);
+  border: 2px solid var(--border-shadow);
+  box-shadow:
+    inset 0 2px 4px rgba(0,0,0,0.5),
+    0 1px 0 var(--border-stone);
   outline: none;
 }
 
 input[type="text"]:focus {
-  border-color: #4fc3f7;
+  border-color: var(--gem-gold);
+  box-shadow:
+    inset 0 2px 4px rgba(0,0,0,0.5),
+    0 0 6px rgba(255,215,0,0.2);
 }
 
+input[type="text"]::placeholder {
+  color: rgba(160,135,108,0.5);
+}
+
+/* ========== BREED PICKER ========== */
 .breed-picker {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .breed-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: rgba(255,255,255,0.05);
-  border: 2px solid transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  color: #fff;
+  gap: 12px;
+  padding: 8px 10px;
+  font-family: 'Press Start 2P', monospace;
+  color: var(--text-primary);
   text-align: left;
-  transition: all 0.2s;
+  cursor: pointer;
+  transition: background 0.1s;
+
+  background: rgba(0,0,0,0.2);
+  border: 2px solid transparent;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
 }
 
-.breed-btn:hover { background: rgba(255,255,255,0.1); }
-.breed-btn.selected { border-color: #4fc3f7; background: rgba(79,195,247,0.15); }
+.breed-btn:hover {
+  background: rgba(109,76,65,0.4);
+  border-color: var(--border-stone);
+}
+
+.breed-btn.selected {
+  border-color: var(--gem-gold);
+  background: rgba(255,215,0,0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255,215,0,0.1),
+    0 0 8px rgba(255,215,0,0.1);
+}
 
 .breed-icon {
-  width: 32px; height: 32px;
-  border-radius: 50%;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-shadow);
 }
 
-.breed-info { line-height: 1.3; }
-.breed-info strong { font-size: 14px; }
-.breed-info small { font-size: 11px; color: rgba(255,255,255,0.5); }
+/* Breed icon canvases rendered by JS */
+.breed-icon canvas {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+}
 
+.breed-info { line-height: 1.6; }
+.breed-info strong {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: var(--text-bright);
+}
+.breed-info small {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: var(--text-dim);
+}
+
+/* ========== BUTTONS ========== */
 .btn {
-  padding: 10px 20px;
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 8px;
-  background: rgba(255,255,255,0.1);
-  color: #fff;
-  font-size: 15px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  padding: 12px 16px;
   cursor: pointer;
-  transition: all 0.2s;
+  color: var(--text-primary);
+  transition: all 0.08s;
+
+  background:
+    linear-gradient(180deg,
+      rgba(109,76,65,0.8) 0%,
+      rgba(78,52,46,0.9) 100%
+    );
+  border: 2px solid var(--border-stone);
+  box-shadow:
+    inset 0 1px 0 var(--border-highlight),
+    inset 0 -1px 0 var(--border-shadow),
+    0 2px 0 var(--border-shadow);
 }
 
-.btn:hover { background: rgba(255,255,255,0.2); }
+.btn:hover {
+  background:
+    linear-gradient(180deg,
+      rgba(141,110,99,0.8) 0%,
+      rgba(109,76,65,0.9) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 var(--border-highlight),
+    inset 0 -1px 0 var(--border-shadow),
+    0 2px 0 var(--border-shadow);
+}
+
+.btn:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 var(--border-shadow),
+    inset 0 -1px 0 var(--border-highlight);
+}
 
 .btn-primary {
-  background: #4fc3f7;
-  color: #000;
-  border-color: #4fc3f7;
   width: 100%;
-  font-weight: bold;
+  font-size: 11px;
+  color: var(--dirt-deep);
+  background:
+    linear-gradient(180deg,
+      #FFD54F 0%,
+      #FFB300 50%,
+      #FF8F00 100%
+    );
+  border-color: #FF8F00;
+  box-shadow:
+    inset 0 1px 0 #FFE082,
+    inset 0 -1px 0 #E65100,
+    0 2px 0 var(--border-shadow),
+    0 0 12px rgba(255,215,0,0.15);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.3);
 }
 
-.btn-primary:hover { background: #81d4fa; }
+.btn-primary:hover {
+  background:
+    linear-gradient(180deg,
+      #FFE082 0%,
+      #FFC107 50%,
+      #FFA000 100%
+    );
+  box-shadow:
+    inset 0 1px 0 #FFF8E1,
+    inset 0 -1px 0 #E65100,
+    0 2px 0 var(--border-shadow),
+    0 0 16px rgba(255,215,0,0.25);
+}
+
+.btn-primary:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 #E65100,
+    inset 0 -1px 0 #FFE082;
+}
 
 .btn-secondary {
   width: 100%;
-  background: rgba(255,255,255,0.05);
+  background:
+    linear-gradient(180deg,
+      rgba(62,39,35,0.9) 0%,
+      rgba(44,24,16,0.95) 100%
+    );
 }
 
+.btn-secondary:hover {
+  background:
+    linear-gradient(180deg,
+      rgba(93,64,55,0.9) 0%,
+      rgba(62,39,35,0.95) 100%
+    );
+}
+
+/* ========== DIVIDERS ========== */
 .divider {
   margin: 16px 0;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .divider::before, .divider::after {
   content: '';
   flex: 1;
-  height: 1px;
-  background: rgba(255,255,255,0.15);
+  height: 2px;
+  background:
+    linear-gradient(90deg,
+      transparent,
+      var(--border-stone) 20%,
+      var(--border-stone) 80%,
+      transparent
+    );
 }
 
 .divider span {
-  font-size: 12px;
-  color: rgba(255,255,255,0.4);
+  font-size: 7px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
+/* ========== JOIN ROW ========== */
 .join-row {
   display: flex;
   gap: 8px;
@@ -165,13 +397,16 @@ input[type="text"]:focus {
   text-transform: uppercase;
 }
 
+/* ========== ERROR ========== */
 .error {
-  color: #ef5350;
-  font-size: 13px;
+  color: var(--gem-ruby);
+  font-size: 8px;
   margin-top: 12px;
-  min-height: 20px;
+  min-height: 16px;
+  text-shadow: 0 0 6px rgba(229,57,53,0.3);
 }
 
+/* ========== WORLD LIST ========== */
 .world-list {
   margin-top: 8px;
   max-height: 150px;
@@ -179,20 +414,30 @@ input[type="text"]:focus {
   text-align: left;
 }
 
+.world-list::-webkit-scrollbar { width: 6px; }
+.world-list::-webkit-scrollbar-track { background: var(--bg-inset); }
+.world-list::-webkit-scrollbar-thumb {
+  background: var(--border-stone);
+  border: 1px solid var(--border-shadow);
+}
+
 .world-item {
-  padding: 8px 12px;
-  background: rgba(255,255,255,0.05);
-  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 8px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid transparent;
   margin-bottom: 4px;
   cursor: pointer;
-  font-size: 13px;
   display: flex;
   justify-content: space-between;
 }
 
-.world-item:hover { background: rgba(255,255,255,0.12); }
+.world-item:hover {
+  background: rgba(109,76,65,0.3);
+  border-color: var(--border-stone);
+}
 
-/* HUD */
+/* ========== HUD ========== */
 #hud {
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -204,9 +449,11 @@ input[type="text"]:focus {
 #resourceBar {
   display: flex;
   gap: 12px;
-  font-size: 14px;
-  font-weight: bold;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  text-shadow:
+    1px 1px 0 rgba(0,0,0,1),
+    -1px -1px 0 rgba(0,0,0,0.5);
 }
 
 .resource-item { display: flex; align-items: center; gap: 4px; }
@@ -215,8 +462,11 @@ input[type="text"]:focus {
   position: fixed;
   right: 16px; top: 50%;
   transform: translateY(-50%);
-  font-size: 13px;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  text-shadow:
+    1px 1px 0 rgba(0,0,0,1),
+    -1px -1px 0 rgba(0,0,0,0.5);
   text-align: right;
 }
 
@@ -228,46 +478,44 @@ input[type="text"]:focus {
 }
 
 .stamina-label {
-  font-size: 10px;
-  color: rgba(255,255,255,0.6);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: var(--text-dim);
   margin-bottom: 2px;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+  text-shadow: 1px 1px 0 rgba(0,0,0,1);
 }
 
 .stamina-track {
   width: 80px;
   height: 6px;
-  background: rgba(0,0,0,0.4);
-  border-radius: 3px;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid var(--border-shadow);
   overflow: hidden;
 }
 
 .stamina-fill {
   height: 100%;
   width: 100%;
-  background: #66BB6A;
-  border-radius: 3px;
+  background: var(--gem-emerald);
   transition: width 0.08s linear, background 0.2s;
 }
 
-/* Low stamina: pulsing glow */
 #staminaBar.low .stamina-track {
   animation: staminaPulse 0.6s ease-in-out infinite;
 }
 
 @keyframes staminaPulse {
-  0%, 100% { box-shadow: 0 0 4px rgba(239, 83, 80, 0.3); }
-  50% { box-shadow: 0 0 10px rgba(239, 83, 80, 0.8); }
+  0%, 100% { box-shadow: 0 0 4px rgba(229,57,53,0.3); }
+  50% { box-shadow: 0 0 10px rgba(229,57,53,0.8); }
 }
 
-/* Exhaustion: flash red */
 #staminaBar.exhausted .stamina-track {
   animation: staminaExhaust 0.15s ease-in-out 4;
-  background: rgba(239, 83, 80, 0.3);
+  background: rgba(229,57,53,0.3);
 }
 
 #staminaBar.exhausted .stamina-label {
-  color: #EF5350;
+  color: var(--gem-ruby);
 }
 
 @keyframes staminaExhaust {
@@ -279,34 +527,36 @@ input[type="text"]:focus {
 #roomCode {
   position: fixed;
   top: 10px; right: 16px;
-  font-size: 13px;
-  background: rgba(0,0,0,0.5);
-  padding: 4px 10px;
-  border-radius: 4px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid var(--border-shadow);
+  padding: 6px 10px;
   pointer-events: auto;
   cursor: pointer;
 }
 
 #roomCode:hover::after {
-  content: ' (click to copy)';
-  font-size: 11px;
-  color: rgba(255,255,255,0.6);
+  content: ' COPY';
+  font-size: 7px;
+  color: var(--text-dim);
 }
 
 #playerList {
   position: fixed;
   bottom: 10px; left: 16px;
-  font-size: 12px;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  text-shadow: 1px 1px 0 rgba(0,0,0,1);
 }
 
-.player-entry { margin-bottom: 2px; }
+.player-entry { margin-bottom: 4px; }
 
-/* Shop */
+/* ========== SHOP ========== */
 #shopOverlay {
   position: fixed;
   top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(0,0,0,0.7);
+  background: rgba(0,0,0,0.75);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -314,38 +564,65 @@ input[type="text"]:focus {
 }
 
 .shop-box {
-  background: #1e1e3a;
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 12px;
+  background:
+    linear-gradient(180deg,
+      rgba(93,64,55,0.97) 0%,
+      rgba(62,39,35,0.98) 40%,
+      rgba(44,24,16,0.99) 100%
+    );
+  border: 3px solid var(--border-stone);
+  outline: 2px solid var(--border-shadow);
+  box-shadow:
+    inset 0 1px 0 var(--border-highlight),
+    0 8px 32px rgba(0,0,0,0.7);
   padding: 24px;
   width: 420px;
   max-height: 80vh;
   overflow-y: auto;
 }
 
-.shop-box h2 { margin-bottom: 16px; text-align: center; }
+.shop-box::-webkit-scrollbar { width: 6px; }
+.shop-box::-webkit-scrollbar-track { background: var(--bg-inset); }
+.shop-box::-webkit-scrollbar-thumb {
+  background: var(--border-stone);
+  border: 1px solid var(--border-shadow);
+}
+
+.shop-box h2 {
+  margin-bottom: 16px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--gem-gold);
+  text-shadow: 1px 1px 0 #8B6914, 2px 2px 0 rgba(0,0,0,0.5);
+}
 
 .shop-tabs {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   margin-bottom: 16px;
 }
 
 .shop-tab {
   flex: 1;
-  padding: 8px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 6px;
-  color: rgba(255,255,255,0.6);
+  padding: 8px 4px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  background: rgba(0,0,0,0.3);
+  border: 2px solid var(--border-shadow);
+  color: var(--text-dim);
   cursor: pointer;
-  font-size: 14px;
+  transition: all 0.1s;
+}
+
+.shop-tab:hover {
+  background: rgba(109,76,65,0.3);
+  color: var(--text-primary);
 }
 
 .shop-tab.active {
-  background: rgba(79,195,247,0.2);
-  border-color: #4fc3f7;
-  color: #fff;
+  background: rgba(255,215,0,0.1);
+  border-color: var(--gem-gold);
+  color: var(--gem-gold);
 }
 
 .shop-item {
@@ -353,51 +630,77 @@ input[type="text"]:focus {
   align-items: center;
   gap: 12px;
   padding: 10px;
-  background: rgba(255,255,255,0.03);
-  border-radius: 8px;
-  margin-bottom: 6px;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid transparent;
+  margin-bottom: 4px;
+}
+
+.shop-item:hover {
+  border-color: var(--border-stone);
 }
 
 .shop-item-icon {
   width: 36px; height: 36px;
-  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-shadow);
 }
 
 .shop-item-info { flex: 1; }
-.shop-item-name { font-size: 14px; font-weight: bold; }
-.shop-item-cost { font-size: 12px; color: rgba(255,255,255,0.5); }
-
-.shop-item-buy {
-  padding: 6px 14px;
-  background: #4fc3f7;
-  color: #000;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: pointer;
-  font-weight: bold;
+.shop-item-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: var(--text-bright);
+}
+.shop-item-cost {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: var(--text-dim);
+  margin-top: 4px;
 }
 
-.shop-item-buy:hover { background: #81d4fa; }
-.shop-item-buy:disabled { background: #555; color: #999; cursor: not-allowed; }
+.shop-item-buy {
+  padding: 6px 12px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  cursor: pointer;
+  color: var(--dirt-deep);
+  background:
+    linear-gradient(180deg, #FFD54F 0%, #FFB300 100%);
+  border: 2px solid #FF8F00;
+  box-shadow:
+    inset 0 1px 0 #FFE082,
+    0 1px 0 var(--border-shadow);
+}
+
+.shop-item-buy:hover {
+  background: linear-gradient(180deg, #FFE082 0%, #FFC107 100%);
+}
+
+.shop-item-buy:disabled {
+  background: rgba(62,39,35,0.8);
+  color: var(--text-dim);
+  border-color: var(--border-shadow);
+  cursor: not-allowed;
+  box-shadow: none;
+}
 
 #shopClose {
   width: 100%;
   margin-top: 12px;
 }
 
-/* Emote wheel */
+/* ========== EMOTE WHEEL ========== */
 #emoteWheel {
   position: fixed;
   z-index: 40;
   pointer-events: none;
 }
 
-/* Notifications */
+/* ========== NOTIFICATIONS ========== */
 #notifications {
   position: fixed;
   bottom: 60px;
@@ -411,12 +714,14 @@ input[type="text"]:focus {
 }
 
 .notification {
-  background: rgba(0,0,0,0.7);
-  padding: 6px 16px;
-  border-radius: 6px;
-  font-size: 13px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  background: rgba(0,0,0,0.8);
+  border: 1px solid var(--border-stone);
+  padding: 8px 16px;
   white-space: nowrap;
   animation: fadeUp 3s forwards;
+  text-shadow: 1px 1px 0 rgba(0,0,0,1);
 }
 
 @keyframes fadeUp {
@@ -426,14 +731,15 @@ input[type="text"]:focus {
   100% { opacity: 0; transform: translateY(-10px); }
 }
 
-/* Controls hint */
+/* ========== CONTROLS HINT ========== */
 .controls-hint {
   position: fixed;
   bottom: 10px;
   right: 16px;
-  font-size: 11px;
-  color: rgba(255,255,255,0.3);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: rgba(232,213,176,0.25);
   pointer-events: none;
   text-align: right;
-  line-height: 1.6;
+  line-height: 2;
 }
