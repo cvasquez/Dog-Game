@@ -789,14 +789,17 @@ async function loadSpritesFromDB() {
 
   // Use the most recent sprite per breed, populate working state
   const loaded = [];
+  let paletteLoaded = false;
   for (const row of data) {
     const key = row.breed_key;
     if (!dbRowIds[key]) {
       dbRowIds[key] = row.id;
       sprites[key] = JSON.parse(JSON.stringify(row.sprite_data));
-      if (row.palette) {
+      // Use the palette with the most entries (preserves custom colors)
+      if (row.palette && (!paletteLoaded || row.palette.length > customPalette.length)) {
         customPalette.length = 0;
         row.palette.forEach(p => customPalette.push(p));
+        paletteLoaded = true;
       }
       loaded.push(key);
     }
