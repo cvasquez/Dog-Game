@@ -1,12 +1,13 @@
 import {
   GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION, MAX_FALL_SPEED,
   PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, WORLD_WIDTH,
-  DOG_BREEDS, HAZARD_TILES, TILE, UPGRADES, STAMINA_DIG_COST,
+  DOG_BREEDS, HAZARD_TILES, TILE, UPGRADES, EMOTES, STAMINA_DIG_COST,
   BASE_MAX_STAMINA, BASE_STAMINA_REGEN_RATE, STAMINA_REGEN_DELAY,
   STAMINA_EXHAUSTION_TIME, STAMINA_CLING_COST, STAMINA_CLIMB_COST,
   STAMINA_CLIMB_JUMP, CLIMB_SPEED, CLING_SLIDE_SPEED, CLIMB_JUMP_FORCE,
   ACCEL_GROUND, ACCEL_AIR, DECEL_GROUND, DECEL_AIR,
   COYOTE_TIME, JUMP_BUFFER_TIME, JUMP_CUT_MULTIPLIER, APEX_GRAVITY_MULT,
+  calcDecorationBonuses,
 } from '../../shared/constants.js';
 
 export class Player {
@@ -27,6 +28,9 @@ export class Player {
     this.digProgress = 0;
     this.activeEmote = null;
     this.emoteTimer = 0;
+    // Emote ability system (RPG-style buffs with cooldowns)
+    this.emoteBuff = null;        // { effect, timer, emoteId } — active buff
+    this.emoteCooldowns = {};     // { [emoteId]: framesRemaining }
     this.resources = {
       bones: 0, gems: 0, fossils: 0, gold: 0, diamonds: 0, artifacts: 0,
       mushrooms: 0, crystals: 0, frozen_gems: 0, relics: 0,
@@ -495,7 +499,7 @@ export class Player {
     if (state.exhausted != null) this.exhausted = state.exhausted;
   }
 
-  applyUpgrades() {
+  applyUpgrades(decorations) {
     // Reset to base stats
     this.moveSpeed = this.baseMoveSpeed;
     this.jumpForce = this.baseJumpForce;
@@ -506,7 +510,7 @@ export class Player {
     this.maxStamina = this.baseMaxStamina;
     this.staminaRegenRate = this.baseStaminaRegen;
 
-    // Apply each owned upgrade's effects additively
+    // Apply each owned upgrade's effects additively (self-only)
     for (const id of this.ownedUpgrades) {
       const upgrade = UPGRADES.find(u => u.id === id);
       if (!upgrade) continue;
@@ -520,9 +524,62 @@ export class Player {
       if (e.climbEfficiency) this.climbEfficiency += e.climbEfficiency;
     }
 
+    // Apply decoration bonuses (shared — benefit all players)
+    if (decorations && decorations.length > 0) {
+      const db = calcDecorationBonuses(decorations);
+      if (db.moveSpeed) this.moveSpeed += this.baseMoveSpeed * db.moveSpeed;
+      if (db.jumpForce) this.jumpForce += this.baseJumpForce * db.jumpForce;
+      if (db.digSpeed) this.digSpeed += this.baseDigSpeed * db.digSpeed;
+      if (db.lootBonus) this.lootBonus += db.lootBonus;
+      if (db.maxStamina) this.maxStamina += this.baseMaxStamina * db.maxStamina;
+      if (db.staminaRegen) this.staminaRegenRate += this.baseStaminaRegen * db.staminaRegen;
+      if (db.climbEfficiency) this.climbEfficiency += db.climbEfficiency;
+    }
+
+    // Apply active emote buff (temporary, self-only)
+    if (this.emoteBuff) {
+      const e = this.emoteBuff.effect;
+      if (e.moveSpeed) this.moveSpeed += this.baseMoveSpeed * e.moveSpeed;
+      if (e.jumpForce) this.jumpForce += this.baseJumpForce * e.jumpForce;
+      if (e.digSpeed) this.digSpeed += this.baseDigSpeed * e.digSpeed;
+      if (e.lootBonus) this.lootBonus += e.lootBonus;
+      if (e.maxStamina) this.maxStamina += this.baseMaxStamina * e.maxStamina;
+      if (e.staminaRegen) this.staminaRegenRate += this.baseStaminaRegen * e.staminaRegen;
+      if (e.climbEfficiency) this.climbEfficiency += e.climbEfficiency;
+    }
+
     // Scale current stamina proportionally if max changed
     if (oldMax > 0 && this.maxStamina !== oldMax) {
       this.stamina = (this.stamina / oldMax) * this.maxStamina;
     }
+  }
+
+  // Activate an emote ability buff (client-side, 60fps frames)
+  activateEmoteBuff(emoteId) {
+    const emDef = EMOTES[emoteId];
+    if (!emDef || !emDef.effect) return false;
+    // Check cooldown
+    if (this.emoteCooldowns[emoteId]) return false;
+    // Start buff and cooldown (in 60fps frames)
+    this.emoteBuff = { effect: emDef.effect, timer: Math.round(emDef.duration * 60), emoteId };
+    this.emoteCooldowns[emoteId] = Math.round(emDef.cooldown * 60);
+    return true;
+  }
+
+  // Tick down emote buff and cooldowns (call once per frame at 60fps)
+  updateEmoteTimers(decorations) {
+    let recalc = false;
+    if (this.emoteBuff) {
+      this.emoteBuff.timer--;
+      if (this.emoteBuff.timer <= 0) {
+        this.emoteBuff = null;
+        recalc = true;
+      }
+    }
+    for (const id in this.emoteCooldowns) {
+      this.emoteCooldowns[id]--;
+      if (this.emoteCooldowns[id] <= 0) delete this.emoteCooldowns[id];
+    }
+    if (recalc) this.applyUpgrades(decorations);
   }
 }

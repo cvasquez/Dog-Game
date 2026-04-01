@@ -1,3 +1,5 @@
+import { EMOTES } from '../../shared/constants.js';
+
 export class HUD {
   constructor() {
     this.resourceBar = document.getElementById('resourceBar');
@@ -14,6 +16,19 @@ export class HUD {
     `;
     document.getElementById('hud').appendChild(this.staminaBar);
     this.staminaFill = this.staminaBar.querySelector('.stamina-fill');
+
+    // Create buff indicator
+    this.buffIndicator = document.createElement('div');
+    this.buffIndicator.id = 'buffIndicator';
+    this.buffIndicator.style.cssText = `
+      position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
+      display: none; padding: 3px 10px; border-radius: 4px;
+      background: rgba(0,0,0,0.7); border: 1px solid #4FC3F7;
+      color: #4FC3F7; font-size: 11px; font-family: 'Press Start 2P', monospace;
+      pointer-events: none; z-index: 100; white-space: nowrap;
+      text-shadow: 0 0 4px rgba(79,195,247,0.5);
+    `;
+    document.body.appendChild(this.buffIndicator);
   }
 
   updateResources(resources) {
@@ -95,6 +110,18 @@ export class HUD {
         });
       });
     }
+  }
+
+  updateBuff(emoteBuff) {
+    if (!emoteBuff) {
+      this.buffIndicator.style.display = 'none';
+      return;
+    }
+    const emote = EMOTES[emoteBuff.emoteId];
+    if (!emote) { this.buffIndicator.style.display = 'none'; return; }
+    const secs = Math.ceil(emoteBuff.timer / 60);
+    this.buffIndicator.textContent = `${emote.symbol} ${emote.buffDesc} (${secs}s)`;
+    this.buffIndicator.style.display = 'block';
   }
 
   updatePlayerList(players) {

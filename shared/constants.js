@@ -290,31 +290,51 @@ export const BIOMES = [
   },
 ];
 
-// Decoration definitions
+// Decoration definitions — each provides a small buff to ALL players in the room
 export const DECORATIONS = [
-  { id: 0, name: 'Fire Hydrant', cost: { bones: 5 }, w: 1, h: 1, color: '#F44336' },
-  { id: 1, name: 'Dog House', cost: { bones: 10 }, w: 2, h: 2, color: '#8D6E63' },
-  { id: 2, name: 'Tennis Ball', cost: { bones: 3 }, w: 1, h: 1, color: '#CDDC39' },
-  { id: 3, name: 'Flower Bed', cost: { bones: 8, gems: 1 }, w: 2, h: 1, color: '#E91E63' },
-  { id: 4, name: 'Fountain', cost: { gems: 5 }, w: 2, h: 2, color: '#42A5F5' },
-  { id: 5, name: 'Fossil Display', cost: { fossils: 3 }, w: 1, h: 2, color: '#A1887F' },
-  { id: 6, name: 'Gold Statue', cost: { gold: 2 }, w: 1, h: 2, color: '#FFC107' },
-  { id: 7, name: 'Diamond Kennel', cost: { diamonds: 1 }, w: 2, h: 2, color: '#00BCD4' },
-  { id: 8, name: 'Ancient Shrine', cost: { artifacts: 1 }, w: 2, h: 3, color: '#FF5722' },
-  { id: 9, name: 'Mushroom Garden', cost: { mushrooms: 3 }, w: 2, h: 1, color: '#76FF03' },
-  { id: 10, name: 'Crystal Display', cost: { crystals: 2 }, w: 1, h: 2, color: '#EA80FC' },
+  { id: 0, name: 'Fire Hydrant', cost: { bones: 5 }, w: 1, h: 1, color: '#F44336',
+    desc: '+3% stamina regen', effect: { staminaRegen: 0.03 } },
+  { id: 1, name: 'Dog House', cost: { bones: 10 }, w: 2, h: 2, color: '#8D6E63',
+    desc: '+5% max stamina', effect: { maxStamina: 0.05 } },
+  { id: 2, name: 'Tennis Ball', cost: { bones: 3 }, w: 1, h: 1, color: '#CDDC39',
+    desc: '+3% speed', effect: { moveSpeed: 0.03 } },
+  { id: 3, name: 'Flower Bed', cost: { bones: 8, gems: 1 }, w: 2, h: 1, color: '#E91E63',
+    desc: '+3% regen, +2% speed', effect: { staminaRegen: 0.03, moveSpeed: 0.02 } },
+  { id: 4, name: 'Fountain', cost: { gems: 5 }, w: 2, h: 2, color: '#42A5F5',
+    desc: '+8% stamina regen', effect: { staminaRegen: 0.08 } },
+  { id: 5, name: 'Fossil Display', cost: { fossils: 3 }, w: 1, h: 2, color: '#A1887F',
+    desc: '+5% dig speed', effect: { digSpeed: 0.05 } },
+  { id: 6, name: 'Gold Statue', cost: { gold: 2 }, w: 1, h: 2, color: '#FFC107',
+    desc: '+5% speed, +5% jump', effect: { moveSpeed: 0.05, jumpForce: 0.05 } },
+  { id: 7, name: 'Diamond Kennel', cost: { diamonds: 1 }, w: 2, h: 2, color: '#00BCD4',
+    desc: '+8% stamina, +5% regen', effect: { maxStamina: 0.08, staminaRegen: 0.05 } },
+  { id: 8, name: 'Ancient Shrine', cost: { artifacts: 1 }, w: 2, h: 3, color: '#FF5722',
+    desc: '+5% all stats', effect: { moveSpeed: 0.05, jumpForce: 0.05, digSpeed: 0.05, maxStamina: 0.05, staminaRegen: 0.05 } },
+  { id: 9, name: 'Mushroom Garden', cost: { mushrooms: 3 }, w: 2, h: 1, color: '#76FF03',
+    desc: '+5% climb efficiency', effect: { climbEfficiency: 0.05 } },
+  { id: 10, name: 'Crystal Display', cost: { crystals: 2 }, w: 1, h: 2, color: '#EA80FC',
+    desc: '+3% all stats, +5% loot', effect: { moveSpeed: 0.03, jumpForce: 0.03, digSpeed: 0.03, maxStamina: 0.03, staminaRegen: 0.03, lootBonus: 0.05 } },
 ];
 
-// Emote definitions
+// Emote definitions — each grants a temporary self-buff with a cooldown (RPG ability style)
+// duration/cooldown are in seconds; converted to ticks in game loops
 export const EMOTES = [
-  { id: 0, name: 'Bark!', symbol: '!', cost: null },
-  { id: 1, name: 'Wag', symbol: '~', cost: null },
-  { id: 2, name: 'Heart', symbol: '\u2764', cost: { bones: 3 } },
-  { id: 3, name: 'Dig Here!', symbol: '\u2B07', cost: { bones: 5 } },
-  { id: 4, name: 'Celebrate', symbol: '\u2B50', cost: { gems: 2 } },
-  { id: 5, name: 'Howl', symbol: '\uD83C\uDF19', cost: { fossils: 1 } },
-  { id: 6, name: 'Rich Dog', symbol: '\uD83D\uDCB0', cost: { gold: 1 } },
-  { id: 7, name: 'Diva', symbol: '\uD83D\uDC51', cost: { diamonds: 1 } },
+  { id: 0, name: 'Bark!', symbol: '!', cost: null,
+    buffDesc: '+15% speed for 5s', duration: 5, cooldown: 30, effect: { moveSpeed: 0.15 } },
+  { id: 1, name: 'Wag', symbol: '~', cost: null,
+    buffDesc: '+10% stamina regen for 8s', duration: 8, cooldown: 25, effect: { staminaRegen: 0.10 } },
+  { id: 2, name: 'Heart', symbol: '\u2764', cost: { bones: 3 },
+    buffDesc: '+8% all stats for 6s', duration: 6, cooldown: 40, effect: { moveSpeed: 0.08, jumpForce: 0.08, digSpeed: 0.08, maxStamina: 0.08, staminaRegen: 0.08 } },
+  { id: 3, name: 'Dig Here!', symbol: '\u2B07', cost: { bones: 5 },
+    buffDesc: '+20% dig speed for 6s', duration: 6, cooldown: 30, effect: { digSpeed: 0.20 } },
+  { id: 4, name: 'Celebrate', symbol: '\u2B50', cost: { gems: 2 },
+    buffDesc: '+15% jump, +10% speed for 5s', duration: 5, cooldown: 35, effect: { jumpForce: 0.15, moveSpeed: 0.10 } },
+  { id: 5, name: 'Howl', symbol: '\uD83C\uDF19', cost: { fossils: 1 },
+    buffDesc: '+20% max stamina for 8s', duration: 8, cooldown: 40, effect: { maxStamina: 0.20 } },
+  { id: 6, name: 'Rich Dog', symbol: '\uD83D\uDCB0', cost: { gold: 1 },
+    buffDesc: '+15% loot bonus for 10s', duration: 10, cooldown: 60, effect: { lootBonus: 0.15 } },
+  { id: 7, name: 'Diva', symbol: '\uD83D\uDC51', cost: { diamonds: 1 },
+    buffDesc: '+10% all stats for 8s', duration: 8, cooldown: 45, effect: { moveSpeed: 0.10, jumpForce: 0.10, digSpeed: 0.10, maxStamina: 0.10, staminaRegen: 0.10, climbEfficiency: 0.10 } },
 ];
 
 // Digging stamina cost per frame
@@ -377,6 +397,19 @@ export const MSG = {
   ERROR: 'error',
   WORLD_LIST: 'world_list',
 };
+
+// Sums up stat bonuses from all placed decorations (applies to every player)
+export function calcDecorationBonuses(decorations) {
+  const bonuses = {};
+  for (const dec of decorations) {
+    const def = DECORATIONS.find(d => d.id === dec.id);
+    if (!def || !def.effect) continue;
+    for (const [stat, val] of Object.entries(def.effect)) {
+      bonuses[stat] = (bonuses[stat] || 0) + val;
+    }
+  }
+  return bonuses;
+}
 
 // Server tick rate
 export const SERVER_TICK_MS = 50; // 20Hz

@@ -53,6 +53,7 @@ export class Shop {
           <div class="shop-item-icon" style="background:${dec.color}"></div>
           <div class="shop-item-info">
             <div class="shop-item-name">${dec.name}</div>
+            <div class="shop-item-desc" style="font-size:11px;color:#4FC3F7">${dec.desc || ''} <span style="color:#aaa;font-size:10px">(all players)</span></div>
             <div class="shop-item-cost">${this.formatCost(dec.cost)}</div>
           </div>
           <button class="shop-item-buy" ${canAfford ? '' : 'disabled'}>Place</button>
@@ -85,6 +86,7 @@ export class Shop {
           <div class="shop-item-icon" style="background:rgba(255,255,255,0.1);font-size:24px">${emote.symbol}</div>
           <div class="shop-item-info">
             <div class="shop-item-name">${emote.name}</div>
+            ${emote.buffDesc ? `<div class="shop-item-desc" style="font-size:11px;color:#4FC3F7">${emote.buffDesc} <span style="color:#aaa;font-size:10px">(${emote.cooldown}s cd)</span></div>` : ''}
             <div class="shop-item-cost">${emote.cost ? this.formatCost(emote.cost) : 'Free'}</div>
           </div>
           <button class="shop-item-buy" ${btnDisabled ? 'disabled' : ''}>${btnText}</button>

@@ -3,7 +3,7 @@ import {
   RESOURCE_VALUE, HAZARD_TILES, GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION,
   MAX_FALL_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, SERVER_TICK_MS, MSG,
   DECORATIONS, EMOTES, PARK_TOP, PARK_BOTTOM, DOG_BREEDS, STAMINA_DIG_COST,
-  UPGRADES,
+  UPGRADES, calcDecorationBonuses,
 } from '../shared/constants.js';
 import { generateWorld } from './world-gen.js';
 import { saveWorld, loadWorld, savePlayer, loadPlayer, listWorlds } from './persistence.js';
@@ -49,6 +49,9 @@ function createPlayer(id, name, breedId) {
     unlockedEmotes,
     activeEmote: null,
     emoteTimer: 0,
+    // Emote ability system
+    emoteBuff: null,        // { effect, timer } — active buff from emote
+    emoteCooldowns: {},     // { [emoteId]: ticksRemaining }
     // Breed stats
     moveSpeed: MOVE_SPEED * s.moveSpeed,
     jumpForce: JUMP_FORCE * s.jumpForce,
@@ -204,6 +207,21 @@ function updatePlayer(room, player, dt) {
     player.emoteTimer--;
     if (player.emoteTimer <= 0) player.activeEmote = null;
   }
+
+  // Emote buff timer
+  if (player.emoteBuff) {
+    player.emoteBuff.timer--;
+    if (player.emoteBuff.timer <= 0) {
+      player.emoteBuff = null;
+      applyServerUpgrades(player, room);
+    }
+  }
+
+  // Emote cooldown timers
+  for (const id in player.emoteCooldowns) {
+    player.emoteCooldowns[id]--;
+    if (player.emoteCooldowns[id] <= 0) delete player.emoteCooldowns[id];
+  }
 }
 
 function handleDigging(room, player) {
@@ -325,6 +343,7 @@ function tickRoom(room) {
       digTarget: p.digTarget,
       digProgress: p.digProgress,
       activeEmote: p.activeEmote,
+      emoteBuff: p.emoteBuff ? { emoteId: p.emoteBuff.emoteId, timer: p.emoteBuff.timer } : null,
       color: p.color,
       name: p.name,
       stamina: p.stamina,
@@ -377,7 +396,7 @@ export function joinRoom(roomId, player, ws) {
     player.resources = saved.resources;
     player.unlockedEmotes = saved.unlockedEmotes;
     player.ownedUpgrades = saved.ownedUpgrades || [];
-    applyServerUpgrades(player);
+    applyServerUpgrades(player, room);
   }
 
   room.players.set(player.id, player);
@@ -457,13 +476,31 @@ export function handleMessage(roomId, playerId, msg) {
       };
       break;
 
-    case MSG.EMOTE:
-      if (player.unlockedEmotes.includes(msg.emoteId)) {
-        player.activeEmote = msg.emoteId;
-        player.emoteTimer = 40; // ~2 seconds at 20Hz
-        broadcast(room, { type: MSG.EMOTE_TRIGGERED, playerId, emoteId: msg.emoteId });
+    case MSG.EMOTE: {
+      const emDef = EMOTES[msg.emoteId];
+      if (!emDef || !player.unlockedEmotes.includes(msg.emoteId)) break;
+      // Check cooldown
+      if (player.emoteCooldowns[msg.emoteId]) {
+        sendTo(player, { type: MSG.ERROR, message: `${emDef.name} is on cooldown` });
+        break;
       }
+      // Display emote bubble
+      player.activeEmote = msg.emoteId;
+      player.emoteTimer = 40; // ~2 seconds at 20Hz
+      // Activate buff
+      if (emDef.effect) {
+        const durationTicks = Math.round(emDef.duration * (1000 / SERVER_TICK_MS));
+        const cooldownTicks = Math.round(emDef.cooldown * (1000 / SERVER_TICK_MS));
+        player.emoteBuff = { effect: emDef.effect, timer: durationTicks, emoteId: msg.emoteId };
+        player.emoteCooldowns[msg.emoteId] = cooldownTicks;
+        applyServerUpgrades(player, room);
+      }
+      broadcast(room, {
+        type: MSG.EMOTE_TRIGGERED, playerId, emoteId: msg.emoteId,
+        buffDuration: emDef.duration, cooldown: emDef.cooldown,
+      });
       break;
+    }
 
     case MSG.PLACE_DECORATION: {
       const decDef = DECORATIONS.find(d => d.id === msg.decorationId);
@@ -482,6 +519,10 @@ export function handleMessage(roomId, playerId, msg) {
       const decoration = { id: decDef.id, x: msg.x, y: msg.y, placedBy: player.name };
       room.decorations.push(decoration);
       broadcast(room, { type: MSG.DECORATION_PLACED, decoration });
+      // Recalculate stats for ALL players (decoration buffs are shared)
+      for (const [, p] of room.players) {
+        applyServerUpgrades(p, room);
+      }
       sendTo(player, { type: MSG.PURCHASE_RESULT, success: true, resources: player.resources });
       break;
     }
@@ -511,7 +552,7 @@ export function handleMessage(roomId, playerId, msg) {
       }
       deductCost(player.resources, upgrade.cost);
       player.ownedUpgrades.push(msg.upgradeId);
-      applyServerUpgrades(player);
+      applyServerUpgrades(player, room);
       sendTo(player, { type: MSG.PURCHASE_RESULT, success: true, resources: player.resources, ownedUpgrades: player.ownedUpgrades });
       break;
     }
@@ -540,7 +581,7 @@ function deductCost(resources, cost) {
   }
 }
 
-function applyServerUpgrades(player) {
+function applyServerUpgrades(player, room) {
   const breed = DOG_BREEDS[player.breedId] || DOG_BREEDS[0];
   const s = breed.stats;
   // Reset to base
@@ -552,11 +593,34 @@ function applyServerUpgrades(player) {
   const baseRegen = 1.2 * s.staminaRegen;
   player.maxStamina = baseMax;
   player.staminaRegenRate = baseRegen;
-  // Apply upgrades
+
+  // Apply personal upgrades
   for (const id of player.ownedUpgrades) {
     const upgrade = UPGRADES.find(u => u.id === id);
     if (!upgrade) continue;
     const e = upgrade.effect;
+    if (e.moveSpeed) player.moveSpeed += MOVE_SPEED * s.moveSpeed * e.moveSpeed;
+    if (e.jumpForce) player.jumpForce += JUMP_FORCE * s.jumpForce * e.jumpForce;
+    if (e.digSpeed) player.digSpeed += s.digSpeed * e.digSpeed;
+    if (e.lootBonus) player.lootBonus += e.lootBonus;
+    if (e.maxStamina) player.maxStamina += baseMax * e.maxStamina;
+    if (e.staminaRegen) player.staminaRegenRate += baseRegen * e.staminaRegen;
+  }
+
+  // Apply decoration bonuses (shared — benefit all players)
+  if (room && room.decorations.length > 0) {
+    const db = calcDecorationBonuses(room.decorations);
+    if (db.moveSpeed) player.moveSpeed += MOVE_SPEED * s.moveSpeed * db.moveSpeed;
+    if (db.jumpForce) player.jumpForce += JUMP_FORCE * s.jumpForce * db.jumpForce;
+    if (db.digSpeed) player.digSpeed += s.digSpeed * db.digSpeed;
+    if (db.lootBonus) player.lootBonus += db.lootBonus;
+    if (db.maxStamina) player.maxStamina += baseMax * db.maxStamina;
+    if (db.staminaRegen) player.staminaRegenRate += baseRegen * db.staminaRegen;
+  }
+
+  // Apply active emote buff (temporary, self-only)
+  if (player.emoteBuff) {
+    const e = player.emoteBuff.effect;
     if (e.moveSpeed) player.moveSpeed += MOVE_SPEED * s.moveSpeed * e.moveSpeed;
     if (e.jumpForce) player.jumpForce += JUMP_FORCE * s.jumpForce * e.jumpForce;
     if (e.digSpeed) player.digSpeed += s.digSpeed * e.digSpeed;

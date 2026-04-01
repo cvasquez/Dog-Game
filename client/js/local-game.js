@@ -76,7 +76,7 @@ export class LocalGame {
       this.localPlayer.unlockedEmotes = saveData.player.unlockedEmotes;
       if (saveData.player.ownedUpgrades) {
         this.localPlayer.ownedUpgrades = saveData.player.ownedUpgrades;
-        this.localPlayer.applyUpgrades();
+        this.localPlayer.applyUpgrades(this.decorations);
       }
     }
 
@@ -120,7 +120,7 @@ export class LocalGame {
       }
       this.deductCost(upgrade.cost);
       this.localPlayer.ownedUpgrades.push(upgradeId);
-      this.localPlayer.applyUpgrades();
+      this.localPlayer.applyUpgrades(this.decorations);
       this.hud.updateResources(this.localPlayer.resources);
       this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades);
       this.notify(`${upgrade.name} equipped!`);
@@ -182,15 +182,20 @@ export class LocalGame {
 
     // Emote wheel
     if (this.input.isDown('KeyE')) {
-      this.emoteWheel.show(this.localPlayer.unlockedEmotes, this.input.mouseX, this.input.mouseY);
+      this.emoteWheel.show(this.localPlayer.unlockedEmotes, this.input.mouseX, this.input.mouseY, this.localPlayer.emoteCooldowns);
     } else if (this.emoteWheel.visible) {
       const selected = this.emoteWheel.getSelected();
       this.emoteWheel.hide();
-      if (selected !== null) {
+      if (selected !== null && !this.localPlayer.emoteCooldowns[selected]) {
         this.localPlayer.activeEmote = selected;
         this.localPlayer.emoteTimer = 60;
+        this.localPlayer.activateEmoteBuff(selected);
+        this.localPlayer.applyUpgrades(this.decorations);
       }
     }
+
+    // Tick emote buff/cooldown timers
+    this.localPlayer.updateEmoteTimers(this.decorations);
 
     if (this.input.justPressed('Escape')) {
       this.placingDecoration = null;
@@ -209,6 +214,7 @@ export class LocalGame {
 
     // Update stamina HUD
     this.hud.updateStamina(this.localPlayer.stamina, this.localPlayer.maxStamina, this.localPlayer.exhausted);
+    this.hud.updateBuff(this.localPlayer.emoteBuff);
 
     this.camera.follow(this.localPlayer.x, this.localPlayer.y);
     this.particles.update();
@@ -353,6 +359,8 @@ export class LocalGame {
       };
       this.decorations.push(decoration);
       this.placingDecoration = null;
+      // Recalculate stats (decoration buffs affect all players)
+      this.localPlayer.applyUpgrades(this.decorations);
       this.notify('Decoration placed!');
     } else {
       this.notify('Must place in the dog park area (above ground)');

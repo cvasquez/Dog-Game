@@ -55,7 +55,7 @@ export class Game {
     if (localData.unlockedEmotes) this.localPlayer.unlockedEmotes = localData.unlockedEmotes;
     if (localData.ownedUpgrades) {
       this.localPlayer.ownedUpgrades = localData.ownedUpgrades;
-      this.localPlayer.applyUpgrades();
+      this.localPlayer.applyUpgrades(this.decorations);
     }
     this.players.set(this.localPlayer.id, this.localPlayer);
 
@@ -180,6 +180,8 @@ export class Game {
 
     this.network.on(MSG.DECORATION_PLACED, (msg) => {
       this.decorations.push(msg.decoration);
+      // Recalculate local player stats (decoration buffs affect everyone)
+      this.localPlayer.applyUpgrades(this.decorations);
       this.notify(`${msg.decoration.placedBy} placed a decoration!`);
     });
 
@@ -188,6 +190,10 @@ export class Game {
       if (p) {
         p.activeEmote = msg.emoteId;
         p.emoteTimer = 60;
+        // Show buff activation for remote players (visual only)
+        if (msg.buffDuration && !p.isLocal) {
+          p.emoteBuff = { emoteId: msg.emoteId, timer: Math.round(msg.buffDuration * 60) };
+        }
       }
     });
 
@@ -202,7 +208,7 @@ export class Game {
         }
         if (msg.ownedUpgrades) {
           this.localPlayer.ownedUpgrades = msg.ownedUpgrades;
-          this.localPlayer.applyUpgrades();
+          this.localPlayer.applyUpgrades(this.decorations);
         }
         // Refresh shop if open
         if (this.shop.visible) {
@@ -257,17 +263,26 @@ export class Game {
       this.emoteWheel.show(
         this.localPlayer.unlockedEmotes,
         this.input.mouseX,
-        this.input.mouseY
+        this.input.mouseY,
+        this.localPlayer.emoteCooldowns,
       );
     } else if (this.emoteWheel.visible) {
       const selected = this.emoteWheel.getSelected();
       this.emoteWheel.hide();
       if (selected !== null) {
-        this.network.sendEmote(selected);
-        this.localPlayer.activeEmote = selected;
-        this.localPlayer.emoteTimer = 60;
+        // Check cooldown client-side before sending
+        if (!this.localPlayer.emoteCooldowns[selected]) {
+          this.network.sendEmote(selected);
+          this.localPlayer.activeEmote = selected;
+          this.localPlayer.emoteTimer = 60;
+          this.localPlayer.activateEmoteBuff(selected);
+          this.localPlayer.applyUpgrades(this.decorations);
+        }
       }
     }
+
+    // Tick emote buff/cooldown timers
+    this.localPlayer.updateEmoteTimers(this.decorations);
 
     // Cancel decoration placement on Escape
     if (this.input.justPressed('Escape')) {
@@ -308,6 +323,7 @@ export class Game {
 
     // Update stamina HUD
     this.hud.updateStamina(this.localPlayer.stamina, this.localPlayer.maxStamina, this.localPlayer.exhausted);
+    this.hud.updateBuff(this.localPlayer.emoteBuff);
 
     // Update camera
     this.camera.follow(this.localPlayer.x, this.localPlayer.y);

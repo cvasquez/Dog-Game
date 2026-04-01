@@ -117,6 +117,17 @@ export class Renderer {
     }
     this.ctx.restore();
 
+    // Buff glow effect
+    if (player.emoteBuff) {
+      this.ctx.save();
+      this.ctx.globalAlpha = 0.2 + 0.1 * Math.sin(Date.now() * 0.006);
+      this.ctx.shadowColor = '#4FC3F7';
+      this.ctx.shadowBlur = 8;
+      this.ctx.fillStyle = '#4FC3F7';
+      this.ctx.fillRect(Math.floor(screenPos.x - TILE_SIZE / 2 - 1), Math.floor(sy - 1), TILE_SIZE + 2, TILE_SIZE + 2);
+      this.ctx.restore();
+    }
+
     // Name tag
     this.ctx.fillStyle = isLocal ? '#4FC3F7' : '#FFF';
     this.ctx.font = '5px sans-serif';
