@@ -1,10 +1,25 @@
 import { LocalGame } from './local-game.js';
-import { loadCustomSprites } from './sprites.js';
+import { loadCustomSprites, getDogSprite } from './sprites.js';
+import { DOG_BREEDS } from '../../shared/constants.js';
 
 let game = null;
 
 // Load custom sprites from Supabase in the background (non-blocking)
 loadCustomSprites().catch(() => {});
+
+// Render breed preview sprites in lobby
+function renderBreedPreviews() {
+  for (let i = 0; i < DOG_BREEDS.length; i++) {
+    const container = document.getElementById('breedIcon' + i);
+    if (!container) continue;
+    const sprite = getDogSprite(i, 'idle', 0);
+    if (sprite) {
+      container.innerHTML = '';
+      container.appendChild(sprite);
+    }
+  }
+}
+renderBreedPreviews();
 
 // DOM elements
 const lobby = document.getElementById('lobby');
