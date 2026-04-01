@@ -16,6 +16,16 @@ const CLIMB_SPEED = 2.5;
 const CLING_SLIDE_SPEED = 0.5;
 const CLIMB_JUMP_FORCE = -9.0;
 
+// Platformer feel constants (Celeste/SMB-inspired)
+const ACCEL_GROUND = 0.8;       // ground acceleration per frame
+const ACCEL_AIR = 0.5;          // air acceleration (less control)
+const DECEL_GROUND = 0.7;       // ground deceleration when no input
+const DECEL_AIR = 0.95;         // air deceleration (preserve momentum)
+const COYOTE_TIME = 6;          // frames after leaving edge where jump still works
+const JUMP_BUFFER_TIME = 6;     // frames before landing where jump input is remembered
+const JUMP_CUT_MULTIPLIER = 0.4; // vy multiplied by this when releasing jump early
+const APEX_GRAVITY_MULT = 0.5;  // reduced gravity near jump apex for floaty feel
+
 export class Player {
   constructor(id, name, breedId) {
     this.id = id;
@@ -67,6 +77,11 @@ export class Player {
     this.exhaustionTimer = 0;
     this.groundedTimer = 0;
     this.prevJump = false;
+    this.coyoteTimer = 0;      // frames since last grounded
+    this.jumpBufferTimer = 0;  // frames since jump was pressed
+    this.jumpHeld = false;     // is jump still held (for variable height)
+    this.jumpWasCut = false;   // prevents cutting jump velocity every frame
+    this.wasGrounded = false;
 
     // Lava damage
     this.dead = false;
@@ -99,6 +114,13 @@ export class Player {
     const jumpPressed = input.jump && !this.prevJump;
     this.prevJump = input.jump;
 
+    // Jump buffer: remember jump presses for a few frames
+    if (jumpPressed) this.jumpBufferTimer = JUMP_BUFFER_TIME;
+    else if (this.jumpBufferTimer > 0) this.jumpBufferTimer--;
+
+    // Track jump held for variable jump height
+    this.jumpHeld = input.jump;
+
     const wallLeft = this.checkWall(world, -1);
     const wallRight = this.checkWall(world, 1);
     const nextToWall = wallLeft || wallRight;
@@ -109,8 +131,14 @@ export class Player {
       if (this.exhaustionTimer <= 0) this.exhausted = false;
     }
 
-    if (this.grounded) this.groundedTimer++;
-    else this.groundedTimer = 0;
+    // Coyote time: track frames since leaving ground
+    if (this.grounded) {
+      this.groundedTimer++;
+      this.coyoteTimer = COYOTE_TIME;
+    } else {
+      this.groundedTimer = 0;
+      if (this.coyoteTimer > 0) this.coyoteTimer--;
+    }
 
     // --- CLIMBING ---
     // Ledge detection: if head is above the wall top and space above ledge is clear, mantle up
@@ -126,6 +154,7 @@ export class Player {
         if (movingToward) {
           this.clinging = true;
           this.clingWallSide = wallLeft ? -1 : 1;
+          this.facing = this.clingWallSide; // face the wall
           this.vx = 0;
           this.vy = 0;
         }
@@ -147,6 +176,9 @@ export class Player {
 
     // --- MOVEMENT ---
     if (this.clinging) {
+      // Face the wall while clinging
+      this.facing = this.clingWallSide;
+
       // Check for mantle while climbing up
       if (input.up && this.canMantle(world, this.clingWallSide)) {
         this.performMantle(world, this.clingWallSide);
@@ -166,7 +198,6 @@ export class Player {
       if (jumpPressed && this.stamina >= STAMINA_CLIMB_JUMP) {
         this.stamina -= STAMINA_CLIMB_JUMP;
         this.vy = CLIMB_JUMP_FORCE;
-        // Small nudge away from wall; bigger push if pressing away
         const pushAway = (this.clingWallSide < 0 && input.right) ||
                          (this.clingWallSide > 0 && input.left);
         this.vx = -this.clingWallSide * this.moveSpeed * (pushAway ? 0.3 : 0.08);
@@ -181,16 +212,52 @@ export class Player {
       }
     } else {
       this.climbing = false;
-      if (input.left) { this.vx = -this.moveSpeed; this.facing = -1; }
-      else if (input.right) { this.vx = this.moveSpeed; this.facing = 1; }
-      else { this.vx *= FRICTION; if (Math.abs(this.vx) < 0.1) this.vx = 0; }
 
-      if (jumpPressed && this.grounded) {
-        this.vy = this.jumpForce;
-        this.grounded = false;
+      // Acceleration-based horizontal movement
+      const targetVx = input.left ? -this.moveSpeed : input.right ? this.moveSpeed : 0;
+      if (targetVx !== 0) {
+        // Accelerate toward target
+        if (input.left) this.facing = -1;
+        if (input.right) this.facing = 1;
+        const accel = this.grounded ? ACCEL_GROUND : ACCEL_AIR;
+        if (Math.abs(this.vx) < Math.abs(targetVx)) {
+          this.vx += Math.sign(targetVx) * accel;
+          if (Math.abs(this.vx) > Math.abs(targetVx)) this.vx = targetVx;
+        } else {
+          // Turning: decelerate faster then accelerate
+          this.vx += Math.sign(targetVx) * accel * 1.5;
+        }
+      } else {
+        // Decelerate
+        const decel = this.grounded ? DECEL_GROUND : DECEL_AIR;
+        if (this.grounded) {
+          this.vx *= decel;
+          if (Math.abs(this.vx) < 0.1) this.vx = 0;
+        } else {
+          this.vx *= decel; // preserve air momentum
+        }
       }
 
-      this.vy += GRAVITY;
+      // Jump with coyote time and buffer
+      const canJump = this.grounded || this.coyoteTimer > 0;
+      if (this.jumpBufferTimer > 0 && canJump) {
+        this.vy = this.jumpForce;
+        this.grounded = false;
+        this.coyoteTimer = 0;
+        this.jumpBufferTimer = 0;
+        this.jumpWasCut = false;
+      }
+
+      // Variable jump height: cut jump short ONCE when releasing
+      if (!this.jumpHeld && this.vy < 0 && !this.jumpWasCut) {
+        this.vy *= JUMP_CUT_MULTIPLIER;
+        this.jumpWasCut = true;
+      }
+
+      // Gravity with apex hang
+      const nearApex = Math.abs(this.vy) < 1.5 && !this.grounded;
+      const gravMult = nearApex ? APEX_GRAVITY_MULT : 1.0;
+      this.vy += GRAVITY * gravMult;
       if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
     }
 
@@ -337,20 +404,31 @@ export class Player {
     const topY = ledgeY - 1; // tile above the ledge
     const onTopX = wallTx;
     if (world.isSolid(onTopX, topY)) return false;
-    // Check there's room for the player on the ledge
-    if (this.collidesAt(world, onTopX + 0.5, ledgeY)) return false;
+
+    // Compute mantle position near the wall edge
+    const margin = 0.05;
+    let mantleX;
+    if (side < 0) {
+      mantleX = wallTx + 1 + PLAYER_WIDTH / 2 + margin;
+    } else {
+      mantleX = wallTx - PLAYER_WIDTH / 2 - margin;
+    }
+
+    // Check there's room for the player at the mantle position
+    if (this.collidesAt(world, mantleX, ledgeY)) return false;
 
     this._mantleLedgeY = ledgeY;
-    this._mantleX = onTopX + 0.5;
+    this._mantleX = mantleX;
     return true;
   }
 
   performMantle(world, side) {
-    // Snap player to the top of the ledge
+    // Smoothly move player to the top of the ledge near the wall edge
     this.x = this._mantleX;
     this.y = this._mantleLedgeY;
     this.vy = 0;
-    this.vx = 0;
+    // Preserve a small amount of horizontal momentum for fluid feel
+    this.vx = side < 0 ? -this.moveSpeed * 0.3 : this.moveSpeed * 0.3;
     this.grounded = true;
     if (this.clinging) this.releaseCling();
   }
