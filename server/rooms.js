@@ -182,7 +182,7 @@ function updatePlayer(room, player, dt) {
       player.grounded = true;
     } else {
       // Hit ceiling
-      player.y = Math.floor(player.y - ph) + ph + 1;
+      player.y = Math.floor(player.y - ph) + ph;
     }
     player.vy = 0;
   }
