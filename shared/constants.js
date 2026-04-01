@@ -54,10 +54,10 @@ export const HAZARD_TILES = new Set([TILE.LAVA]);
 
 // Tile hardness (frames to dig, Infinity = undiggable)
 export const HARDNESS = {
-  [TILE.GRASS]: 4,
-  [TILE.DIRT]: 6,
-  [TILE.CLAY]: 8,
-  [TILE.STONE]: 15,
+  [TILE.GRASS]: 8,
+  [TILE.DIRT]: 12,
+  [TILE.CLAY]: 16,
+  [TILE.STONE]: 25,
   [TILE.BEDROCK]: Infinity,
   [TILE.GRANITE]: Infinity,
   [TILE.BONE]: 3,
@@ -294,7 +294,7 @@ export const EMOTES = [
 ];
 
 // Digging stamina cost per frame
-export const STAMINA_DIG_COST = 0.5;
+export const STAMINA_DIG_COST = 1.0;
 
 // Upgrades (collars, hats, etc.)
 export const UPGRADES = [
