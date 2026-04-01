@@ -356,6 +356,9 @@ export const STAMINA_DIG_COST = 1.5;
 export const SPRINT_SPEED_MULT = 1.6;       // multiplier on move speed while sprinting
 export const STAMINA_SPRINT_COST = 0.8;     // per frame while sprinting
 
+// Mantling
+export const MANTLE_FRAMES = 15;            // frames to complete mantle animation (~250ms at 60fps)
+
 // Emote bubble display duration (how long the symbol shows above player)
 export const EMOTE_DISPLAY_TICKS = 40;    // server ticks (~2s at 20Hz)
 export const EMOTE_DISPLAY_FRAMES = 60;   // client frames (~1s at 60fps)

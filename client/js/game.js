@@ -303,7 +303,8 @@ export class Game {
       if (!player.isLocal) {
         player.interpolate(dt);
         // Derive animation state from server data
-        if (player.climbing || player.clinging) player.animState = 'climb';
+        if (player.mantling) player.animState = 'mantle';
+        else if (player.climbing || player.clinging) player.animState = 'climb';
         else if (player.digging) player.animState = 'dig';
         else if (Math.abs(player.vx) > 0.5) player.animState = 'walk';
         else player.animState = 'idle';

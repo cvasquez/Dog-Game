@@ -1,7 +1,7 @@
 import {
   GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION, MAX_FALL_SPEED,
   PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, WORLD_WIDTH,
-  DOG_BREEDS, HAZARD_TILES, TILE, UPGRADES, EMOTES, STAMINA_DIG_COST, SPRINT_SPEED_MULT, STAMINA_SPRINT_COST,
+  DOG_BREEDS, HAZARD_TILES, TILE, UPGRADES, EMOTES, STAMINA_DIG_COST, SPRINT_SPEED_MULT, STAMINA_SPRINT_COST, MANTLE_FRAMES,
   BASE_MAX_STAMINA, BASE_STAMINA_REGEN_RATE, STAMINA_REGEN_DELAY, RESPAWN_FRAMES,
   STAMINA_EXHAUSTION_TIME, STAMINA_CLING_COST, STAMINA_CLIMB_COST,
   STAMINA_CLIMB_JUMP, CLIMB_SPEED, CLING_SLIDE_SPEED, CLIMB_JUMP_FORCE,
@@ -45,6 +45,14 @@ export class Player {
     this.animState = 'idle';
     this.idleTimer = 0;
     this.isLocal = false;
+
+    // Mantle animation state
+    this.mantling = false;
+    this.mantleTimer = 0;
+    this.mantleStartX = 0;
+    this.mantleStartY = 0;
+    this.mantleEndX = 0;
+    this.mantleEndY = 0;
 
     // Breed-adjusted base stats (before upgrades)
     const s = this.breed.stats;
@@ -108,6 +116,32 @@ export class Player {
         this.vy = 0;
         this.stamina = this.maxStamina;
       }
+      return;
+    }
+
+    // Mantle animation: interpolate position, lock out input
+    if (this.mantling) {
+      this.mantleTimer--;
+      const t = 1 - (this.mantleTimer / MANTLE_FRAMES);
+      // Smooth ease-out interpolation
+      const ease = 1 - (1 - t) * (1 - t);
+      this.x = this.mantleStartX + (this.mantleEndX - this.mantleStartX) * ease;
+      this.y = this.mantleStartY + (this.mantleEndY - this.mantleStartY) * ease;
+      this.vx = 0;
+      this.vy = 0;
+      if (this.mantleTimer <= 0) {
+        this.mantling = false;
+        this.x = this.mantleEndX;
+        this.y = this.mantleEndY;
+        this.grounded = true;
+        // Small push in mantle direction for fluid feel
+        this.vx = this.mantleSide < 0 ? -this.moveSpeed * 0.3 : this.moveSpeed * 0.3;
+      }
+      // Update animation state for mantle
+      this.animState = 'mantle';
+      this.animTimer++;
+      const halfPoint = Math.floor(MANTLE_FRAMES / 2);
+      this.animFrame = this.mantleTimer > halfPoint ? 0 : 1;
       return;
     }
 
@@ -430,13 +464,16 @@ export class Player {
   }
 
   performMantle(world, side) {
-    // Smoothly move player to the top of the ledge near the wall edge
-    this.x = this._mantleX;
-    this.y = this._mantleLedgeY;
+    // Start animated mantle: interpolate from current position to ledge top
+    this.mantling = true;
+    this.mantleTimer = MANTLE_FRAMES;
+    this.mantleStartX = this.x;
+    this.mantleStartY = this.y;
+    this.mantleEndX = this._mantleX;
+    this.mantleEndY = this._mantleLedgeY;
+    this.mantleSide = side;
+    this.vx = 0;
     this.vy = 0;
-    // Preserve a small amount of horizontal momentum for fluid feel
-    this.vx = side < 0 ? -this.moveSpeed * 0.3 : this.moveSpeed * 0.3;
-    this.grounded = true;
     if (this.clinging) this.releaseCling();
   }
 
@@ -485,10 +522,13 @@ export class Player {
 
   applyServerState(state) {
     if (this.isLocal) {
-      const dx = state.x - this.x;
-      const dy = state.y - this.y;
-      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) { this.x = state.x; this.y = state.y; }
-      else { this.x += dx * 0.1; this.y += dy * 0.1; }
+      // Don't override position during mantle animation
+      if (!this.mantling) {
+        const dx = state.x - this.x;
+        const dy = state.y - this.y;
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) { this.x = state.x; this.y = state.y; }
+        else { this.x += dx * 0.1; this.y += dy * 0.1; }
+      }
       this.grounded = state.grounded;
     } else {
       this.targetX = state.x;
