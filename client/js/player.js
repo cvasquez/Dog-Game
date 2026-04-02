@@ -55,6 +55,8 @@ export class Player {
     this.mantleTimer = 0;
     this.mantleStartX = 0;
     this.mantleStartY = 0;
+    this.mantleMidX = 0;
+    this.mantleMidY = 0;
     this.mantleEndX = 0;
     this.mantleEndY = 0;
 
@@ -137,14 +139,24 @@ export class Player {
       return;
     }
 
-    // Mantle animation: interpolate position, lock out input
+    // Mantle animation: two-phase interpolation through midpoint (tile corner)
     if (this.mantling) {
       this.mantleTimer--;
       const t = 1 - (this.mantleTimer / MANTLE_FRAMES);
-      // Smooth ease-out interpolation
-      const ease = 1 - (1 - t) * (1 - t);
-      this.x = this.mantleStartX + (this.mantleEndX - this.mantleStartX) * ease;
-      this.y = this.mantleStartY + (this.mantleEndY - this.mantleStartY) * ease;
+      const halfPoint = Math.floor(MANTLE_FRAMES / 2);
+      if (t <= 0.5) {
+        // Phase 1: start → midpoint (sprite center reaches tile corner)
+        const p = t * 2; // 0→1 over first half
+        const ease = 1 - (1 - p) * (1 - p); // ease-out
+        this.x = this.mantleStartX + (this.mantleMidX - this.mantleStartX) * ease;
+        this.y = this.mantleStartY + (this.mantleMidY - this.mantleStartY) * ease;
+      } else {
+        // Phase 2: midpoint → end (pull over and land on top)
+        const p = (t - 0.5) * 2; // 0→1 over second half
+        const ease = p * p; // ease-in
+        this.x = this.mantleMidX + (this.mantleEndX - this.mantleMidX) * ease;
+        this.y = this.mantleMidY + (this.mantleEndY - this.mantleMidY) * ease;
+      }
       this.vx = 0;
       this.vy = 0;
       if (this.mantleTimer <= 0) {
@@ -158,7 +170,6 @@ export class Player {
       // Update animation state for mantle
       this.animState = 'mantle';
       this.animTimer++;
-      const halfPoint = Math.floor(MANTLE_FRAMES / 2);
       this.animFrame = this.mantleTimer > halfPoint ? 0 : 1;
       return;
     }
@@ -566,15 +577,22 @@ export class Player {
 
     this._mantleLedgeY = ledgeY;
     this._mantleX = mantleX;
+    this._mantleWallTx = wallTx;
     return true;
   }
 
   performMantle(world, side) {
-    // Start animated mantle: interpolate from current position to ledge top
+    // Start animated mantle: interpolate from current position through
+    // a midpoint where the sprite center aligns with the tile corner,
+    // then to the final position on top of the ledge.
     this.mantling = true;
     this.mantleTimer = MANTLE_FRAMES;
     this.mantleStartX = this.x;
     this.mantleStartY = this.y;
+    // Midpoint: sprite center (x, y - 0.5) at the tile corner
+    const cornerX = side < 0 ? this._mantleWallTx + 1 : this._mantleWallTx;
+    this.mantleMidX = cornerX;
+    this.mantleMidY = this._mantleLedgeY + 0.5; // +0.5 so sprite center lands on corner
     this.mantleEndX = this._mantleX;
     this.mantleEndY = this._mantleLedgeY;
     this.mantleSide = side;
