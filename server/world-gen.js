@@ -132,7 +132,43 @@ export function generateWorld(seed) {
     }
   }
 
-  // --- Pass 7: Shop floors (undiggable platforms at surface) ---
+  // --- Pass 7: Treasure rooms (granite-enclosed, resource-rich) ---
+  const numTreasure = 2 + Math.floor(rand() * 3);
+  for (let t = 0; t < numTreasure; t++) {
+    const depth = 40 + Math.floor(rand() * (WORLD_HEIGHT - SURFACE_Y - 60));
+    const ty = SURFACE_Y + depth;
+    const tx = 4 + Math.floor(rand() * (WORLD_WIDTH - 12));
+    const tw = 4 + Math.floor(rand() * 2);
+    const th = 3 + Math.floor(rand() * 2);
+
+    const entranceSide = Math.floor(rand() * 2);
+    for (let dy = -1; dy <= th; dy++) {
+      for (let dx = -1; dx <= tw; dx++) {
+        const x = tx + dx;
+        const y = ty + dy;
+        if (x <= 0 || x >= WORLD_WIDTH - 1 || y >= WORLD_HEIGHT - 5 || y <= SURFACE_Y) continue;
+        const isEdge = dx === -1 || dx === tw || dy === -1 || dy === th;
+        if (isEdge) {
+          const isEntrance = (entranceSide === 0 && dx === -1 && dy >= 1 && dy < th - 1) ||
+                             (entranceSide === 1 && dx === tw && dy >= 1 && dy < th - 1);
+          if (!isEntrance) {
+            tiles[y * WORLD_WIDTH + x] = TILE.GRANITE;
+          }
+        } else {
+          const r = rand();
+          if (depth < 80) {
+            tiles[y * WORLD_WIDTH + x] = r < 0.3 ? TILE.GEM : r < 0.5 ? TILE.FOSSIL : TILE.AIR;
+          } else if (depth < 150) {
+            tiles[y * WORLD_WIDTH + x] = r < 0.25 ? TILE.GOLD : r < 0.4 ? TILE.DIAMOND : r < 0.55 ? TILE.GEM : TILE.AIR;
+          } else {
+            tiles[y * WORLD_WIDTH + x] = r < 0.2 ? TILE.DIAMOND : r < 0.35 ? TILE.ARTIFACT : r < 0.5 ? TILE.GOLD : TILE.AIR;
+          }
+        }
+      }
+    }
+  }
+
+  // --- Pass 8: Shop floors (undiggable platforms at surface) ---
   placeShopFloors(tiles);
 
   return tiles;

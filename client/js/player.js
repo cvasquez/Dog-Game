@@ -9,6 +9,8 @@ import {
   ACCEL_GROUND, ACCEL_AIR, DECEL_GROUND, DECEL_AIR,
   COYOTE_TIME, JUMP_BUFFER_TIME, JUMP_CUT_MULTIPLIER, APEX_GRAVITY_MULT,
   calcDecorationBonuses,
+  FALL_DAMAGE_THRESHOLD, FALL_DAMAGE_MULTIPLIER, FALL_DAMAGE_STUN_FRAMES,
+  BOUNCY_TILES, BOUNCY_FORCE, ICY_TILES, SLIPPERY_TILES,
 } from '../../shared/constants.js';
 
 export class Player {
@@ -74,6 +76,8 @@ export class Player {
 
     // Upgrades
     this.ownedUpgrades = [];
+    // Discovered blueprints (decoration IDs that require blueprints)
+    this.discoveredBlueprints = [];
 
     // Stamina
     this.maxStamina = this.baseMaxStamina;
@@ -103,6 +107,18 @@ export class Player {
     // Interpolation
     this.targetX = this.x;
     this.targetY = this.y;
+
+    // Squash & stretch (visual only)
+    this.scaleX = 1;
+    this.scaleY = 1;
+    this.squashTimer = 0;
+
+    // Landing detection for particles/shake
+    this.justLanded = false;
+    this.landingVelocity = 0;
+
+    // Wall slide detection for particles
+    this.wallSliding = false;
   }
 
   predictUpdate(input, world, dt) {
@@ -274,10 +290,18 @@ export class Player {
           this.vx = Math.sign(this.vx) * effectiveSpeed;
         }
       } else {
-        // Decelerate
-        const decel = this.grounded ? DECEL_GROUND : DECEL_AIR;
-        this.vx *= decel;
-        if (Math.abs(this.vx) < 0.1) this.vx = 0;
+        // Decelerate (additive for consistent stop distance)
+        if (this.grounded) {
+          // Biome surface effects: icy/slippery tiles reduce deceleration
+          let decelRate = ACCEL_GROUND * 0.85;
+          if (this.isOnIce(world)) decelRate *= 0.15;        // very slippery
+          else if (this.isOnSlippery(world)) decelRate *= 0.4; // somewhat slippery
+          if (Math.abs(this.vx) <= decelRate) this.vx = 0;
+          else this.vx -= Math.sign(this.vx) * decelRate;
+        } else {
+          this.vx *= DECEL_AIR;
+          if (Math.abs(this.vx) < 0.1) this.vx = 0;
+        }
       }
 
       // Jump with coyote time and buffer
@@ -288,6 +312,10 @@ export class Player {
         this.coyoteTimer = 0;
         this.jumpBufferTimer = 0;
         this.jumpWasCut = false;
+        // Jump stretch
+        this.scaleX = 0.85;
+        this.scaleY = 1.2;
+        this.squashTimer = 6;
       }
 
       // Variable jump height: cut jump short ONCE when releasing
@@ -309,6 +337,9 @@ export class Player {
     }
 
     // --- PHYSICS ---
+    const prevGrounded = this.grounded;
+    const preVy = this.vy;
+
     const newX = this.x + this.vx * dt;
     if (!this.collidesAtH(world, newX, this.y)) {
       this.x = newX;
@@ -327,20 +358,82 @@ export class Player {
       this.grounded = false;
     } else {
       if (this.vy > 0) {
+        // Landing
         const groundTileY = Math.floor(newY);
         this.y = groundTileY;
         while (this.collidesAt(world, this.x, this.y) && this.y > 0) this.y -= 0.1;
         this.y += 0.001;
         this.grounded = true;
+        this.vy = 0;
         if (this.clinging) this.releaseCling();
       } else {
-        this.y = Math.floor(this.y - this.hitboxHeight) + this.hitboxHeight;
-        if (this.clinging) this.vy = 0;
+        // Hitting ceiling — try corner correction first
+        let corrected = false;
+        const nudgeAmount = 0.25;
+        for (const nudge of [nudgeAmount, -nudgeAmount]) {
+          if (!this.collidesAt(world, this.x + nudge, newY)) {
+            this.x += nudge;
+            this.y = newY;
+            corrected = true;
+            break;
+          }
+        }
+        if (!corrected) {
+          this.y = Math.floor(this.y - this.hitboxHeight) + this.hitboxHeight;
+          this.vy = 0;
+        }
       }
-      this.vy = 0;
     }
 
+    // Landing detection
+    this.justLanded = false;
+    if (this.grounded && !prevGrounded && preVy > 1) {
+      // Check for bouncy tiles (mushroom biome)
+      const tileBelow = this.getTileBelow(world);
+      if (BOUNCY_TILES.has(tileBelow)) {
+        this.vy = this.jumpForce * BOUNCY_FORCE;
+        this.grounded = false;
+        this.justLanded = true;
+        this.landingVelocity = preVy;
+        this.scaleX = 0.85;
+        this.scaleY = 1.2;
+        this.squashTimer = 6;
+      } else {
+        this.justLanded = true;
+        this.landingVelocity = preVy;
+        // Land squash
+        const intensity = Math.min(1, preVy / MAX_FALL_SPEED);
+        this.scaleX = 1 + 0.25 * intensity;
+        this.scaleY = 1 - 0.25 * intensity;
+        this.squashTimer = 6;
+
+        // Fall damage (non-lethal, stamina loss + stun)
+        if (preVy > FALL_DAMAGE_THRESHOLD) {
+          const damage = (preVy - FALL_DAMAGE_THRESHOLD) * FALL_DAMAGE_MULTIPLIER;
+          this.stamina -= damage;
+          if (this.stamina <= 0) {
+            this.stamina = 0;
+            this.triggerExhaustion();
+            this.exhaustionTimer = FALL_DAMAGE_STUN_FRAMES;
+          }
+        }
+      }
+    }
+
+    // Wall slide detection
+    this.wallSliding = this.clinging && !this.climbing;
+
     this.x = Math.max(1 + this.hitboxWidth / 2, Math.min(WORLD_WIDTH - 1 - this.hitboxWidth / 2, this.x));
+
+    // Squash & stretch decay (lerp back to 1.0)
+    if (this.squashTimer > 0) {
+      this.squashTimer--;
+      this.scaleX += (1 - this.scaleX) * 0.3;
+      this.scaleY += (1 - this.scaleY) * 0.3;
+    } else {
+      this.scaleX = 1;
+      this.scaleY = 1;
+    }
 
     // Animation state machine
     let newState;
@@ -476,6 +569,20 @@ export class Player {
     this.vx = 0;
     this.vy = 0;
     if (this.clinging) this.releaseCling();
+  }
+
+  getTileBelow(world) {
+    return world.getTile(Math.floor(this.x), Math.floor(this.y + 0.1));
+  }
+
+  isOnIce(world) {
+    const tile = this.getTileBelow(world);
+    return ICY_TILES.has(tile);
+  }
+
+  isOnSlippery(world) {
+    const tile = this.getTileBelow(world);
+    return SLIPPERY_TILES.has(tile);
   }
 
   checkWall(world, side) {

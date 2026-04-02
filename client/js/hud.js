@@ -1,4 +1,4 @@
-import { EMOTES } from '../../shared/constants.js';
+import { EMOTES, BIOMES, SURFACE_Y } from '../../shared/constants.js';
 
 export class HUD {
   constructor() {
@@ -29,6 +29,33 @@ export class HUD {
       text-shadow: 0 0 4px rgba(79,195,247,0.5);
     `;
     document.body.appendChild(this.buffIndicator);
+
+    // Stamina drain label
+    this.staminaDrainLabel = document.createElement('div');
+    this.staminaDrainLabel.className = 'stamina-drain-label';
+    this.staminaDrainLabel.style.cssText = `
+      position: absolute; right: -60px; top: 50%; transform: translateY(-50%);
+      font-size: 8px; font-family: 'Press Start 2P', monospace;
+      color: #FFA726; white-space: nowrap; display: none;
+    `;
+    this.staminaBar.style.position = 'relative';
+    this.staminaBar.appendChild(this.staminaDrainLabel);
+
+    // Contextual hints system
+    this.shownHints = JSON.parse(localStorage.getItem('doggame_hints') || '{}');
+    this.hintEl = document.createElement('div');
+    this.hintEl.id = 'contextHint';
+    this.hintEl.style.cssText = `
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      display: none; padding: 4px 12px; border-radius: 4px;
+      background: rgba(0,0,0,0.8); border: 1px solid #8D6E63;
+      color: #FFF3E0; font-size: 9px; font-family: 'Press Start 2P', monospace;
+      pointer-events: none; z-index: 100; white-space: nowrap;
+      transition: opacity 0.3s;
+    `;
+    document.body.appendChild(this.hintEl);
+    this.activeHint = null;
+    this.hintTimer = 0;
   }
 
   updateResources(resources) {
@@ -57,7 +84,23 @@ export class HUD {
 
   updateDepth(depth) {
     if (depth > 0) {
-      this.depthMeter.textContent = `Depth: ${depth}m`;
+      // Check if player is in a biome depth range
+      let biomeName = '';
+      let biomeColor = '';
+      for (const biome of BIOMES) {
+        if (depth >= biome.minDepth && depth <= biome.maxDepth) {
+          biomeName = biome.name;
+          // Map biome id to color
+          const biomeColors = { mushroom: '#76FF03', crystal: '#EA80FC', frozen: '#81D4FA', ancient: '#FFD54F' };
+          biomeColor = biomeColors[biome.id] || '#FFF';
+          break;
+        }
+      }
+      if (biomeName) {
+        this.depthMeter.innerHTML = `Depth: ${depth}m <span style="color:${biomeColor};font-size:9px"> ${biomeName}</span>`;
+      } else {
+        this.depthMeter.textContent = `Depth: ${depth}m`;
+      }
       this.depthMeter.style.display = 'block';
     } else {
       this.depthMeter.textContent = 'Surface';
@@ -65,7 +108,7 @@ export class HUD {
     }
   }
 
-  updateStamina(current, max, exhausted) {
+  updateStamina(current, max, exhausted, drainSource) {
     const pct = Math.max(0, Math.min(100, (current / max) * 100));
     this.staminaFill.style.width = pct + '%';
 
@@ -84,8 +127,19 @@ export class HUD {
     // Exhaustion: flash the bar red
     if (exhausted) {
       this.staminaBar.classList.add('exhausted');
+      this.staminaDrainLabel.textContent = 'EXHAUSTED';
+      this.staminaDrainLabel.style.display = 'block';
+      this.staminaDrainLabel.style.color = '#EF5350';
     } else {
       this.staminaBar.classList.remove('exhausted');
+      // Show drain source
+      if (drainSource && pct < 100) {
+        this.staminaDrainLabel.textContent = drainSource;
+        this.staminaDrainLabel.style.display = 'block';
+        this.staminaDrainLabel.style.color = '#FFA726';
+      } else {
+        this.staminaDrainLabel.style.display = 'none';
+      }
     }
 
     // Low stamina pulse
@@ -122,6 +176,32 @@ export class HUD {
     const secs = Math.ceil(emoteBuff.timer / 60);
     this.buffIndicator.textContent = `${emote.symbol} ${emote.buffDesc} (${secs}s)`;
     this.buffIndicator.style.display = 'block';
+  }
+
+  showHint(id, text) {
+    if (this.shownHints[id]) return;
+    this.activeHint = id;
+    this.hintEl.textContent = text;
+    this.hintEl.style.display = 'block';
+    this.hintEl.style.opacity = '1';
+    this.hintTimer = 300; // ~5 seconds
+  }
+
+  updateHints() {
+    if (this.hintTimer > 0) {
+      this.hintTimer--;
+      if (this.hintTimer <= 60) {
+        this.hintEl.style.opacity = String(this.hintTimer / 60);
+      }
+      if (this.hintTimer <= 0) {
+        this.hintEl.style.display = 'none';
+        if (this.activeHint) {
+          this.shownHints[this.activeHint] = true;
+          localStorage.setItem('doggame_hints', JSON.stringify(this.shownHints));
+          this.activeHint = null;
+        }
+      }
+    }
   }
 
   updatePlayerList(players) {

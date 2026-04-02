@@ -318,18 +318,34 @@ export const DECORATIONS = [
   { id: 4, name: 'Fountain', cost: { gems: 5 }, w: 2, h: 2, color: '#42A5F5',
     desc: '+8% stamina regen', effect: { staminaRegen: 0.08 } },
   { id: 5, name: 'Fossil Display', cost: { fossils: 3 }, w: 1, h: 2, color: '#A1887F',
-    desc: '+5% dig speed', effect: { digSpeed: 0.05 } },
+    desc: '+5% dig speed', effect: { digSpeed: 0.05 }, requiresBlueprint: true,
+    generates: { resource: 'fossils', intervalMs: 360000 } },  // 1 fossil per 6 min
   { id: 6, name: 'Gold Statue', cost: { gold: 2 }, w: 1, h: 2, color: '#FFC107',
-    desc: '+5% speed, +5% jump', effect: { moveSpeed: 0.05, jumpForce: 0.05 } },
+    desc: '+5% speed, +5% jump', effect: { moveSpeed: 0.05, jumpForce: 0.05 }, requiresBlueprint: true },
   { id: 7, name: 'Diamond Kennel', cost: { diamonds: 1 }, w: 2, h: 2, color: '#00BCD4',
-    desc: '+8% stamina, +5% regen', effect: { maxStamina: 0.08, staminaRegen: 0.05 } },
+    desc: '+8% stamina, +5% regen', effect: { maxStamina: 0.08, staminaRegen: 0.05 }, requiresBlueprint: true },
   { id: 8, name: 'Ancient Shrine', cost: { artifacts: 1 }, w: 2, h: 3, color: '#FF5722',
-    desc: '+5% all stats', effect: { moveSpeed: 0.05, jumpForce: 0.05, digSpeed: 0.05, maxStamina: 0.05, staminaRegen: 0.05 } },
+    desc: '+5% all stats', effect: { moveSpeed: 0.05, jumpForce: 0.05, digSpeed: 0.05, maxStamina: 0.05, staminaRegen: 0.05 }, requiresBlueprint: true },
   { id: 9, name: 'Mushroom Garden', cost: { mushrooms: 3 }, w: 2, h: 1, color: '#76FF03',
-    desc: '+5% climb efficiency', effect: { climbEfficiency: 0.05 } },
+    desc: '+5% climb efficiency', effect: { climbEfficiency: 0.05 }, requiresBlueprint: true,
+    generates: { resource: 'mushrooms', intervalMs: 300000 } },  // 1 mushroom per 5 min
   { id: 10, name: 'Crystal Display', cost: { crystals: 2 }, w: 1, h: 2, color: '#EA80FC',
-    desc: '+3% all stats, +5% loot', effect: { moveSpeed: 0.03, jumpForce: 0.03, digSpeed: 0.03, maxStamina: 0.03, staminaRegen: 0.03, lootBonus: 0.05 } },
+    desc: '+3% all stats, +5% loot', effect: { moveSpeed: 0.03, jumpForce: 0.03, digSpeed: 0.03, maxStamina: 0.03, staminaRegen: 0.03, lootBonus: 0.05 }, requiresBlueprint: true,
+    generates: { resource: 'crystals', intervalMs: 480000 } },  // 1 crystal per 8 min
+  { id: 11, name: 'Recall Beacon', cost: { gems: 2, gold: 1 }, w: 1, h: 2, color: '#64FFDA',
+    desc: 'Recall point. Reduces recall penalty to 25%', effect: {},
+    isRecallBeacon: true, canPlaceAnywhere: true },
 ];
+
+// Blueprint drop mapping: biome resource tiles can drop blueprints for related decorations
+export const BLUEPRINT_DROPS = {
+  [TILE.FOSSIL]: { decorationId: 5, chance: 0.04 },       // Fossil → Fossil Display
+  [TILE.GOLD]: { decorationId: 6, chance: 0.03 },          // Gold → Gold Statue
+  [TILE.DIAMOND]: { decorationId: 7, chance: 0.05 },       // Diamond → Diamond Kennel
+  [TILE.ANCIENT_RELIC]: { decorationId: 8, chance: 0.05 },  // Relic → Ancient Shrine
+  [TILE.MUSHROOM]: { decorationId: 9, chance: 0.05 },      // Mushroom → Mushroom Garden
+  [TILE.CRYSTAL]: { decorationId: 10, chance: 0.05 },      // Crystal → Crystal Display
+};
 
 // Emote definitions — each grants a temporary self-buff with a cooldown (RPG ability style)
 // duration/cooldown are in seconds; converted to ticks in game loops
@@ -403,6 +419,10 @@ export const UPGRADES = [
     cost: { gold: 3, crystals: 2 }, effect: { climbEfficiency: 0.25, moveSpeed: 0.1 }, requires: 9 },
 ];
 
+// Cooperative digging
+export const COOP_DIG_RANGE = 3;            // tiles distance for coop bonus
+export const COOP_DIG_BONUS = 0.3;          // 30% dig speed boost
+
 // Network message types
 export const MSG = {
   JOIN: 'join',
@@ -426,9 +446,34 @@ export const MSG = {
   SAVED: 'saved',
   ERROR: 'error',
   WORLD_LIST: 'world_list',
+  PING: 'ping',
+  PING_PLACED: 'ping_placed',
 };
 
+// Decoration synergy pairs: { ids: [a, b], bonus: { stat: value }, name: string }
+export const DECORATION_SYNERGIES = [
+  { ids: [4, 3], bonus: { staminaRegen: 0.03 }, name: 'Garden Oasis' },      // Fountain + Flower Bed
+  { ids: [6, 5], bonus: { digSpeed: 0.05 }, name: 'Excavation Site' },        // Gold Statue + Fossil Display
+  { ids: [1, 0], bonus: { maxStamina: 0.03 }, name: 'Dog Haven' },            // Dog House + Fire Hydrant
+  { ids: [7, 8], bonus: { moveSpeed: 0.05, jumpForce: 0.05 }, name: 'Sacred Ground' }, // Diamond Kennel + Ancient Shrine
+  { ids: [9, 10], bonus: { climbEfficiency: 0.05, lootBonus: 0.03 }, name: 'Mystic Corner' }, // Mushroom Garden + Crystal Display
+  { ids: [2, 6], bonus: { moveSpeed: 0.03 }, name: 'Fetch Park' },            // Tennis Ball + Gold Statue
+];
+
+// Check if two placed decorations are adjacent (within 3 tiles of each other)
+function areAdjacent(dec1, dec2) {
+  const d1 = DECORATIONS.find(d => d.id === dec1.id);
+  const d2 = DECORATIONS.find(d => d.id === dec2.id);
+  if (!d1 || !d2) return false;
+  const cx1 = dec1.x + (d1.w || 1) / 2;
+  const cy1 = dec1.y + (d1.h || 1) / 2;
+  const cx2 = dec2.x + (d2.w || 1) / 2;
+  const cy2 = dec2.y + (d2.h || 1) / 2;
+  return Math.abs(cx1 - cx2) <= 3 && Math.abs(cy1 - cy2) <= 3;
+}
+
 // Sums up stat bonuses from all placed decorations (applies to every player)
+// Includes synergy bonuses for adjacent complementary decorations
 export function calcDecorationBonuses(decorations) {
   const bonuses = {};
   for (const dec of decorations) {
@@ -438,6 +483,28 @@ export function calcDecorationBonuses(decorations) {
       bonuses[stat] = (bonuses[stat] || 0) + val;
     }
   }
+
+  // Check synergy pairs
+  for (const synergy of DECORATION_SYNERGIES) {
+    const decs0 = decorations.filter(d => d.id === synergy.ids[0]);
+    const decs1 = decorations.filter(d => d.id === synergy.ids[1]);
+    let synergyApplied = false;
+    for (const d0 of decs0) {
+      for (const d1 of decs1) {
+        if (areAdjacent(d0, d1)) {
+          synergyApplied = true;
+          break;
+        }
+      }
+      if (synergyApplied) break;
+    }
+    if (synergyApplied) {
+      for (const [stat, val] of Object.entries(synergy.bonus)) {
+        bonuses[stat] = (bonuses[stat] || 0) + val;
+      }
+    }
+  }
+
   return bonuses;
 }
 
@@ -476,6 +543,17 @@ export function placeShopFloors(tiles) {
     }
   }
 }
+
+// Fall damage
+export const FALL_DAMAGE_THRESHOLD = 9;     // vy above which fall damage applies
+export const FALL_DAMAGE_MULTIPLIER = 10;   // stamina lost per unit of vy above threshold
+export const FALL_DAMAGE_STUN_FRAMES = 15;  // brief stun on hard landing
+
+// Biome tile physics properties
+export const BOUNCY_TILES = new Set([TILE.MUSHROOM_DIRT, TILE.MUSHROOM]);
+export const BOUNCY_FORCE = 0.6;            // multiplier of jump force on bounce
+export const ICY_TILES = new Set([TILE.FROZEN_ICE, TILE.FROZEN_GEM]);
+export const SLIPPERY_TILES = new Set([TILE.CRYSTAL_ROCK, TILE.CRYSTAL]);
 
 // Server tick rate
 export const SERVER_TICK_MS = 50; // 20Hz

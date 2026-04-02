@@ -1,4 +1,4 @@
-import { TILE_SIZE, TILE, MSG, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, EMOTE_DISPLAY_FRAMES, getNearbyShop } from '../../shared/constants.js';
+import { TILE_SIZE, TILE, MSG, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, EMOTE_DISPLAY_FRAMES, RESPAWN_FRAMES, getNearbyShop } from '../../shared/constants.js';
 import { World } from './world.js';
 import { Player } from './player.js';
 import { Camera } from './camera.js';
@@ -30,6 +30,7 @@ export class Game {
     this.running = false;
     this.lastTime = 0;
     this.placingDecoration = null; // id of decoration being placed, or null
+    this.pings = []; // { x, y, playerName, life }
   }
 
   async start(roomId, playerName, breedId) {
@@ -159,7 +160,13 @@ export class Game {
       if (msg.playerId === this.localPlayer.id) {
         this.localPlayer.resources[msg.resource] = msg.amount;
         this.hud.updateResources(this.localPlayer.resources);
-        this.notify(`+1 ${msg.resource}!`);
+        // Floating text at player position
+        this.particles.emitText(
+          this.localPlayer.x * TILE_SIZE,
+          (this.localPlayer.y - 1) * TILE_SIZE,
+          `+1 ${msg.resource}`,
+          '#FFD700'
+        );
       }
     });
 
@@ -227,6 +234,11 @@ export class Game {
       this.notify(msg.message);
     });
 
+    this.network.on(MSG.PING_PLACED, (msg) => {
+      this.pings.push({ x: msg.x, y: msg.y, playerName: msg.playerName, life: 600 }); // 10 seconds
+      this.notify(`${msg.playerName} pinged a location!`);
+    });
+
     this.network.on('close', () => {
       this.notify('Disconnected from server');
     });
@@ -283,6 +295,17 @@ export class Game {
     // Tick emote buff/cooldown timers
     this.localPlayer.updateEmoteTimers(this.decorations);
 
+    // Exploration ping
+    if (this.input.justPressed('KeyP')) {
+      this.network.send({ type: MSG.PING, x: this.localPlayer.x, y: this.localPlayer.y });
+    }
+
+    // Update pings
+    for (let i = this.pings.length - 1; i >= 0; i--) {
+      this.pings[i].life--;
+      if (this.pings[i].life <= 0) this.pings.splice(i, 1);
+    }
+
     // Cancel decoration placement or close shop on Escape
     if (this.input.justPressed('Escape')) {
       if (this.shop.visible) {
@@ -298,6 +321,25 @@ export class Game {
 
       // Client-side prediction
       this.localPlayer.predictUpdate(inputState, this.world, dt);
+    }
+
+    // Landing effects: particles + screen shake
+    if (this.localPlayer.justLanded) {
+      this.particles.emitLand(
+        this.localPlayer.x * TILE_SIZE,
+        this.localPlayer.y * TILE_SIZE
+      );
+      if (this.localPlayer.landingVelocity > 8) {
+        const intensity = Math.min(3, (this.localPlayer.landingVelocity - 8) * 0.75);
+        this.camera.shake(intensity, 6);
+      }
+    }
+    // Wall slide particles
+    if (this.localPlayer.wallSliding && Math.random() < 0.3) {
+      const wx = this.localPlayer.clingWallSide < 0
+        ? (this.localPlayer.x - this.localPlayer.hitboxWidth / 2) * TILE_SIZE
+        : (this.localPlayer.x + this.localPlayer.hitboxWidth / 2) * TILE_SIZE;
+      this.particles.emitWallSlide(wx, (this.localPlayer.y - this.localPlayer.hitboxHeight / 2) * TILE_SIZE, this.localPlayer.clingWallSide);
     }
 
     // Update remote players
@@ -324,8 +366,15 @@ export class Game {
       }
     }
 
+    // Determine stamina drain source
+    let drainSource = null;
+    if (this.localPlayer.digging) drainSource = 'DIG';
+    else if (this.localPlayer.climbing) drainSource = 'CLIMB';
+    else if (this.localPlayer.clinging) drainSource = 'CLING';
+    else if (this.input.sprint && this.localPlayer.grounded && (this.input.left || this.input.right)) drainSource = 'SPRINT';
+
     // Update stamina HUD
-    this.hud.updateStamina(this.localPlayer.stamina, this.localPlayer.maxStamina, this.localPlayer.exhausted);
+    this.hud.updateStamina(this.localPlayer.stamina, this.localPlayer.maxStamina, this.localPlayer.exhausted, drainSource);
     this.hud.updateBuff(this.localPlayer.emoteBuff);
 
     // Update camera
@@ -338,6 +387,12 @@ export class Game {
     const depth = Math.max(0, Math.floor(this.localPlayer.y - SURFACE_Y));
     this.hud.updateDepth(depth);
     this.hud.updatePlayerList(this.players);
+
+    // Contextual hints
+    this.hud.updateHints();
+    if (this.localPlayer.clinging) {
+      this.hud.showHint('walljump', 'Press SPACE on a wall to wall jump!');
+    }
 
     // Update input state (for justPressed)
     this.input.update();
@@ -361,6 +416,16 @@ export class Game {
 
     // Draw particles
     this.particles.render(ctx, this.camera);
+
+    // Draw pings
+    if (this.pings.length > 0) {
+      this.renderer.drawPings(this.pings, this.camera);
+    }
+
+    // Death screen overlay
+    if (this.localPlayer.dead) {
+      this.renderer.drawDeathScreen(this.localPlayer.respawnTimer, RESPAWN_FRAMES);
+    }
 
     // Shop interaction prompt
     if (this.nearbyShop && !this.shop.visible) {

@@ -7,6 +7,16 @@ export class Camera {
     this.viewWidth = viewWidth;
     this.viewHeight = viewHeight;
     this.smoothing = 0.1;
+    // Screen shake
+    this.shakeTimer = 0;
+    this.shakeIntensity = 0;
+    this.shakeOffsetX = 0;
+    this.shakeOffsetY = 0;
+  }
+
+  shake(intensity, frames) {
+    this.shakeIntensity = intensity;
+    this.shakeTimer = frames;
   }
 
   follow(targetX, targetY) {
@@ -17,6 +27,16 @@ export class Camera {
     // Smooth follow
     this.x += (tx - this.x) * this.smoothing;
     this.y += (ty - this.y) * this.smoothing;
+
+    // Screen shake
+    if (this.shakeTimer > 0) {
+      const decay = this.shakeTimer / 6;
+      this.shakeOffsetX = (Math.random() - 0.5) * 2 * this.shakeIntensity * decay;
+      this.shakeOffsetY = (Math.random() - 0.5) * 2 * this.shakeIntensity * decay;
+      this.x += this.shakeOffsetX;
+      this.y += this.shakeOffsetY;
+      this.shakeTimer--;
+    }
 
     // Clamp to world bounds
     this.x = Math.max(0, Math.min(WORLD_WIDTH * TILE_SIZE - this.viewWidth, this.x));
