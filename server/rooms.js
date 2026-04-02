@@ -150,13 +150,15 @@ function updatePlayer(room, player, dt) {
   if (moving && !player.exhausted) {
     // Running always costs stamina; sprinting costs extra on top
     player.stamina -= STAMINA_RUN_COST;
-    if (sprinting) player.stamina -= STAMINA_SPRINT_COST;
+    if (sprinting) {
+      player.stamina -= STAMINA_SPRINT_COST;
+      player._movingDrain = true;
+    }
     if (player.stamina <= 0) {
       player.exhausted = true;
       player.exhaustionTimer = STAMINA_EXHAUSTION_TIME;
       player.stamina = 0;
     }
-    player._movingDrain = true;
   }
   if (inp.left) {
     // In air, preserve sprint momentum (don't reduce vx below current speed)

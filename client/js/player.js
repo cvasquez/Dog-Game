@@ -275,9 +275,11 @@ export class Player {
       this._movingDrain = false;
       if (moving && !this.exhausted) {
         this.stamina -= STAMINA_RUN_COST;
-        if (sprinting) this.stamina -= STAMINA_SPRINT_COST;
+        if (sprinting) {
+          this.stamina -= STAMINA_SPRINT_COST;
+          this._movingDrain = true;
+        }
         if (this.stamina <= 0) this.triggerExhaustion();
-        this._movingDrain = true;
       }
 
       // Acceleration-based horizontal movement
