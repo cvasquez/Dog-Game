@@ -51,6 +51,25 @@ export class Renderer {
     this.ctx.fillRect(0, 0, this.renderWidth, this.renderHeight);
   }
 
+  beginZoom(camera) {
+    if (camera.zoom === 1.0) return;
+    this.ctx.save();
+    // Scale from the center of the viewport
+    const cx = this.renderWidth / 2;
+    const cy = this.renderHeight / 2;
+    // Round translate values to avoid sub-pixel seams
+    this.ctx.translate(Math.round(cx), Math.round(cy));
+    this.ctx.scale(camera.zoom, camera.zoom);
+    this.ctx.translate(-Math.round(cx), -Math.round(cy));
+    // Ensure pixel art stays crisp during zoom
+    this.ctx.imageSmoothingEnabled = false;
+  }
+
+  endZoom(camera) {
+    if (camera.zoom === 1.0) return;
+    this.ctx.restore();
+  }
+
   drawSky(camera) {
     const skyPixelHeight = SURFACE_Y * TILE_SIZE;
     const screenY = -camera.y;

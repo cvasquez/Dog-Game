@@ -377,6 +377,9 @@ export class Game {
     this.hud.updateStamina(this.localPlayer.stamina, this.localPlayer.maxStamina, this.localPlayer.exhausted, drainSource);
     this.hud.updateBuff(this.localPlayer.emoteBuff);
 
+    // Trigger idle zoom when sitting
+    this.camera.setIdleZoom(this.localPlayer.animState === 'sit');
+
     // Update camera
     this.camera.follow(this.localPlayer.x, this.localPlayer.y);
 
@@ -402,6 +405,10 @@ export class Game {
     const ctx = this.renderer.ctx;
 
     this.renderer.clear();
+
+    // Apply idle camera zoom
+    this.renderer.beginZoom(this.camera);
+
     this.renderer.drawSky(this.camera);
     this.renderer.drawUnderground(this.camera);
     this.renderer.drawTiles(this.world, this.camera);
@@ -422,11 +429,6 @@ export class Game {
       this.renderer.drawPings(this.pings, this.camera);
     }
 
-    // Death screen overlay
-    if (this.localPlayer.dead) {
-      this.renderer.drawDeathScreen(this.localPlayer.respawnTimer, RESPAWN_FRAMES);
-    }
-
     // Shop interaction prompt
     if (this.nearbyShop && !this.shop.visible) {
       this.renderer.drawShopPrompt(this.nearbyShop, this.camera);
@@ -439,6 +441,13 @@ export class Game {
       const ty = Math.floor(mouseWorld.y);
       const valid = ty >= 3 && ty <= 6;
       this.renderer.drawPlacementPreview(tx, ty, this.placingDecoration, valid, this.camera);
+    }
+
+    this.renderer.endZoom(this.camera);
+
+    // Death screen overlay (drawn outside zoom so it fills the full screen)
+    if (this.localPlayer.dead) {
+      this.renderer.drawDeathScreen(this.localPlayer.respawnTimer, RESPAWN_FRAMES);
     }
 
     // Action bar is HTML-based, no canvas render needed
@@ -461,9 +470,14 @@ export class Game {
 
   screenToWorld(screenX, screenY) {
     const scale = this.renderer.scale;
+    const logX = screenX / scale;
+    const logY = screenY / scale;
+    const cx = this.renderer.renderWidth / 2;
+    const cy = this.renderer.renderHeight / 2;
+    const zoom = this.camera.zoom;
     return {
-      x: (screenX / scale + this.camera.x) / TILE_SIZE,
-      y: (screenY / scale + this.camera.y) / TILE_SIZE,
+      x: ((logX - cx) / zoom + cx + this.camera.x) / TILE_SIZE,
+      y: ((logY - cy) / zoom + cy + this.camera.y) / TILE_SIZE,
     };
   }
 

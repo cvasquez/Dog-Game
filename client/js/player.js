@@ -11,6 +11,7 @@ import {
   calcDecorationBonuses,
   FALL_DAMAGE_THRESHOLD, FALL_DAMAGE_MULTIPLIER, FALL_DAMAGE_STUN_FRAMES,
   BOUNCY_TILES, BOUNCY_FORCE, ICY_TILES, SLIPPERY_TILES,
+  IDLE_SIT_DELAY,
 } from '../../shared/constants.js';
 
 export class Player {
@@ -463,7 +464,7 @@ export class Player {
     // Track idle duration for sit transition
     if (newState === 'idle') {
       this.idleTimer++;
-      if (this.grounded && this.idleTimer > 120) { // ~2 seconds
+      if (this.grounded && this.idleTimer > IDLE_SIT_DELAY) {
         newState = 'sit';
       }
     } else {
