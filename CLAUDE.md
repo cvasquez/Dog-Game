@@ -38,7 +38,10 @@ Deployed to GitHub Pages at https://cvasquez.github.io/Dog-Game (single-player o
   - `index.js` — Express + WebSocket, routes JOIN messages to rooms
   - `rooms.js` — Authoritative game loop (20Hz tick), physics, digging, hazards, economy
   - `world-gen.js` — Seeded terrain generation (6 passes: terrain, caves, tunnels, granite, lava, biomes)
-  - `persistence.js` — SQLite storage for worlds and player progress
+  - `persistence.js` — Local SQLite storage for worlds and player progress (multiplayer fallback)
+  - **`scripts/`** — Utility scripts
+  - `seed-sprites.js` — Seeds dog breed sprites to Supabase
+  - `seed-decoration-sprites.js` — Seeds decoration sprites to Supabase
 - **`client/`** — Vanilla JS frontend, no bundler
   - `js/main.js` — Entry point, lobby UI, breed picker
   - `js/local-game.js` — Single-player: runs physics locally, saves to localStorage
@@ -60,6 +63,35 @@ Deployed to GitHub Pages at https://cvasquez.github.io/Dog-Game (single-player o
 
 **Physics model:** AABB collision against tile grid. Player dimensions are fractional tiles (0.75 wide x 0.75 tall). Climbing uses a BotW-style stamina system with exhaustion. Ledge mantling auto-snaps players onto ledge tops.
 
+### Database — Supabase
+
+**Supabase is the primary database.** All persistent data that needs to survive across deployments or be available on GitHub Pages goes through Supabase. Schema changes must be made in the Supabase SQL editor and reflected in `supabase-schema.sql`.
+
+- **Config:** `client/js/supabase.js` holds the project URL and anon key. The Supabase JS SDK is loaded via CDN in `client/index.html` and `client/editor/index.html`.
+- **Schema:** `supabase-schema.sql` is the source of truth for all Supabase tables. Run it in the Supabase SQL editor to set up or update the database.
+
+**Tables:**
+
+| Table | Purpose | Used by |
+|-------|---------|---------|
+| `custom_sprites` | User-edited dog breed sprites from the sprite editor | `sprites.js`, `editor/index.html`, `scripts/seed-sprites.js` |
+| `decoration_sprites` | Decoration pixel art and palettes from the sprite editor | `sprites.js`, `editor/index.html`, `scripts/seed-decoration-sprites.js` |
+| `worlds` | Persistent world data (tiles, placed decorations) | Schema defined but currently only used via local SQLite |
+| `players` | Player progress per world (resources, upgrades) | Schema defined but currently only used via local SQLite |
+
+**When making database changes:**
+1. Add/modify the table in `supabase-schema.sql`
+2. Run the migration SQL in the Supabase SQL editor
+3. If seeding data, add or update the relevant script in `scripts/`
+4. Update any client code that reads/writes the table (`sprites.js`, editor, etc.)
+5. The local SQLite schema in `server/persistence.js` is a **multiplayer-only fallback** — keep it in sync but Supabase is authoritative
+
+**Seeding data:**
+```bash
+node scripts/seed-sprites.js              # Seed breed sprites
+node scripts/seed-decoration-sprites.js   # Seed decoration sprites
+```
+
 ### Multiplayer Protocol
 
 Client sends `INPUT` messages with `{left, right, up, down, jump, dig}` booleans. Server runs physics authoritatively at 20Hz and broadcasts `STATE` snapshots. Tile breaks are broadcast as `TILE_UPDATE`. The client does prediction for local movement but server state wins on conflict.
@@ -68,7 +100,7 @@ Client sends `INPUT` messages with `{left, right, up, down, jump, dig}` booleans
 
 - **New tile type:** Add to `TILE` enum in constants.js, add to `SOLID_TILES`/`HAZARD_TILES` if needed, add `HARDNESS` and `TILE_COLORS` entries, add `RESOURCE_NAMES`/`RESOURCE_VALUE` if it's a resource, add rendering in `sprites.js`'s `genTileSprite`, add generation logic in both `server/world-gen.js` and `client/js/world-gen.js`.
 - **New breed:** Add to `DOG_BREEDS` array in constants.js (colors + stat multipliers), add sprite data in `sprite-data.js` for all 6 animation states, add breed button in `client/index.html`.
-- **New decoration:** Add to `DECORATIONS` in constants.js, add draw function in `sprites.js`, add cost.
+- **New decoration:** Add to `DECORATIONS` array in constants.js (id, name, cost, w, h, color, desc, effect), add pixel art in `sprite-data.js` (`DECORATION_SPRITES` and `DECORATION_PALETTES` entries), run `node scripts/seed-decoration-sprites.js` to push to Supabase. The local SQLite DB auto-seeds missing decorations on server startup.
 - **New upgrade:** Add to `UPGRADES` in constants.js with id, name, icon, desc, category, cost, effect (stat multipliers), and optional `requires` (prerequisite upgrade id). Server-side `applyServerUpgrades()` in `rooms.js` and client-side `applyUpgrades()` in `player.js` handle stat recalculation.
 - **Tuning balance:** All gameplay constants (stamina, climbing, movement feel, tile hardness, dig cost) are in `shared/constants.js`.
 
