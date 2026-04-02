@@ -342,8 +342,8 @@ export class Player {
       if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
     }
 
-    // Stamina regen on ground after delay (not while running/sprinting)
-    if (this.grounded && !this.exhausted && !this._movingDrain && this.groundedTimer > STAMINA_REGEN_DELAY) {
+    // Stamina regen on ground after delay (not while running/sprinting/digging)
+    if (this.grounded && !this.exhausted && !this._movingDrain && !this.digging && this.groundedTimer > STAMINA_REGEN_DELAY) {
       this.stamina = Math.min(this.maxStamina, this.stamina + this.staminaRegenRate);
     }
 

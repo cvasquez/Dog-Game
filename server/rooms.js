@@ -253,7 +253,7 @@ function updatePlayer(room, player, dt) {
   } else {
     player.groundedTimer = 0;
   }
-  if (player.grounded && !player.exhausted && !player._movingDrain && player.groundedTimer > STAMINA_REGEN_DELAY) {
+  if (player.grounded && !player.exhausted && !player._movingDrain && !player.digging && player.groundedTimer > STAMINA_REGEN_DELAY) {
     player.stamina = Math.min(player.maxStamina, player.stamina + player.staminaRegenRate);
   }
 
