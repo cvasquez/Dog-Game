@@ -375,7 +375,7 @@ export const EMOTES = [
 ];
 
 // Digging stamina cost per frame
-export const STAMINA_DIG_COST = 1.5;
+export const STAMINA_DIG_COST = 0.8;
 
 // Running & Sprint
 export const STAMINA_RUN_COST = 0;           // per frame while running on ground (walking is free)
