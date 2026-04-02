@@ -268,6 +268,9 @@ export class LocalGame {
     this.hud.updateStamina(p.stamina, p.maxStamina, p.exhausted, drainSource);
     this.hud.updateBuff(p.emoteBuff);
 
+    // Trigger idle zoom when sitting
+    this.camera.setIdleZoom(p.animState === 'sit');
+
     this.camera.follow(p.x, p.y);
     this.particles.update();
 
@@ -433,6 +436,10 @@ export class LocalGame {
   render() {
     const ctx = this.renderer.ctx;
     this.renderer.clear();
+
+    // Apply idle camera zoom
+    this.renderer.beginZoom(this.camera);
+
     this.renderer.drawSky(this.camera);
     this.renderer.drawUnderground(this.camera);
     this.renderer.drawTiles(this.world, this.camera);
@@ -446,11 +453,6 @@ export class LocalGame {
 
     this.particles.render(ctx, this.camera);
 
-    // Death screen overlay
-    if (this.localPlayer.dead) {
-      this.renderer.drawDeathScreen(this.localPlayer.respawnTimer, RESPAWN_FRAMES);
-    }
-
     // Shop interaction prompt
     if (this.nearbyShop && !this.shop.visible) {
       this.renderer.drawShopPrompt(this.nearbyShop, this.camera);
@@ -463,6 +465,13 @@ export class LocalGame {
       const placeDef = DECORATIONS.find(d => d.id === this.placingDecoration);
       const valid = (placeDef && placeDef.canPlaceAnywhere) || (ty >= PARK_TOP && ty <= PARK_BOTTOM);
       this.renderer.drawPlacementPreview(tx, ty, this.placingDecoration, valid, this.camera);
+    }
+
+    this.renderer.endZoom(this.camera);
+
+    // Death screen overlay (drawn outside zoom so it fills the full screen)
+    if (this.localPlayer.dead) {
+      this.renderer.drawDeathScreen(this.localPlayer.respawnTimer, RESPAWN_FRAMES);
     }
 
     // Action bar is HTML-based, no canvas render needed
@@ -543,9 +552,15 @@ export class LocalGame {
 
   screenToWorld(screenX, screenY) {
     const scale = this.renderer.scale;
+    // Convert screen coords to logical coords, then account for zoom
+    const logX = screenX / scale;
+    const logY = screenY / scale;
+    const cx = this.renderer.renderWidth / 2;
+    const cy = this.renderer.renderHeight / 2;
+    const zoom = this.camera.zoom;
     return {
-      x: (screenX / scale + this.camera.x) / TILE_SIZE,
-      y: (screenY / scale + this.camera.y) / TILE_SIZE,
+      x: ((logX - cx) / zoom + cx + this.camera.x) / TILE_SIZE,
+      y: ((logY - cy) / zoom + cy + this.camera.y) / TILE_SIZE,
     };
   }
 

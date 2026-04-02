@@ -51,6 +51,22 @@ export class Renderer {
     this.ctx.fillRect(0, 0, this.renderWidth, this.renderHeight);
   }
 
+  beginZoom(camera) {
+    if (camera.zoom === 1.0) return;
+    this.ctx.save();
+    // Scale from the center of the viewport
+    const cx = this.renderWidth / 2;
+    const cy = this.renderHeight / 2;
+    this.ctx.translate(cx, cy);
+    this.ctx.scale(camera.zoom, camera.zoom);
+    this.ctx.translate(-cx, -cy);
+  }
+
+  endZoom(camera) {
+    if (camera.zoom === 1.0) return;
+    this.ctx.restore();
+  }
+
   drawSky(camera) {
     const skyPixelHeight = SURFACE_Y * TILE_SIZE;
     const screenY = -camera.y;
