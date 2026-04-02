@@ -272,10 +272,12 @@ export class Player {
       const moving = (input.left || input.right) && this.grounded;
       const sprinting = input.sprint && !this.exhausted && this.stamina > 0 && moving;
       const effectiveSpeed = sprinting ? this.moveSpeed * SPRINT_SPEED_MULT : this.moveSpeed;
+      this._movingDrain = false;
       if (moving && !this.exhausted) {
         this.stamina -= STAMINA_RUN_COST;
         if (sprinting) this.stamina -= STAMINA_SPRINT_COST;
         if (this.stamina <= 0) this.triggerExhaustion();
+        this._movingDrain = true;
       }
 
       // Acceleration-based horizontal movement
@@ -338,8 +340,8 @@ export class Player {
       if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
     }
 
-    // Stamina regen on ground after delay
-    if (this.grounded && !this.exhausted && this.groundedTimer > STAMINA_REGEN_DELAY) {
+    // Stamina regen on ground after delay (not while running/sprinting)
+    if (this.grounded && !this.exhausted && !this._movingDrain && this.groundedTimer > STAMINA_REGEN_DELAY) {
       this.stamina = Math.min(this.maxStamina, this.stamina + this.staminaRegenRate);
     }
 

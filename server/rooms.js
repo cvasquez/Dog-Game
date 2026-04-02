@@ -146,6 +146,7 @@ function updatePlayer(room, player, dt) {
   const moving = (inp.left || inp.right) && player.grounded;
   const sprinting = inp.sprint && !player.exhausted && player.stamina > 0 && moving;
   const speed = sprinting ? baseSpeed * SPRINT_SPEED_MULT : baseSpeed;
+  player._movingDrain = false;
   if (moving && !player.exhausted) {
     // Running always costs stamina; sprinting costs extra on top
     player.stamina -= STAMINA_RUN_COST;
@@ -155,6 +156,7 @@ function updatePlayer(room, player, dt) {
       player.exhaustionTimer = STAMINA_EXHAUSTION_TIME;
       player.stamina = 0;
     }
+    player._movingDrain = true;
   }
   if (inp.left) {
     // In air, preserve sprint momentum (don't reduce vx below current speed)
@@ -246,7 +248,7 @@ function updatePlayer(room, player, dt) {
   } else {
     player.groundedTimer = 0;
   }
-  if (player.grounded && !player.exhausted && player.groundedTimer > STAMINA_REGEN_DELAY) {
+  if (player.grounded && !player.exhausted && !player._movingDrain && player.groundedTimer > STAMINA_REGEN_DELAY) {
     player.stamina = Math.min(player.maxStamina, player.stamina + player.staminaRegenRate);
   }
 
