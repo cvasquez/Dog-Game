@@ -329,6 +329,10 @@ export const DECORATIONS = [
     desc: '+5% climb efficiency', effect: { climbEfficiency: 0.05 } },
   { id: 10, name: 'Crystal Display', cost: { crystals: 2 }, w: 1, h: 2, color: '#EA80FC',
     desc: '+3% all stats, +5% loot', effect: { moveSpeed: 0.03, jumpForce: 0.03, digSpeed: 0.03, maxStamina: 0.03, staminaRegen: 0.03, lootBonus: 0.05 } },
+  { id: 11, name: 'Bone Pile', cost: { bones: 8 }, w: 1, h: 1, color: '#E0D5C0',
+    desc: '+4% dig speed', effect: { digSpeed: 0.04 } },
+  { id: 12, name: 'Mining Cart', cost: { bones: 15, fossils: 2 }, w: 2, h: 1, color: '#78909C',
+    desc: '+7% dig speed, +3% loot', effect: { digSpeed: 0.07, lootBonus: 0.03 } },
 ];
 
 // Emote definitions — each grants a temporary self-buff with a cooldown (RPG ability style)
@@ -350,14 +354,17 @@ export const EMOTES = [
     buffDesc: '+15% loot bonus for 10s', duration: 10, cooldown: 60, effect: { lootBonus: 0.15 } },
   { id: 7, name: 'Diva', symbol: '\uD83D\uDC51', cost: { diamonds: 1 },
     buffDesc: '+10% all stats for 8s', duration: 8, cooldown: 45, effect: { moveSpeed: 0.10, jumpForce: 0.10, digSpeed: 0.10, maxStamina: 0.10, staminaRegen: 0.10, climbEfficiency: 0.10 } },
+  { id: 8, name: 'Scratch', symbol: '\uD83D\uDC3E', cost: { bones: 8 },
+    buffDesc: '+15% dig speed, +10% stamina regen for 7s', duration: 7, cooldown: 30, effect: { digSpeed: 0.15, staminaRegen: 0.10 } },
 ];
 
 // Digging stamina cost per frame
 export const STAMINA_DIG_COST = 1.5;
 
-// Sprint
+// Running & Sprint
+export const STAMINA_RUN_COST = 0.15;       // per frame while running on ground
 export const SPRINT_SPEED_MULT = 1.6;       // multiplier on move speed while sprinting
-export const STAMINA_SPRINT_COST = 0.8;     // per frame while sprinting
+export const STAMINA_SPRINT_COST = 0.8;     // per frame while sprinting (added on top of run cost)
 
 // Mantling
 export const MANTLE_FRAMES = 15;            // frames to complete mantle animation (~250ms at 60fps)
@@ -401,6 +408,12 @@ export const UPGRADES = [
     cost: { bones: 20, mushrooms: 2 }, effect: { climbEfficiency: 0.15 } },
   { id: 10, name: 'Rocket Boots', icon: '🚀', desc: '+25% climb efficiency, +10% speed', category: 'boots',
     cost: { gold: 3, crystals: 2 }, effect: { climbEfficiency: 0.25, moveSpeed: 0.1 }, requires: 9 },
+
+  // Paws - dig focused
+  { id: 11, name: 'Tough Paws', icon: '🐾', desc: '+10% dig speed, +5% stamina', category: 'paws',
+    cost: { bones: 12, gems: 2 }, effect: { digSpeed: 0.1, maxStamina: 0.05 } },
+  { id: 12, name: 'Iron Claws', icon: '⛏️', desc: '+25% dig speed, +10% stamina', category: 'paws',
+    cost: { fossils: 4, gold: 1 }, effect: { digSpeed: 0.25, maxStamina: 0.1 }, requires: 11 },
 ];
 
 // Network message types
