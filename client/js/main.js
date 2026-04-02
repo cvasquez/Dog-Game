@@ -4,12 +4,12 @@ import { DOG_BREEDS } from '../../shared/constants.js';
 
 let game = null;
 
-// Load custom sprites from Supabase in the background (non-blocking)
-loadCustomSprites().catch(() => {});
+// Load custom sprites from Supabase (non-blocking)
+const spritesReady = loadCustomSprites().catch(() => {});
 loadDecorationSprites().catch(() => {});
 loadShopSprites().catch(() => {});
 
-// Render animated breed preview sprites in lobby
+// Render animated breed preview sprites in lobby (after DB sprites load)
 function renderBreedPreviews() {
   const WALK_FRAMES = 2;
   const FRAME_INTERVAL = 300; // ms per frame
@@ -36,7 +36,7 @@ function renderBreedPreviews() {
     setInterval(drawFrame, FRAME_INTERVAL);
   }
 }
-renderBreedPreviews();
+spritesReady.then(() => renderBreedPreviews());
 
 // DOM elements
 const lobby = document.getElementById('lobby');
