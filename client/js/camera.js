@@ -24,6 +24,7 @@ export class Camera {
   }
 
   follow(targetX, targetY) {
+    const prevZoom = this.zoom;
     // Update zoom interpolation
     this.updateZoom();
 
@@ -35,9 +36,25 @@ export class Camera {
     const tx = targetX * TILE_SIZE - effectiveW / 2;
     const ty = targetY * TILE_SIZE - effectiveH / 2;
 
-    // Smooth follow
-    this.x += (tx - this.x) * this.smoothing;
-    this.y += (ty - this.y) * this.smoothing;
+    // When zoom is actively changing, snap camera to keep player centered
+    // Otherwise use normal smooth follow
+    if (Math.abs(this.zoom - prevZoom) > 0.0001) {
+      // Compensate camera position for zoom change to keep player centered
+      const prevEffW = this.viewWidth / prevZoom;
+      const prevEffH = this.viewHeight / prevZoom;
+      const playerScreenX = targetX * TILE_SIZE - this.x;
+      const playerScreenY = targetY * TILE_SIZE - this.y;
+      // Adjust so player stays at same relative position in the new effective view
+      this.x += playerScreenX * (1 - prevEffW / effectiveW);
+      this.y += playerScreenY * (1 - prevEffH / effectiveH);
+      // Also pull toward center with faster smoothing during zoom
+      this.x += (tx - this.x) * 0.3;
+      this.y += (ty - this.y) * 0.3;
+    } else {
+      // Normal smooth follow
+      this.x += (tx - this.x) * this.smoothing;
+      this.y += (ty - this.y) * this.smoothing;
+    }
 
     // Screen shake
     if (this.shakeTimer > 0) {
