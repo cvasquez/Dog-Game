@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dog Sprite Editor</title>
+<title>Dog Sprite &amp; Decoration Editor</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; display: flex; height: 100vh; overflow: hidden; }
@@ -70,18 +70,32 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
 <body>
 
 <div class="sidebar">
-  <h3>Breed</h3>
-  <select id="breedSelect"></select>
+  <h3>Mode</h3>
+  <div style="display:flex;gap:4px">
+    <button id="modeBreeds" class="active">Breeds</button>
+    <button id="modeDecorations">Decorations</button>
+  </div>
 
-  <h3>Animation</h3>
-  <div class="anim-tabs" id="animTabs"></div>
+  <div id="breedSection">
+    <h3>Breed</h3>
+    <select id="breedSelect"></select>
 
-  <h3>Frames</h3>
-  <div class="frame-list" id="frameList"></div>
-  <div style="display:flex;gap:4px;margin-top:4px">
-    <button id="addFrame">+ Frame</button>
-    <button id="delFrame">- Frame</button>
-    <button id="dupeFrame">Dupe</button>
+    <h3>Animation</h3>
+    <div class="anim-tabs" id="animTabs"></div>
+
+    <h3>Frames</h3>
+    <div class="frame-list" id="frameList"></div>
+    <div style="display:flex;gap:4px;margin-top:4px">
+      <button id="addFrame">+ Frame</button>
+      <button id="delFrame">- Frame</button>
+      <button id="dupeFrame">Dupe</button>
+    </div>
+  </div>
+
+  <div id="decorationSection" style="display:none">
+    <h3>Decoration</h3>
+    <select id="decorationSelect"></select>
+    <div id="decInfo" style="font-size:11px;color:#888;margin-top:4px"></div>
   </div>
 
   <h3>Palette</h3>
@@ -122,7 +136,7 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
 
 <div class="main">
   <div class="toolbar">
-    <span style="font-weight:bold;color:#4fc3f7">Dog Sprite Editor</span>
+    <span style="font-weight:bold;color:#4fc3f7">Dog Sprite &amp; Decoration Editor</span>
     <span style="flex:1"></span>
     <span id="statusText" style="font-size:11px;color:#888"></span>
   </div>
@@ -165,24 +179,29 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
 <script type="module">
-import { DOG_BREEDS } from '../../shared/constants.js';
-import { DOG_SPRITES, SPRITE_PALETTE, ANIM_STATES } from '../../shared/sprite-data.js';
+import { DOG_BREEDS, DECORATIONS } from '../../shared/constants.js';
+import { DOG_SPRITES, SPRITE_PALETTE, ANIM_STATES, DECORATION_SPRITES, DECORATION_PALETTES } from '../../shared/sprite-data.js';
 
 // Working sprite data — will be replaced by DB data on load
 let sprites = JSON.parse(JSON.stringify(DOG_SPRITES));
 let customPalette = [...SPRITE_PALETTE];
 
+// Decoration working data
+let decorationSprites = JSON.parse(JSON.stringify(DECORATION_SPRITES));
+let decorationPalettes = JSON.parse(JSON.stringify(DECORATION_PALETTES));
+
 // Track Supabase row IDs per breed so we can update in place
 const dbRowIds = {}; // breed_key -> uuid
 
-const GRID_SIZE = 16;
 const CELL_SIZE = 24; // pixels per cell on editor grid
 const MAX_PALETTE = 16; // single hex digit: 0-9, a-f
 
 // State
+let editorMode = 'breeds'; // 'breeds' or 'decorations'
 let currentBreed = 'labrador';
 let currentAnim = 'idle';
 let currentFrame = 0;
+let currentDecoration = 0;
 let currentPalIdx = 1;
 let currentTool = 'pen'; // pen, erase, fill
 let playing = false;
@@ -202,7 +221,47 @@ const preview4x = document.getElementById('preview4x');
 const animPreview = document.getElementById('animPreview');
 const statusText = document.getElementById('statusText');
 
+// Helper to get current grid dimensions
+function getGridDims() {
+  if (editorMode === 'decorations') {
+    const dec = DECORATIONS.find(d => d.id === currentDecoration);
+    return { w: (dec ? dec.w : 1) * 16, h: (dec ? dec.h : 1) * 16 };
+  }
+  return { w: 16, h: 16 };
+}
+
 // ------ Init ------
+
+// Decoration selector
+const decorationSelect = document.getElementById('decorationSelect');
+DECORATIONS.forEach(d => {
+  const opt = document.createElement('option');
+  opt.value = d.id;
+  opt.textContent = d.name;
+  decorationSelect.appendChild(opt);
+});
+decorationSelect.addEventListener('change', () => {
+  currentDecoration = parseInt(decorationSelect.value);
+  rebuildUI();
+});
+
+// Mode toggle
+document.getElementById('modeBreeds').addEventListener('click', () => {
+  editorMode = 'breeds';
+  document.getElementById('modeBreeds').className = 'active';
+  document.getElementById('modeDecorations').className = '';
+  document.getElementById('breedSection').style.display = '';
+  document.getElementById('decorationSection').style.display = 'none';
+  rebuildUI();
+});
+document.getElementById('modeDecorations').addEventListener('click', () => {
+  editorMode = 'decorations';
+  document.getElementById('modeDecorations').className = 'active';
+  document.getElementById('modeBreeds').className = '';
+  document.getElementById('breedSection').style.display = 'none';
+  document.getElementById('decorationSection').style.display = '';
+  rebuildUI();
+});
 
 // Breed selector
 DOG_BREEDS.forEach((b, i) => {
@@ -235,6 +294,9 @@ function buildAnimTabs() {
 
 // Palette
 function resolvePalette() {
+  if (editorMode === 'decorations') {
+    return decorationPalettes[currentDecoration] || [null];
+  }
   const breed = DOG_BREEDS.find(b => b.name.toLowerCase() === currentBreed) || DOG_BREEDS[0];
   return customPalette.map(entry => {
     if (entry === 'body') return breed.colors.body;
@@ -287,6 +349,10 @@ function buildFrameList() {
 // ------ Data access ------
 
 function getFrames() {
+  if (editorMode === 'decorations') {
+    const pixels = decorationSprites[currentDecoration];
+    return pixels ? [pixels] : [];
+  }
   return sprites[currentBreed]?.[currentAnim] || [];
 }
 
@@ -305,6 +371,13 @@ function fromHexChar(ch) {
 }
 
 function setPixel(x, y, val) {
+  if (editorMode === 'decorations') {
+    const pixels = decorationSprites[currentDecoration];
+    if (!pixels || y >= pixels.length) return;
+    const row = pixels[y];
+    decorationSprites[currentDecoration][y] = row.substring(0, x) + toHexChar(val) + row.substring(x + 1);
+    return;
+  }
   const frames = getFrames();
   if (currentFrame >= frames.length) return;
   const row = frames[currentFrame][y];
@@ -313,38 +386,50 @@ function setPixel(x, y, val) {
 
 function getPixel(x, y) {
   const pixels = getCurrentPixels();
-  if (!pixels) return 0;
+  if (!pixels || y >= pixels.length) return 0;
+  if (x >= pixels[y].length) return 0;
   return fromHexChar(pixels[y][x]);
 }
 
-function emptyFrame() {
-  return Array(16).fill('0000000000000000');
+function emptyFrame(w, h) {
+  w = w || 16;
+  h = h || 16;
+  return Array(h).fill('0'.repeat(w));
 }
 
 // ------ Rendering ------
 
 function renderFrame(pixelData, size) {
+  const ph = pixelData.length;
+  const pw = pixelData[0].length;
+  const scale = size / Math.max(pw, ph);
   const c = document.createElement('canvas');
-  c.width = size;
-  c.height = size;
+  c.width = Math.round(pw * scale);
+  c.height = Math.round(ph * scale);
   const ctx = c.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   const resolved = resolvePalette();
-  const scale = size / 16;
-  for (let y = 0; y < 16; y++) {
-    for (let x = 0; x < 16; x++) {
+  for (let y = 0; y < ph; y++) {
+    for (let x = 0; x < pw; x++) {
       const idx = fromHexChar(pixelData[y][x]);
       if (idx === 0) continue;
-      ctx.fillStyle = resolved[idx];
-      ctx.fillRect(x * scale, y * scale, scale, scale);
+      if (resolved[idx]) {
+        ctx.fillStyle = resolved[idx];
+        ctx.fillRect(Math.round(x * scale), Math.round(y * scale), Math.ceil(scale), Math.ceil(scale));
+      }
     }
   }
   return c;
 }
 
 function drawGrid() {
+  const { w: gridW, h: gridH } = getGridDims();
   const pixels = getCurrentPixels();
   const resolved = resolvePalette();
+
+  // Resize canvas to fit grid
+  gridCanvas.width = gridW * CELL_SIZE;
+  gridCanvas.height = gridH * CELL_SIZE;
 
   gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
 
@@ -353,14 +438,14 @@ function drawGrid() {
   gridCtx.fillRect(0, 0, gridCanvas.width, gridCanvas.height);
 
   // Checkerboard for transparency
-  for (let y = 0; y < GRID_SIZE; y++) {
-    for (let x = 0; x < GRID_SIZE; x++) {
+  for (let y = 0; y < gridH; y++) {
+    for (let x = 0; x < gridW; x++) {
       const px = x * CELL_SIZE;
       const py = y * CELL_SIZE;
       gridCtx.fillStyle = (x + y) % 2 === 0 ? '#1a1a2e' : '#222244';
       gridCtx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
 
-      if (pixels) {
+      if (pixels && y < pixels.length && x < pixels[y].length) {
         const idx = fromHexChar(pixels[y][x]);
         if (idx > 0 && resolved[idx]) {
           gridCtx.fillStyle = resolved[idx];
@@ -379,24 +464,33 @@ function drawPreviews() {
   const pixels = getCurrentPixels();
   if (!pixels) return;
 
+  const ph = pixels.length;
+  const pw = pixels[0].length;
+
   // 1x
+  preview1x.width = pw;
+  preview1x.height = ph;
   const ctx1 = preview1x.getContext('2d');
   ctx1.imageSmoothingEnabled = false;
-  ctx1.clearRect(0, 0, 16, 16);
-  const c1 = renderFrame(pixels, 16);
+  ctx1.clearRect(0, 0, pw, ph);
+  const c1 = renderFrame(pixels, Math.max(pw, ph));
   ctx1.drawImage(c1, 0, 0);
 
   // 2x
+  preview2x.width = pw * 2;
+  preview2x.height = ph * 2;
   const ctx2 = preview2x.getContext('2d');
   ctx2.imageSmoothingEnabled = false;
-  ctx2.clearRect(0, 0, 32, 32);
-  ctx2.drawImage(c1, 0, 0, 32, 32);
+  ctx2.clearRect(0, 0, pw * 2, ph * 2);
+  ctx2.drawImage(c1, 0, 0, pw * 2, ph * 2);
 
   // 4x
+  preview4x.width = pw * 4;
+  preview4x.height = ph * 4;
   const ctx4 = preview4x.getContext('2d');
   ctx4.imageSmoothingEnabled = false;
-  ctx4.clearRect(0, 0, 64, 64);
-  ctx4.drawImage(c1, 0, 0, 64, 64);
+  ctx4.clearRect(0, 0, pw * 4, ph * 4);
+  ctx4.drawImage(c1, 0, 0, pw * 4, ph * 4);
 }
 
 function drawAnimPreview() {
@@ -404,11 +498,15 @@ function drawAnimPreview() {
   if (frames.length === 0) return;
   const idx = playFrame % frames.length;
   const pixels = frames[idx];
+  const ph = pixels.length;
+  const pw = pixels[0].length;
+  animPreview.width = pw * 4;
+  animPreview.height = ph * 4;
   const ctx = animPreview.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, 64, 64);
-  const c = renderFrame(pixels, 16);
-  ctx.drawImage(c, 0, 0, 64, 64);
+  ctx.clearRect(0, 0, pw * 4, ph * 4);
+  const c = renderFrame(pixels, Math.max(pw, ph));
+  ctx.drawImage(c, 0, 0, pw * 4, ph * 4);
 }
 
 // ------ Input ------
@@ -417,12 +515,13 @@ let painting = false;
 let paintButton = 0;
 
 function cellFromEvent(e) {
+  const { w: gridW, h: gridH } = getGridDims();
   const rect = gridCanvas.getBoundingClientRect();
   const scaleX = gridCanvas.width / rect.width;
   const scaleY = gridCanvas.height / rect.height;
   const x = Math.floor((e.clientX - rect.left) * scaleX / CELL_SIZE);
   const y = Math.floor((e.clientY - rect.top) * scaleY / CELL_SIZE);
-  if (x < 0 || x >= 16 || y < 0 || y >= 16) return null;
+  if (x < 0 || x >= gridW || y < 0 || y >= gridH) return null;
   return { x, y };
 }
 
@@ -439,8 +538,9 @@ function paintCell(x, y) {
 }
 
 function floodFill(x, y, target, replacement) {
+  const { w: gridW, h: gridH } = getGridDims();
   if (target === replacement) return;
-  if (x < 0 || x >= 16 || y < 0 || y >= 16) return;
+  if (x < 0 || x >= gridW || y < 0 || y >= gridH) return;
   if (getPixel(x, y) !== target) return;
   setPixel(x, y, replacement);
   floodFill(x + 1, y, target, replacement);
@@ -496,15 +596,21 @@ document.getElementById('toolFill').addEventListener('click', () => { currentToo
 
 // Add custom color
 let addingColorIdx = -1;
+
+function getActivePalette() {
+  if (editorMode === 'decorations') return decorationPalettes[currentDecoration];
+  return customPalette;
+}
+
 document.getElementById('addColor').addEventListener('click', () => {
-  if (customPalette.length >= MAX_PALETTE) {
+  const pal = getActivePalette();
+  if (pal.length >= MAX_PALETTE) {
     statusText.textContent = 'Max 16 palette entries (0-9, a-f)';
     setTimeout(() => { statusText.textContent = ''; }, 3000);
     return;
   }
-  // Add a new slot, then open the picker to refine it
-  customPalette.push('#FF0000');
-  addingColorIdx = customPalette.length - 1;
+  pal.push('#FF0000');
+  addingColorIdx = pal.length - 1;
   currentPalIdx = addingColorIdx;
   currentTool = 'pen';
   rebuildUI();
@@ -513,8 +619,9 @@ document.getElementById('addColor').addEventListener('click', () => {
 });
 
 document.getElementById('colorPicker').addEventListener('input', (e) => {
-  if (addingColorIdx < 0 || addingColorIdx >= customPalette.length) return;
-  customPalette[addingColorIdx] = e.target.value;
+  const pal = getActivePalette();
+  if (addingColorIdx < 0 || addingColorIdx >= pal.length) return;
+  pal[addingColorIdx] = e.target.value;
   rebuildUI();
 });
 
@@ -524,6 +631,7 @@ document.getElementById('colorPicker').addEventListener('change', () => {
 
 // Frame management
 document.getElementById('addFrame').addEventListener('click', () => {
+  if (editorMode === 'decorations') return; // decorations are single-frame
   if (!sprites[currentBreed]) sprites[currentBreed] = {};
   if (!sprites[currentBreed][currentAnim]) sprites[currentBreed][currentAnim] = [];
   sprites[currentBreed][currentAnim].push(emptyFrame());
@@ -550,6 +658,12 @@ document.getElementById('dupeFrame').addEventListener('click', () => {
 
 // Actions
 document.getElementById('clearFrame').addEventListener('click', () => {
+  const { w: gridW, h: gridH } = getGridDims();
+  if (editorMode === 'decorations') {
+    decorationSprites[currentDecoration] = emptyFrame(gridW, gridH);
+    rebuildUI();
+    return;
+  }
   const frames = getFrames();
   if (currentFrame < frames.length) {
     frames[currentFrame] = emptyFrame();
@@ -580,6 +694,13 @@ document.getElementById('pasteFrame').addEventListener('click', () => {
 });
 
 document.getElementById('mirrorH').addEventListener('click', () => {
+  if (editorMode === 'decorations') {
+    const pixels = decorationSprites[currentDecoration];
+    if (!pixels) return;
+    decorationSprites[currentDecoration] = pixels.map(row => row.split('').reverse().join(''));
+    rebuildUI();
+    return;
+  }
   const frames = getFrames();
   if (currentFrame >= frames.length) return;
   frames[currentFrame] = frames[currentFrame].map(row => row.split('').reverse().join(''));
@@ -587,14 +708,31 @@ document.getElementById('mirrorH').addEventListener('click', () => {
 });
 
 function shiftPixels(dx, dy) {
+  const { w: gridW, h: gridH } = getGridDims();
+  if (editorMode === 'decorations') {
+    const old = decorationSprites[currentDecoration];
+    if (!old) return;
+    const newFrame = emptyFrame(gridW, gridH);
+    for (let y = 0; y < gridH; y++) {
+      for (let x = 0; x < gridW; x++) {
+        const sx = x - dx, sy = y - dy;
+        if (sx >= 0 && sx < gridW && sy >= 0 && sy < gridH) {
+          newFrame[y] = newFrame[y].substring(0, x) + old[sy][sx] + newFrame[y].substring(x + 1);
+        }
+      }
+    }
+    decorationSprites[currentDecoration] = newFrame;
+    rebuildUI();
+    return;
+  }
   const frames = getFrames();
   if (currentFrame >= frames.length) return;
   const old = frames[currentFrame];
-  const newFrame = emptyFrame();
-  for (let y = 0; y < 16; y++) {
-    for (let x = 0; x < 16; x++) {
+  const newFrame = emptyFrame(gridW, gridH);
+  for (let y = 0; y < gridH; y++) {
+    for (let x = 0; x < gridW; x++) {
       const sx = x - dx, sy = y - dy;
-      if (sx >= 0 && sx < 16 && sy >= 0 && sy < 16) {
+      if (sx >= 0 && sx < gridW && sy >= 0 && sy < gridH) {
         newFrame[y] = newFrame[y].substring(0, x) + old[sy][sx] + newFrame[y].substring(x + 1);
       }
     }
@@ -645,6 +783,19 @@ function serializeBreed(breedKey) {
   return out;
 }
 
+function serializeDecoration(decId) {
+  const dec = DECORATIONS.find(d => d.id === decId);
+  const rows = decorationSprites[decId];
+  if (!rows) return '';
+  let out = `  // ${dec ? dec.name : 'Unknown'} (${dec ? dec.w : '?'}x${dec ? dec.h : '?'} tiles)\n`;
+  out += `  ${decId}: [\n`;
+  for (const row of rows) {
+    out += `    "${row}",\n`;
+  }
+  out += `  ],\n`;
+  return out;
+}
+
 function serializeAll() {
   let out = `// Auto-generated by Dog Sprite Editor\n`;
   out += `// Palette: 0=transparent, 1=body, 2=dark, 3=light, 4=black, 5=white, 6=pupil, 7=pink, 8=nose`;
@@ -658,7 +809,14 @@ function serializeAll() {
   out += `export const DOG_SPRITES = {\n`;
   out += Object.keys(sprites).map(k => `  ${k},`).join('\n');
   out += `\n};\n\n`;
-  out += `export const ANIM_STATES = ${JSON.stringify(ANIM_STATES)};\n`;
+  out += `export const ANIM_STATES = ${JSON.stringify(ANIM_STATES)};\n\n`;
+  // Decoration data
+  out += `export const DECORATION_PALETTES = ${JSON.stringify(decorationPalettes)};\n\n`;
+  out += `export const DECORATION_SPRITES = {\n`;
+  for (const decId of Object.keys(decorationSprites)) {
+    out += serializeDecoration(parseInt(decId));
+  }
+  out += `};\n`;
   return out;
 }
 
@@ -670,6 +828,14 @@ document.getElementById('exportBtn').addEventListener('click', async () => {
 });
 
 document.getElementById('exportBreedBtn').addEventListener('click', async () => {
+  if (editorMode === 'decorations') {
+    const dec = DECORATIONS.find(d => d.id === currentDecoration);
+    const text = serializeDecoration(currentDecoration);
+    await navigator.clipboard.writeText(text);
+    statusText.textContent = `${dec ? dec.name : 'Decoration'} data copied to clipboard!`;
+    setTimeout(() => { statusText.textContent = ''; }, 3000);
+    return;
+  }
   const text = serializeBreed(currentBreed);
   await navigator.clipboard.writeText(text);
   statusText.textContent = `${currentBreed} data copied to clipboard!`;
@@ -731,13 +897,28 @@ window.addEventListener('keydown', (e) => {
 // ------ Master rebuild ------
 
 function rebuildUI() {
-  buildAnimTabs();
-  buildFrameList();
+  if (editorMode === 'breeds') {
+    buildAnimTabs();
+    buildFrameList();
+    currentFrame = Math.min(currentFrame, Math.max(0, getFrames().length - 1));
+  } else {
+    currentFrame = 0;
+    const dec = DECORATIONS.find(d => d.id === currentDecoration);
+    const info = document.getElementById('decInfo');
+    if (dec && info) {
+      info.textContent = `${dec.w}x${dec.h} tiles (${dec.w*16}x${dec.h*16}px) - ${dec.desc}`;
+    }
+  }
   buildPalette();
   drawGrid();
   drawPreviews();
   drawAnimPreview();
-  statusText.textContent = `${currentBreed} / ${currentAnim} / frame ${currentFrame}`;
+  if (editorMode === 'decorations') {
+    const dec = DECORATIONS.find(d => d.id === currentDecoration);
+    statusText.textContent = `Decoration: ${dec ? dec.name : currentDecoration}`;
+  } else {
+    statusText.textContent = `${currentBreed} / ${currentAnim} / frame ${currentFrame}`;
+  }
 }
 
 rebuildUI();

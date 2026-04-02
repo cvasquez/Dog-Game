@@ -2,7 +2,7 @@ import {
   WORLD_WIDTH, WORLD_HEIGHT, TILE, SOLID_TILES, HARDNESS, RESOURCE_NAMES,
   RESOURCE_VALUE, HAZARD_TILES, GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION,
   MAX_FALL_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, SERVER_TICK_MS, MSG,
-  DECORATIONS, EMOTES, PARK_TOP, PARK_BOTTOM, DOG_BREEDS, STAMINA_DIG_COST, SPRINT_SPEED_MULT, STAMINA_SPRINT_COST,
+  DECORATIONS, EMOTES, PARK_TOP, PARK_BOTTOM, DOG_BREEDS, STAMINA_DIG_COST, STAMINA_RUN_COST, SPRINT_SPEED_MULT, STAMINA_SPRINT_COST,
   UPGRADES, calcDecorationBonuses, BASE_MAX_STAMINA, BASE_STAMINA_REGEN_RATE,
   STAMINA_REGEN_DELAY, STAMINA_EXHAUSTION_TIME, EMOTE_DISPLAY_TICKS, RESPAWN_TICKS, placeShopFloors,
   FALL_DAMAGE_THRESHOLD, FALL_DAMAGE_MULTIPLIER, FALL_DAMAGE_STUN_FRAMES,
@@ -143,10 +143,13 @@ function updatePlayer(room, player, dt) {
 
   // Horizontal movement (use breed speed)
   const baseSpeed = player.moveSpeed || MOVE_SPEED;
-  const sprinting = inp.sprint && !player.exhausted && player.stamina > 0 && player.grounded && (inp.left || inp.right);
+  const moving = (inp.left || inp.right) && player.grounded;
+  const sprinting = inp.sprint && !player.exhausted && player.stamina > 0 && moving;
   const speed = sprinting ? baseSpeed * SPRINT_SPEED_MULT : baseSpeed;
-  if (sprinting) {
-    player.stamina -= STAMINA_SPRINT_COST;
+  if (moving && !player.exhausted) {
+    // Running always costs stamina; sprinting costs extra on top
+    player.stamina -= STAMINA_RUN_COST;
+    if (sprinting) player.stamina -= STAMINA_SPRINT_COST;
     if (player.stamina <= 0) {
       player.exhausted = true;
       player.exhaustionTimer = STAMINA_EXHAUSTION_TIME;

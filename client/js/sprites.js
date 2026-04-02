@@ -1,5 +1,5 @@
 import { TILE, TILE_COLORS, DOG_COLORS, TILE_SIZE, DOG_BREEDS, SHOP_LOCATIONS } from '../../shared/constants.js';
-import { DOG_SPRITES, SPRITE_PALETTE } from '../../shared/sprite-data.js';
+import { DOG_SPRITES, SPRITE_PALETTE, DECORATION_SPRITES, DECORATION_PALETTES } from '../../shared/sprite-data.js';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase.js';
 
 const spriteCache = new Map();
@@ -223,212 +223,23 @@ function genDogSprite(breedId, animState, frameIndex) {
   return c;
 }
 
-// Generate decoration sprite
+// Generate decoration sprite from pixel data
 function genDecorationSprite(decId) {
-  const decs = {
-    0: drawFireHydrant,
-    1: drawDogHouse,
-    2: drawTennisBall,
-    3: drawFlowerBed,
-    4: drawFountain,
-    5: drawFossilDisplay,
-    6: drawGoldStatue,
-    7: drawDiamondKennel,
-    8: drawShrine,
-    9: drawMushroomGarden,
-    10: drawCrystalDisplay,
-  };
-  const fn = decs[decId];
-  if (!fn) return null;
-  return fn();
-}
-
-function drawFireHydrant() {
-  const c = createCanvas(TILE_SIZE, TILE_SIZE);
+  const pixels = DECORATION_SPRITES[decId];
+  const palette = DECORATION_PALETTES[decId];
+  if (!pixels || !palette) return null;
+  const h = pixels.length;
+  const w = pixels[0].length;
+  const c = createCanvas(w, h);
   const ctx = c.getContext('2d');
-  drawRect(ctx, 5, 2, 6, 12, '#F44336');
-  drawRect(ctx, 3, 4, 10, 2, '#D32F2F');
-  drawRect(ctx, 6, 1, 4, 2, '#E53935');
-  drawRect(ctx, 4, 13, 8, 2, '#B71C1C');
-  return c;
-}
-
-function drawDogHouse() {
-  const c = createCanvas(TILE_SIZE * 2, TILE_SIZE * 2);
-  const ctx = c.getContext('2d');
-  // Roof
-  ctx.fillStyle = '#D32F2F';
-  ctx.beginPath();
-  ctx.moveTo(0, 12);
-  ctx.lineTo(16, 0);
-  ctx.lineTo(32, 12);
-  ctx.fill();
-  // Body
-  drawRect(ctx, 2, 12, 28, 18, '#8D6E63');
-  // Door
-  drawRect(ctx, 11, 16, 10, 14, '#5D4037');
-  // Sign
-  drawRect(ctx, 12, 13, 8, 3, '#FFF');
-  return c;
-}
-
-function drawTennisBall() {
-  const c = createCanvas(TILE_SIZE, TILE_SIZE);
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#CDDC39';
-  ctx.beginPath();
-  ctx.arc(8, 8, 6, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#F0F4C3';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(8, 8, 4, -0.5, 1);
-  ctx.stroke();
-  return c;
-}
-
-function drawFlowerBed() {
-  const c = createCanvas(TILE_SIZE * 2, TILE_SIZE);
-  const ctx = c.getContext('2d');
-  drawRect(ctx, 0, 10, 32, 6, '#5D4037');
-  drawRect(ctx, 1, 8, 30, 3, '#388E3C');
-  const colors = ['#E91E63', '#FF9800', '#9C27B0', '#F44336', '#FFEB3B'];
-  for (let i = 0; i < 5; i++) {
-    ctx.fillStyle = colors[i];
-    ctx.beginPath();
-    ctx.arc(4 + i * 6, 6, 3, 0, Math.PI * 2);
-    ctx.fill();
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = parseInt(pixels[y][x], 16);
+      if (idx === 0) continue;
+      ctx.fillStyle = palette[idx];
+      ctx.fillRect(x, y, 1, 1);
+    }
   }
-  return c;
-}
-
-function drawFountain() {
-  const c = createCanvas(TILE_SIZE * 2, TILE_SIZE * 2);
-  const ctx = c.getContext('2d');
-  drawRect(ctx, 4, 20, 24, 10, '#78909C');
-  drawRect(ctx, 8, 12, 16, 10, '#90A4AE');
-  drawRect(ctx, 13, 4, 6, 10, '#B0BEC5');
-  ctx.fillStyle = '#42A5F5';
-  ctx.beginPath();
-  ctx.arc(16, 3, 4, 0, Math.PI * 2);
-  ctx.fill();
-  // Water drops
-  ctx.fillStyle = '#64B5F6';
-  ctx.fillRect(10, 8, 2, 3);
-  ctx.fillRect(20, 8, 2, 3);
-  return c;
-}
-
-function drawFossilDisplay() {
-  const c = createCanvas(TILE_SIZE, TILE_SIZE * 2);
-  const ctx = c.getContext('2d');
-  drawRect(ctx, 2, 16, 12, 14, '#5D4037');
-  drawRect(ctx, 1, 0, 14, 18, '#EFEBE9');
-  drawRect(ctx, 2, 1, 12, 16, '#D7CCC8');
-  // Fossil bone
-  ctx.fillStyle = '#A1887F';
-  ctx.fillRect(4, 4, 8, 2);
-  ctx.fillRect(4, 8, 2, 6);
-  ctx.fillRect(10, 8, 2, 6);
-  ctx.fillRect(3, 3, 3, 2);
-  ctx.fillRect(10, 3, 3, 2);
-  return c;
-}
-
-function drawGoldStatue() {
-  const c = createCanvas(TILE_SIZE, TILE_SIZE * 2);
-  const ctx = c.getContext('2d');
-  // Pedestal
-  drawRect(ctx, 2, 24, 12, 6, '#757575');
-  drawRect(ctx, 3, 22, 10, 3, '#9E9E9E');
-  // Dog statue
-  drawRect(ctx, 4, 10, 8, 6, '#FFC107');
-  drawRect(ctx, 3, 16, 2, 6, '#FFA000');
-  drawRect(ctx, 7, 16, 2, 6, '#FFA000');
-  drawRect(ctx, 11, 16, 2, 6, '#FFA000');
-  // Head
-  drawRect(ctx, 8, 5, 5, 5, '#FFC107');
-  drawRect(ctx, 9, 3, 2, 3, '#FFD54F');
-  return c;
-}
-
-function drawDiamondKennel() {
-  const c = createCanvas(TILE_SIZE * 2, TILE_SIZE * 2);
-  const ctx = c.getContext('2d');
-  drawRect(ctx, 2, 10, 28, 20, '#00BCD4');
-  drawRect(ctx, 0, 8, 32, 3, '#0097A7');
-  ctx.fillStyle = '#00838F';
-  ctx.beginPath();
-  ctx.moveTo(0, 8);
-  ctx.lineTo(16, 0);
-  ctx.lineTo(32, 8);
-  ctx.fill();
-  drawRect(ctx, 11, 16, 10, 14, '#004D40');
-  // Diamond accents
-  ctx.fillStyle = '#84FFFF';
-  ctx.fillRect(4, 14, 3, 3);
-  ctx.fillRect(25, 14, 3, 3);
-  return c;
-}
-
-function drawShrine() {
-  const c = createCanvas(TILE_SIZE * 2, TILE_SIZE * 3);
-  const ctx = c.getContext('2d');
-  // Base
-  drawRect(ctx, 0, 36, 32, 12, '#5D4037');
-  // Pillars
-  drawRect(ctx, 2, 10, 4, 28, '#8D6E63');
-  drawRect(ctx, 26, 10, 4, 28, '#8D6E63');
-  // Top
-  drawRect(ctx, 0, 6, 32, 6, '#6D4C41');
-  // Artifact glow
-  ctx.fillStyle = '#FF6D00';
-  ctx.beginPath();
-  ctx.arc(16, 26, 5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#FFAB40';
-  ctx.beginPath();
-  ctx.arc(16, 26, 3, 0, Math.PI * 2);
-  ctx.fill();
-  return c;
-}
-
-function drawMushroomGarden() {
-  const c = createCanvas(TILE_SIZE * 2, TILE_SIZE);
-  const ctx = c.getContext('2d');
-  drawRect(ctx, 0, 10, 32, 6, '#4A3670');
-  // Mushrooms
-  ctx.fillStyle = '#76FF03';
-  ctx.beginPath(); ctx.arc(6, 6, 4, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(16, 4, 5, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(26, 6, 4, 0, Math.PI * 2); ctx.fill();
-  // Stems
-  ctx.fillStyle = '#AED581';
-  ctx.fillRect(5, 8, 2, 4);
-  ctx.fillRect(15, 7, 2, 5);
-  ctx.fillRect(25, 8, 2, 4);
-  return c;
-}
-
-function drawCrystalDisplay() {
-  const c = createCanvas(TILE_SIZE, TILE_SIZE * 2);
-  const ctx = c.getContext('2d');
-  drawRect(ctx, 2, 20, 12, 10, '#38006B');
-  // Crystal formation
-  ctx.fillStyle = '#EA80FC';
-  ctx.beginPath();
-  ctx.moveTo(8, 2);
-  ctx.lineTo(4, 18);
-  ctx.lineTo(12, 18);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = '#CE93D8';
-  ctx.beginPath();
-  ctx.moveTo(5, 8);
-  ctx.lineTo(2, 18);
-  ctx.lineTo(8, 18);
-  ctx.closePath();
-  ctx.fill();
   return c;
 }
 

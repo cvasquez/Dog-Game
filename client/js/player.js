@@ -2,7 +2,7 @@ import { getFrameCount } from './sprites.js';
 import {
   GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION, MAX_FALL_SPEED,
   PLAYER_WIDTH, PLAYER_HEIGHT, SURFACE_Y, WORLD_WIDTH,
-  DOG_BREEDS, HAZARD_TILES, TILE, UPGRADES, EMOTES, STAMINA_DIG_COST, SPRINT_SPEED_MULT, STAMINA_SPRINT_COST, MANTLE_FRAMES,
+  DOG_BREEDS, HAZARD_TILES, TILE, UPGRADES, EMOTES, STAMINA_DIG_COST, STAMINA_RUN_COST, SPRINT_SPEED_MULT, STAMINA_SPRINT_COST, MANTLE_FRAMES,
   BASE_MAX_STAMINA, BASE_STAMINA_REGEN_RATE, STAMINA_REGEN_DELAY, RESPAWN_FRAMES,
   STAMINA_EXHAUSTION_TIME, STAMINA_CLING_COST, STAMINA_CLIMB_COST,
   STAMINA_CLIMB_JUMP, CLIMB_SPEED, CLING_SLIDE_SPEED, CLIMB_JUMP_FORCE,
@@ -268,11 +268,13 @@ export class Player {
     } else {
       this.climbing = false;
 
-      // Sprint: boost speed while holding sprint with stamina
-      const sprinting = input.sprint && !this.exhausted && this.stamina > 0 && this.grounded && (input.left || input.right);
+      // Running drains stamina; sprinting drains extra
+      const moving = (input.left || input.right) && this.grounded;
+      const sprinting = input.sprint && !this.exhausted && this.stamina > 0 && moving;
       const effectiveSpeed = sprinting ? this.moveSpeed * SPRINT_SPEED_MULT : this.moveSpeed;
-      if (sprinting) {
-        this.stamina -= STAMINA_SPRINT_COST;
+      if (moving && !this.exhausted) {
+        this.stamina -= STAMINA_RUN_COST;
+        if (sprinting) this.stamina -= STAMINA_SPRINT_COST;
         if (this.stamina <= 0) this.triggerExhaustion();
       }
 
