@@ -24,37 +24,19 @@ export class Camera {
   }
 
   follow(targetX, targetY) {
-    const prevZoom = this.zoom;
     // Update zoom interpolation
     this.updateZoom();
 
-    // Use zoom-adjusted view size so camera centers correctly when zoomed
-    const effectiveW = this.viewWidth / this.zoom;
-    const effectiveH = this.viewHeight / this.zoom;
+    // The renderer zooms around the viewport center, so the camera must
+    // always place the player at viewWidth/2, viewHeight/2 in pre-transform
+    // screen coordinates — NOT at effectiveW/2 (which caused the player
+    // to drift toward the upper-left when zoomed).
+    const tx = targetX * TILE_SIZE - this.viewWidth / 2;
+    const ty = targetY * TILE_SIZE - this.viewHeight / 2;
 
-    // Target center of view on the player
-    const tx = targetX * TILE_SIZE - effectiveW / 2;
-    const ty = targetY * TILE_SIZE - effectiveH / 2;
-
-    // When zoom is actively changing, snap camera to keep player centered
-    // Otherwise use normal smooth follow
-    if (Math.abs(this.zoom - prevZoom) > 0.0001) {
-      // Compensate camera position for zoom change to keep player centered
-      const prevEffW = this.viewWidth / prevZoom;
-      const prevEffH = this.viewHeight / prevZoom;
-      const playerScreenX = targetX * TILE_SIZE - this.x;
-      const playerScreenY = targetY * TILE_SIZE - this.y;
-      // Adjust so player stays at same relative position in the new effective view
-      this.x += playerScreenX * (1 - prevEffW / effectiveW);
-      this.y += playerScreenY * (1 - prevEffH / effectiveH);
-      // Also pull toward center with faster smoothing during zoom
-      this.x += (tx - this.x) * 0.3;
-      this.y += (ty - this.y) * 0.3;
-    } else {
-      // Normal smooth follow
-      this.x += (tx - this.x) * this.smoothing;
-      this.y += (ty - this.y) * this.smoothing;
-    }
+    // Smooth follow toward target
+    this.x += (tx - this.x) * this.smoothing;
+    this.y += (ty - this.y) * this.smoothing;
 
     // Screen shake
     if (this.shakeTimer > 0) {
@@ -66,23 +48,50 @@ export class Camera {
       this.shakeTimer--;
     }
 
-    // Clamp to world bounds (using effective view size for zoom)
-    this.x = Math.max(0, Math.min(WORLD_WIDTH * TILE_SIZE - effectiveW, this.x));
-    this.y = Math.max(0, Math.min(WORLD_HEIGHT * TILE_SIZE - effectiveH, this.y));
+    // Clamp to world bounds.
+    // The renderer's zoom-from-center transform means the visible world area
+    // spans viewWidth/zoom pixels centered on viewWidth/2 in pre-transform space.
+    // We need the world edges to stay within (or beyond) the screen edges.
+    const cx = this.viewWidth / 2;
+    const cy = this.viewHeight / 2;
+    const halfVisW = cx / this.zoom;
+    const halfVisH = cy / this.zoom;
+
+    // Left edge of visible world: camera.x + cx - halfVisW >= 0
+    const minX = -(cx - halfVisW);
+    // Right edge: camera.x + cx + halfVisW <= worldWidth
+    const maxX = WORLD_WIDTH * TILE_SIZE - cx - halfVisW;
+    // Top edge: camera.y + cy - halfVisH >= 0
+    const minY = -(cy - halfVisH);
+    // Bottom edge: camera.y + cy + halfVisH <= worldHeight
+    const maxY = WORLD_HEIGHT * TILE_SIZE - cy - halfVisH;
+
+    this.x = Math.max(minX, Math.min(maxX, this.x));
+    this.y = Math.max(minY, Math.min(maxY, this.y));
   }
 
   // Get visible tile range for culling
   getVisibleRange() {
-    const effectiveW = this.viewWidth / this.zoom;
-    const effectiveH = this.viewHeight / this.zoom;
-    const startX = Math.max(0, Math.floor(this.x / TILE_SIZE) - 1);
-    const startY = Math.max(0, Math.floor(this.y / TILE_SIZE) - 1);
-    const endX = Math.min(WORLD_WIDTH, Math.ceil((this.x + effectiveW) / TILE_SIZE) + 1);
-    const endY = Math.min(WORLD_HEIGHT, Math.ceil((this.y + effectiveH) / TILE_SIZE) + 1);
+    // The renderer zooms around viewport center, so visible world area
+    // is viewWidth/zoom wide, centered on (camera.x + viewWidth/2)
+    const cx = this.viewWidth / 2;
+    const cy = this.viewHeight / 2;
+    const halfVisW = cx / this.zoom;
+    const halfVisH = cy / this.zoom;
+
+    const worldLeft = this.x + cx - halfVisW;
+    const worldTop = this.y + cy - halfVisH;
+    const worldRight = this.x + cx + halfVisW;
+    const worldBottom = this.y + cy + halfVisH;
+
+    const startX = Math.max(0, Math.floor(worldLeft / TILE_SIZE) - 1);
+    const startY = Math.max(0, Math.floor(worldTop / TILE_SIZE) - 1);
+    const endX = Math.min(WORLD_WIDTH, Math.ceil(worldRight / TILE_SIZE) + 1);
+    const endY = Math.min(WORLD_HEIGHT, Math.ceil(worldBottom / TILE_SIZE) + 1);
     return { startX, startY, endX, endY };
   }
 
-  // World coords to screen coords
+  // World coords to screen coords (pre-transform)
   worldToScreen(wx, wy) {
     return {
       x: wx * TILE_SIZE - this.x,
