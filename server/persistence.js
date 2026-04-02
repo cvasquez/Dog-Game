@@ -79,14 +79,25 @@ export function saveWorld(roomId, seed, tiles, decorations) {
   stmt.run(roomId, seed, Buffer.from(tiles), JSON.stringify(decorations), roomId, now, now);
 }
 
+function safeJsonParse(str, fallback) {
+  try {
+    const parsed = JSON.parse(str);
+    return parsed;
+  } catch {
+    return fallback;
+  }
+}
+
 export function loadWorld(roomId) {
   const row = db.prepare('SELECT * FROM worlds WHERE room_id = ?').get(roomId);
   if (!row) return null;
+  const decorations = safeJsonParse(row.decorations, []);
+  if (!Array.isArray(decorations)) return null;
   return {
     roomId: row.room_id,
     seed: row.seed,
     tiles: new Uint8Array(row.tiles),
-    decorations: JSON.parse(row.decorations),
+    decorations,
   };
 }
 
@@ -105,11 +116,13 @@ export function savePlayer(roomId, playerName, resources, unlockedEmotes, ownedU
 export function loadPlayer(roomId, playerName) {
   const row = db.prepare('SELECT * FROM players WHERE room_id = ? AND player_name = ?').get(roomId, playerName);
   if (!row) return null;
-  return {
-    resources: JSON.parse(row.resources),
-    unlockedEmotes: JSON.parse(row.unlocked_emotes),
-    ownedUpgrades: JSON.parse(row.owned_upgrades || '[]'),
-  };
+  const resources = safeJsonParse(row.resources, {});
+  const unlockedEmotes = safeJsonParse(row.unlocked_emotes, [0, 1]);
+  const ownedUpgrades = safeJsonParse(row.owned_upgrades || '[]', []);
+  if (typeof resources !== 'object' || !Array.isArray(unlockedEmotes) || !Array.isArray(ownedUpgrades)) {
+    return null;
+  }
+  return { resources, unlockedEmotes, ownedUpgrades };
 }
 
 export function deleteWorld(roomId) {

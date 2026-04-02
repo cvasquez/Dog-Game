@@ -100,7 +100,12 @@ function showWorldList(saves) {
     el.className = 'world-item';
     const date = new Date(s.savedAt).toLocaleDateString();
     const name = s.player ? s.player.resources : {};
-    el.innerHTML = `<span>World: ${s.id}</span><span>${date}</span>`;
+    const span1 = document.createElement('span');
+    span1.textContent = `World: ${s.id}`;
+    const span2 = document.createElement('span');
+    span2.textContent = date;
+    el.appendChild(span1);
+    el.appendChild(span2);
     el.addEventListener('click', () => startSoloGame(s));
     worldList.appendChild(el);
   }

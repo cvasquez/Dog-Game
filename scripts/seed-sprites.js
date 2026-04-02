@@ -4,8 +4,13 @@
 
 import { DOG_SPRITES, SPRITE_PALETTE, ANIM_STATES } from '../shared/sprite-data.js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://qwvmbmjanuyinlqzmymt.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_TL41nSN0-SyAvpd3xgHUlw_N7fRqQIO';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error('Error: SUPABASE_URL and SUPABASE_KEY environment variables are required');
+  process.exit(1);
+}
 
 async function supabaseRequest(path, method, body) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {

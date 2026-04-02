@@ -9,16 +9,19 @@ import {
   BOUNCY_TILES, BOUNCY_FORCE,
   COOP_DIG_RANGE, COOP_DIG_BONUS,
 } from '../shared/constants.js';
+import crypto from 'crypto';
 import { generateWorld } from './world-gen.js';
 import { saveWorld, loadWorld, savePlayer, loadPlayer, listWorlds } from './persistence.js';
 
 const rooms = new Map();
 const AUTO_SAVE_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_DECORATIONS_PER_ROOM = 200;
 
 function genRoomId() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.randomBytes(6);
   let id = '';
-  for (let i = 0; i < 6; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 6; i++) id += chars[bytes[i] % chars.length];
   return id;
 }
 
@@ -551,6 +554,7 @@ export function handleMessage(roomId, playerId, msg) {
       break;
 
     case MSG.EMOTE: {
+      if (!Number.isInteger(msg.emoteId) || msg.emoteId < 0 || msg.emoteId >= EMOTES.length) break;
       const emDef = EMOTES[msg.emoteId];
       if (!emDef || !player.unlockedEmotes.includes(msg.emoteId)) break;
       // Check cooldown
@@ -577,20 +581,31 @@ export function handleMessage(roomId, playerId, msg) {
     }
 
     case MSG.PLACE_DECORATION: {
+      if (!Number.isInteger(msg.decorationId)) break;
       const decDef = DECORATIONS.find(d => d.id === msg.decorationId);
       if (!decDef) break;
+      // Validate coordinates
+      const decX = Math.floor(Number(msg.x));
+      const decY = Math.floor(Number(msg.y));
+      if (!Number.isFinite(decX) || !Number.isFinite(decY)) break;
+      if (decX < 0 || decX >= WORLD_WIDTH) break;
+      // Check decoration limit per room
+      if (room.decorations.length >= MAX_DECORATIONS_PER_ROOM) {
+        sendTo(player, { type: MSG.ERROR, message: 'Room decoration limit reached' });
+        break;
+      }
       // Check if player can afford it
       if (!canAfford(player.resources, decDef.cost)) {
         sendTo(player, { type: MSG.ERROR, message: 'Cannot afford this decoration' });
         break;
       }
       // Check placement is in park zone
-      if (msg.y < PARK_TOP || msg.y + decDef.h - 1 > PARK_BOTTOM) {
+      if (decY < PARK_TOP || decY + decDef.h - 1 > PARK_BOTTOM) {
         sendTo(player, { type: MSG.ERROR, message: 'Must place in the dog park area' });
         break;
       }
       deductCost(player.resources, decDef.cost);
-      const decoration = { id: decDef.id, x: msg.x, y: msg.y, placedBy: player.name };
+      const decoration = { id: decDef.id, x: decX, y: decY, placedBy: player.name };
       room.decorations.push(decoration);
       broadcast(room, { type: MSG.DECORATION_PLACED, decoration });
       // Recalculate stats for ALL players (decoration buffs are shared)
@@ -602,6 +617,7 @@ export function handleMessage(roomId, playerId, msg) {
     }
 
     case MSG.BUY_EMOTE: {
+      if (!Number.isInteger(msg.emoteId) || msg.emoteId < 0) break;
       const emoteDef = EMOTES.find(e => e.id === msg.emoteId);
       if (!emoteDef || !emoteDef.cost) break;
       if (player.unlockedEmotes.includes(msg.emoteId)) break;
@@ -616,6 +632,7 @@ export function handleMessage(roomId, playerId, msg) {
     }
 
     case MSG.BUY_UPGRADE: {
+      if (!Number.isInteger(msg.upgradeId) || msg.upgradeId < 0) break;
       const upgrade = UPGRADES.find(u => u.id === msg.upgradeId);
       if (!upgrade) break;
       if (player.ownedUpgrades.includes(msg.upgradeId)) break;
@@ -641,8 +658,10 @@ export function handleMessage(roomId, playerId, msg) {
       break;
 
     case MSG.PING: {
-      const px = typeof msg.x === 'number' ? msg.x : player.x;
-      const py = typeof msg.y === 'number' ? msg.y : player.y;
+      const px = typeof msg.x === 'number' && Number.isFinite(msg.x)
+        ? Math.max(0, Math.min(WORLD_WIDTH - 1, msg.x)) : player.x;
+      const py = typeof msg.y === 'number' && Number.isFinite(msg.y)
+        ? Math.max(0, Math.min(WORLD_HEIGHT - 1, msg.y)) : player.y;
       broadcast(room, {
         type: MSG.PING_PLACED,
         x: px, y: py,

@@ -1,7 +1,7 @@
 // Supabase client configuration
-// Replace these with your actual Supabase project values
-const SUPABASE_URL = window.SUPABASE_URL || 'https://qwvmbmjanuyinlqzmymt.supabase.co';
-const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'sb_publishable_TL41nSN0-SyAvpd3xgHUlw_N7fRqQIO';
+// Set window.SUPABASE_URL and window.SUPABASE_ANON_KEY before loading, or configure via environment
+const SUPABASE_URL = window.SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || '';
 
 let _client = null;
 
@@ -16,5 +16,5 @@ export function getSupabaseClient() {
 }
 
 export function isSupabaseConfigured() {
-  return !SUPABASE_URL.includes('YOUR_PROJECT');
+  return !!SUPABASE_URL && !!SUPABASE_ANON_KEY;
 }
