@@ -6,7 +6,7 @@ import {
   BASE_MAX_STAMINA, BASE_STAMINA_REGEN_RATE, STAMINA_REGEN_DELAY, RESPAWN_FRAMES,
   STAMINA_EXHAUSTION_TIME, STAMINA_CLING_COST, STAMINA_CLIMB_COST,
   STAMINA_CLIMB_JUMP, CLIMB_SPEED, CLING_SLIDE_SPEED, CLIMB_JUMP_FORCE,
-  ACCEL_GROUND, ACCEL_AIR, DECEL_GROUND, DECEL_AIR,
+  ACCEL_GROUND, DECEL_GROUND, DECEL_AIR,
   COYOTE_TIME, JUMP_BUFFER_TIME, JUMP_CUT_MULTIPLIER, APEX_GRAVITY_MULT,
   calcDecorationBonuses,
   FALL_DAMAGE_THRESHOLD, FALL_DAMAGE_MULTIPLIER, FALL_DAMAGE_STUN_FRAMES,
@@ -283,15 +283,18 @@ export class Player {
       if (targetVx !== 0) {
         if (input.left) this.facing = -1;
         if (input.right) this.facing = 1;
-        const accel = this.grounded ? ACCEL_GROUND : ACCEL_AIR;
-        // Accelerate toward target, with faster turning
-        const turning = (this.vx > 0 && targetVx < 0) || (this.vx < 0 && targetVx > 0);
-        this.vx += Math.sign(targetVx) * accel * (turning ? 1.5 : 1);
-        // Clamp to max speed — in air, preserve sprint momentum for longer jumps
-        const speedCap = this.grounded ? effectiveSpeed
-          : Math.max(effectiveSpeed, Math.abs(this.vx));
-        if (Math.abs(this.vx) > speedCap) {
-          this.vx = Math.sign(this.vx) * speedCap;
+        if (this.grounded) {
+          // Smooth acceleration on ground with faster turning
+          const turning = (this.vx > 0 && targetVx < 0) || (this.vx < 0 && targetVx > 0);
+          this.vx += Math.sign(targetVx) * ACCEL_GROUND * (turning ? 1.5 : 1);
+          if (Math.abs(this.vx) > effectiveSpeed) {
+            this.vx = Math.sign(this.vx) * effectiveSpeed;
+          }
+        } else {
+          // In air: direction control at base speed, preserve sprint momentum (no acceleration)
+          if (Math.abs(this.vx) <= effectiveSpeed) {
+            this.vx = Math.sign(targetVx) * effectiveSpeed;
+          }
         }
       } else {
         // Decelerate (additive for consistent stop distance)

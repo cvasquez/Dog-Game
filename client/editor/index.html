@@ -1165,9 +1165,33 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
   });
 });
 
-// --- Decoration DB persistence (local SQLite via server API) ---
+// --- Decoration DB persistence (Supabase with local server API fallback) ---
 
 async function loadDecorationsFromDB() {
+  // Try Supabase first
+  if (isSupabaseConfigured()) {
+    const sb = getSupabaseClient();
+    if (sb) {
+      try {
+        const { data, error } = await sb
+          .from('decoration_sprites')
+          .select('dec_id, pixels, palette')
+          .order('dec_id');
+        if (!error && data && data.length > 0) {
+          for (const row of data) {
+            decorationSprites[row.dec_id] = row.pixels;
+            decorationPalettes[row.dec_id] = row.palette;
+          }
+          rebuildUI();
+          showCloudStatus('Loaded decorations from Supabase', false);
+          return;
+        }
+      } catch {
+        // Fall through to server API
+      }
+    }
+  }
+  // Fallback: local server API
   try {
     const res = await fetch('/api/decoration-sprites');
     if (!res.ok) return;
@@ -1183,21 +1207,51 @@ async function loadDecorationsFromDB() {
       }
     }
     rebuildUI();
-    showCloudStatus('Loaded decorations from DB', false);
+    showCloudStatus('Loaded decorations from server', false);
   } catch {
     // Server not available — keep file defaults
   }
 }
 
 async function saveDecorationToDB(decId) {
+  const pixels = decorationSprites[decId];
+  const palette = decorationPalettes[decId];
+  if (!pixels || !palette) {
+    showCloudStatus('No sprite data for decoration ' + decId, true);
+    return false;
+  }
+
+  // Try Supabase first
+  if (isSupabaseConfigured()) {
+    const sb = getSupabaseClient();
+    if (sb) {
+      try {
+        const { error } = await sb
+          .from('decoration_sprites')
+          .upsert({
+            dec_id: decId,
+            pixels,
+            palette,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'dec_id' });
+        if (error) {
+          showCloudStatus('Save failed: ' + error.message, true);
+          return false;
+        }
+        return true;
+      } catch (e) {
+        showCloudStatus('Supabase save failed: ' + e.message, true);
+        return false;
+      }
+    }
+  }
+
+  // Fallback: local server API
   try {
     const res = await fetch('/api/decoration-sprites/' + decId, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        pixels: decorationSprites[decId],
-        palette: decorationPalettes[decId],
-      }),
+      body: JSON.stringify({ pixels, palette }),
     });
     if (!res.ok) {
       showCloudStatus('Save failed: ' + (await res.text()), true);

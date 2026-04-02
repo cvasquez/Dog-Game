@@ -40,6 +40,28 @@ CREATE POLICY "Anyone can delete sprites"
   ON custom_sprites FOR DELETE
   USING (true);
 
+-- Decoration sprites edited in the sprite editor
+CREATE TABLE decoration_sprites (
+  dec_id INTEGER PRIMARY KEY,
+  pixels JSONB NOT NULL,            -- array of hex-string rows (e.g. ["0000011100...", ...])
+  palette JSONB NOT NULL,           -- array of color strings (index 0 = null/transparent)
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE decoration_sprites ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Decoration sprites are viewable by everyone"
+  ON decoration_sprites FOR SELECT
+  USING (true);
+
+CREATE POLICY "Anyone can create decoration sprites"
+  ON decoration_sprites FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "Anyone can update decoration sprites"
+  ON decoration_sprites FOR UPDATE
+  USING (true);
+
 -- Persistent worlds
 CREATE TABLE worlds (
   room_id TEXT PRIMARY KEY,
