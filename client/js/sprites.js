@@ -12,18 +12,40 @@ let customPalette = null;
 let activeDecorationSprites = { ...DECORATION_SPRITES };
 let activeDecorationPalettes = { ...DECORATION_PALETTES };
 
-// Load decoration sprites from the server DB (non-blocking, falls back to file defaults)
+// Load decoration sprites from Supabase, falling back to server API, then file defaults
 export async function loadDecorationSprites() {
+  // Try Supabase first (works on GitHub Pages and multiplayer)
+  if (isSupabaseConfigured()) {
+    const sb = getSupabaseClient();
+    if (sb) {
+      try {
+        const { data, error } = await sb
+          .from('decoration_sprites')
+          .select('dec_id, pixels, palette')
+          .order('dec_id');
+        if (!error && data && data.length > 0) {
+          for (const row of data) {
+            activeDecorationSprites[row.dec_id] = row.pixels;
+            activeDecorationPalettes[row.dec_id] = row.palette;
+          }
+          spriteCache.forEach((v, k) => { if (k.startsWith('dec_')) spriteCache.delete(k); });
+          return;
+        }
+      } catch {
+        // Fall through to server API
+      }
+    }
+  }
+  // Fallback: try local server API (multiplayer with SQLite)
   try {
     const res = await fetch('/api/decoration-sprites');
     if (!res.ok) return;
     const data = await res.json();
     if (data.sprites) activeDecorationSprites = data.sprites;
     if (data.palettes) activeDecorationPalettes = data.palettes;
-    // Clear cached decoration sprites so they re-render from DB data
     spriteCache.forEach((v, k) => { if (k.startsWith('dec_')) spriteCache.delete(k); });
   } catch {
-    // Server not available (single-player / GitHub Pages) — keep file defaults
+    // Server not available — keep file defaults
   }
 }
 
