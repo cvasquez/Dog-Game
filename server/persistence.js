@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { DECORATION_SPRITES, DECORATION_PALETTES } from '../shared/sprite-data.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.join(__dirname, '..', 'doggame.db');
@@ -33,11 +34,36 @@ export function initDB() {
     )
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS decoration_sprites (
+      dec_id INTEGER PRIMARY KEY,
+      pixels TEXT NOT NULL,
+      palette TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+
   // Migration: add owned_upgrades column if missing
   try {
     db.exec(`ALTER TABLE players ADD COLUMN owned_upgrades TEXT DEFAULT '[]'`);
   } catch {
     // Column already exists
+  }
+
+  // Seed decoration sprites from sprite-data.js if the table is empty
+  const count = db.prepare('SELECT COUNT(*) as n FROM decoration_sprites').get().n;
+  if (count === 0) {
+    const insert = db.prepare(
+      'INSERT INTO decoration_sprites (dec_id, pixels, palette, updated_at) VALUES (?, ?, ?, ?)'
+    );
+    const now = Date.now();
+    const seedAll = db.transaction(() => {
+      for (const [id, pixels] of Object.entries(DECORATION_SPRITES)) {
+        const palette = DECORATION_PALETTES[id] || [null];
+        insert.run(parseInt(id), JSON.stringify(pixels), JSON.stringify(palette), now);
+      }
+    });
+    seedAll();
   }
 
   return db;
@@ -88,4 +114,31 @@ export function loadPlayer(roomId, playerName) {
 export function deleteWorld(roomId) {
   db.prepare('DELETE FROM worlds WHERE room_id = ?').run(roomId);
   db.prepare('DELETE FROM players WHERE room_id = ?').run(roomId);
+}
+
+// --- Decoration sprites ---
+
+export function getAllDecorationSprites() {
+  const rows = db.prepare('SELECT * FROM decoration_sprites ORDER BY dec_id').all();
+  const sprites = {};
+  const palettes = {};
+  for (const row of rows) {
+    sprites[row.dec_id] = JSON.parse(row.pixels);
+    palettes[row.dec_id] = JSON.parse(row.palette);
+  }
+  return { sprites, palettes };
+}
+
+export function getDecorationSprite(decId) {
+  const row = db.prepare('SELECT * FROM decoration_sprites WHERE dec_id = ?').get(decId);
+  if (!row) return null;
+  return { pixels: JSON.parse(row.pixels), palette: JSON.parse(row.palette) };
+}
+
+export function saveDecorationSprite(decId, pixels, palette) {
+  const now = Date.now();
+  db.prepare(`
+    INSERT OR REPLACE INTO decoration_sprites (dec_id, pixels, palette, updated_at)
+    VALUES (?, ?, ?, ?)
+  `).run(decId, JSON.stringify(pixels), JSON.stringify(palette), now);
 }

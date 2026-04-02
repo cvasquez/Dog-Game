@@ -8,6 +8,25 @@ const spriteCache = new Map();
 const customSprites = {};
 let customPalette = null;
 
+// Mutable decoration data — starts with file defaults, overridden by DB on server
+let activeDecorationSprites = { ...DECORATION_SPRITES };
+let activeDecorationPalettes = { ...DECORATION_PALETTES };
+
+// Load decoration sprites from the server DB (non-blocking, falls back to file defaults)
+export async function loadDecorationSprites() {
+  try {
+    const res = await fetch('/api/decoration-sprites');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.sprites) activeDecorationSprites = data.sprites;
+    if (data.palettes) activeDecorationPalettes = data.palettes;
+    // Clear cached decoration sprites so they re-render from DB data
+    spriteCache.forEach((v, k) => { if (k.startsWith('dec_')) spriteCache.delete(k); });
+  } catch {
+    // Server not available (single-player / GitHub Pages) — keep file defaults
+  }
+}
+
 // Load custom sprites from Supabase (non-blocking, falls back to defaults)
 export async function loadCustomSprites() {
   if (!isSupabaseConfigured()) return;
@@ -225,8 +244,8 @@ function genDogSprite(breedId, animState, frameIndex) {
 
 // Generate decoration sprite from pixel data
 function genDecorationSprite(decId) {
-  const pixels = DECORATION_SPRITES[decId];
-  const palette = DECORATION_PALETTES[decId];
+  const pixels = activeDecorationSprites[decId];
+  const palette = activeDecorationPalettes[decId];
   if (!pixels || !palette) return null;
   const h = pixels.length;
   const w = pixels[0].length;
