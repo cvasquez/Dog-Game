@@ -153,9 +153,17 @@ function updatePlayer(room, player, dt) {
       player.stamina = 0;
     }
   }
-  if (inp.left) { player.vx = -speed; player.facing = -1; }
-  else if (inp.right) { player.vx = speed; player.facing = 1; }
-  else { player.vx *= FRICTION; if (Math.abs(player.vx) < 0.1) player.vx = 0; }
+  if (inp.left) {
+    // In air, preserve sprint momentum (don't reduce vx below current speed)
+    if (player.grounded || Math.abs(player.vx) <= speed) player.vx = -speed;
+    player.facing = -1;
+  } else if (inp.right) {
+    if (player.grounded || Math.abs(player.vx) <= speed) player.vx = speed;
+    player.facing = 1;
+  } else {
+    player.vx *= FRICTION;
+    if (Math.abs(player.vx) < 0.1) player.vx = 0;
+  }
 
   // Jump (use breed jump force)
   const jumpF = player.jumpForce || JUMP_FORCE;
@@ -194,6 +202,7 @@ function updatePlayer(room, player, dt) {
       // Find the exact ground
       while (!collidesAt(room, player.x, player.y + 0.1, pw, ph)) player.y += 0.1;
       player.grounded = true;
+      player.vy = 0;
 
       // Check for bouncy tiles
       const tileBelow = getTile(room, Math.floor(player.x), Math.floor(player.y + 0.1));
@@ -216,8 +225,8 @@ function updatePlayer(room, player, dt) {
     } else {
       // Hit ceiling
       player.y = Math.floor(player.y - ph) + ph;
+      player.vy = 0;
     }
-    player.vy = 0;
   }
 
   // Clamp position

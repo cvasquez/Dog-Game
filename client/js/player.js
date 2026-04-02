@@ -285,9 +285,11 @@ export class Player {
         // Accelerate toward target, with faster turning
         const turning = (this.vx > 0 && targetVx < 0) || (this.vx < 0 && targetVx > 0);
         this.vx += Math.sign(targetVx) * accel * (turning ? 1.5 : 1);
-        // Clamp to max speed
-        if (Math.abs(this.vx) > effectiveSpeed) {
-          this.vx = Math.sign(this.vx) * effectiveSpeed;
+        // Clamp to max speed — in air, preserve sprint momentum for longer jumps
+        const speedCap = this.grounded ? effectiveSpeed
+          : Math.max(effectiveSpeed, Math.abs(this.vx));
+        if (Math.abs(this.vx) > speedCap) {
+          this.vx = Math.sign(this.vx) * speedCap;
         }
       } else {
         // Decelerate (additive for consistent stop distance)

@@ -220,7 +220,7 @@ export class Game {
         }
         // Refresh shop if open
         if (this.shop.visible) {
-          this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades);
+          this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, null, this.localPlayer.discoveredBlueprints);
         }
         this.notify('Purchase successful!');
       }
@@ -265,7 +265,7 @@ export class Game {
       if (this.shop.visible) {
         this.shop.hide();
       } else if (this.nearbyShop) {
-        this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, this.nearbyShop.type);
+        this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, this.nearbyShop.type, this.localPlayer.discoveredBlueprints);
       } else {
         this.notify('Find a shop at the surface to buy items!');
       }
