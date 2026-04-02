@@ -89,8 +89,13 @@ export async function loadCustomSprites() {
     // Use the most recent custom sprite per breed
     for (const row of data) {
       if (!customSprites[row.breed_key]) {
-        customSprites[row.breed_key] = row.sprite_data;
-        if (!customPalette && row.palette) customPalette = row.palette;
+        // Ensure sprite_data is an object (JSONB may arrive as string in some configs)
+        let sd = row.sprite_data;
+        if (typeof sd === 'string') { try { sd = JSON.parse(sd); } catch { continue; } }
+        if (sd && typeof sd === 'object' && sd.idle) {
+          customSprites[row.breed_key] = sd;
+          if (!customPalette && row.palette) customPalette = row.palette;
+        }
       }
     }
     // Clear sprite cache so new sprites are rendered

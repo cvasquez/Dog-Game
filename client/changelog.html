@@ -280,6 +280,22 @@
 
       <div class="version-entry">
         <div class="version-heading">
+          <span class="version-tag">v0.2.2</span>
+          <span class="version-date">2026-04-02</span>
+        </div>
+        <div class="version-title">Fix sprite editor save not persisting</div>
+        <div class="change-category">
+          <div class="category-label fixed">Fixed</div>
+          <ul class="change-list">
+            <li>Sprite editor saves now verify data was actually written to the database, with automatic retry on stale row IDs</li>
+            <li>Prevent saving before initial database load completes, avoiding race conditions that could overwrite edits</li>
+            <li>Handle edge case where sprite data arrives as a string instead of parsed JSON</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="version-entry">
+        <div class="version-heading">
           <span class="version-tag">v0.2.1</span>
           <span class="version-date">2026-04-02</span>
         </div>

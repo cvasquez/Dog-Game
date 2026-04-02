@@ -1095,8 +1095,12 @@ async function loadSpritesFromDB() {
   for (const row of data) {
     const key = row.breed_key;
     if (!dbRowIds[key]) {
+      // Ensure sprite_data is an object (JSONB may arrive as string in some configs)
+      let sd = row.sprite_data;
+      if (typeof sd === 'string') { try { sd = JSON.parse(sd); } catch { continue; } }
+      if (!sd || typeof sd !== 'object' || !sd.idle) continue;
       dbRowIds[key] = row.id;
-      sprites[key] = JSON.parse(JSON.stringify(row.sprite_data));
+      sprites[key] = JSON.parse(JSON.stringify(sd));
       // Use the palette with the most entries (preserves custom colors)
       if (row.palette && (!paletteLoaded || row.palette.length > customPalette.length)) {
         customPalette.length = 0;
@@ -1120,20 +1124,32 @@ async function saveBreedToDB(breedKey) {
   }
 
   const spriteData = sprites[breedKey];
+  if (!spriteData) {
+    showCloudStatus(`No sprite data for ${breedKey}`, true);
+    return false;
+  }
+
   const rowId = dbRowIds[breedKey];
 
   if (rowId) {
-    // Update existing row
-    const { error } = await sb.from('custom_sprites')
+    // Update existing row — use .select() to verify the update actually affected a row
+    const { data, error } = await sb.from('custom_sprites')
       .update({
         sprite_data: spriteData,
         palette: customPalette,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', rowId);
+      .eq('id', rowId)
+      .select('id');
     if (error) {
       showCloudStatus('Save failed: ' + error.message, true);
       return false;
+    }
+    if (!data || data.length === 0) {
+      // Row ID is stale (deleted or RLS blocked) — fall through to insert
+      console.warn(`Update matched 0 rows for ${breedKey} (id: ${rowId}), inserting new row`);
+      delete dbRowIds[breedKey];
+      return saveBreedToDB(breedKey);
     }
   } else {
     // Insert new row
@@ -1151,13 +1167,22 @@ async function saveBreedToDB(breedKey) {
       showCloudStatus('Save failed: ' + error.message, true);
       return false;
     }
-    if (data && data[0]) dbRowIds[breedKey] = data[0].id;
+    if (data && data[0]) {
+      dbRowIds[breedKey] = data[0].id;
+    } else {
+      showCloudStatus('Save failed: no row returned after insert', true);
+      return false;
+    }
   }
   return true;
 }
 
 // Save current breed
 document.getElementById('cloudSaveBtn').addEventListener('click', async () => {
+  if (!dbLoadComplete) {
+    showCloudStatus('Still loading from DB, please wait...', true);
+    return;
+  }
   showCloudStatus('Saving ' + currentBreed + '...', false);
   const ok = await saveBreedToDB(currentBreed);
   if (ok) showCloudStatus(`Saved ${currentBreed}`, false);
@@ -1165,6 +1190,10 @@ document.getElementById('cloudSaveBtn').addEventListener('click', async () => {
 
 // Save all breeds
 document.getElementById('cloudSaveAllBtn').addEventListener('click', async () => {
+  if (!dbLoadComplete) {
+    showCloudStatus('Still loading from DB, please wait...', true);
+    return;
+  }
   showCloudStatus('Saving all breeds...', false);
   let saved = 0;
   for (const breedKey of Object.keys(sprites)) {
@@ -1517,8 +1546,9 @@ document.getElementById('shopSaveAllBtn').addEventListener('click', async () => 
   showShopStatus(`Saved ${saved} shop sprites`, false);
 });
 
-// Load sprites from DB on startup
-loadSpritesFromDB();
+// Load sprites from DB on startup — await breed sprites before allowing edits
+let dbLoadComplete = false;
+loadSpritesFromDB().then(() => { dbLoadComplete = true; });
 loadDecorationsFromDB();
 loadShopsFromDB();
 </script>
