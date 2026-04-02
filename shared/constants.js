@@ -378,9 +378,9 @@ export const EMOTES = [
 export const STAMINA_DIG_COST = 1.5;
 
 // Running & Sprint
-export const STAMINA_RUN_COST = 0.15;       // per frame while running on ground
+export const STAMINA_RUN_COST = 0;           // per frame while running on ground (walking is free)
 export const SPRINT_SPEED_MULT = 1.6;       // multiplier on move speed while sprinting
-export const STAMINA_SPRINT_COST = 0.8;     // per frame while sprinting (added on top of run cost)
+export const STAMINA_SPRINT_COST = 0.4;     // per frame while sprinting (halved from 0.8)
 
 // Mantling
 export const MANTLE_FRAMES = 15;            // frames to complete mantle animation (~250ms at 60fps)
