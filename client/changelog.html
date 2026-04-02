@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Changelog — Dog Digging Game</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Changelog-specific overrides */
+    body {
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .changelog-backdrop {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 32px 16px;
+
+      background:
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 3px,
+          rgba(0,0,0,0.04) 3px,
+          rgba(0,0,0,0.04) 4px
+        ),
+        linear-gradient(180deg,
+          #1B5E20 0%,
+          #2E7D32 3%,
+          #33691E 5%,
+          #5D4037 12%,
+          #4E342E 25%,
+          #3E2723 50%,
+          #2C1810 75%,
+          #1A0E08 100%
+        );
+      background-attachment: fixed;
+    }
+
+    /* Vignette */
+    .changelog-backdrop::after {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .changelog-panel {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 600px;
+      padding: 28px 24px;
+
+      background:
+        linear-gradient(180deg,
+          rgba(93,64,55,0.95) 0%,
+          rgba(62,39,35,0.97) 40%,
+          rgba(44,24,16,0.98) 100%
+        );
+      border: 3px solid var(--border-stone);
+      outline: 2px solid var(--border-shadow);
+      outline-offset: 0px;
+      box-shadow:
+        inset 0 1px 0 var(--border-highlight),
+        inset 0 -1px 0 var(--border-shadow),
+        0 0 0 4px rgba(0,0,0,0.3),
+        0 8px 32px rgba(0,0,0,0.6);
+
+      align-self: flex-start;
+    }
+
+    .changelog-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .changelog-header h1 {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 14px;
+      color: var(--gem-gold);
+      text-shadow:
+        1px 1px 0 #8B6914,
+        2px 2px 0 rgba(0,0,0,0.5);
+      margin-bottom: 8px;
+    }
+
+    .changelog-header .subtitle {
+      font-size: 8px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      color: var(--gem-gold);
+      text-decoration: none;
+      padding: 6px 10px;
+      border: 1px solid transparent;
+      transition: all 0.1s;
+    }
+
+    .back-link:hover {
+      border-color: var(--border-stone);
+      background: rgba(255,215,0,0.08);
+    }
+
+    .back-link::before {
+      content: '< ';
+    }
+
+    /* Version entry */
+    .version-entry {
+      margin-bottom: 24px;
+      padding-bottom: 24px;
+      border-bottom: 2px solid rgba(109,76,65,0.3);
+    }
+
+    .version-entry:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .version-heading {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .version-tag {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
+      color: var(--gem-diamond);
+      text-shadow: 0 0 8px rgba(77,208,225,0.3);
+    }
+
+    .version-date {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: var(--text-dim);
+    }
+
+    .version-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      color: var(--text-bright);
+      width: 100%;
+      margin-bottom: 4px;
+    }
+
+    /* Change categories */
+    .change-category {
+      margin-bottom: 10px;
+    }
+
+    .change-category:last-child {
+      margin-bottom: 0;
+    }
+
+    .category-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+      padding: 3px 8px;
+      display: inline-block;
+    }
+
+    .category-label.added {
+      color: var(--gem-emerald);
+      background: rgba(67,160,71,0.1);
+      border-left: 2px solid var(--gem-emerald);
+    }
+
+    .category-label.changed {
+      color: var(--gem-gold);
+      background: rgba(255,215,0,0.08);
+      border-left: 2px solid var(--gem-gold);
+    }
+
+    .category-label.fixed {
+      color: var(--gem-ruby);
+      background: rgba(229,57,53,0.08);
+      border-left: 2px solid var(--gem-ruby);
+    }
+
+    .category-label.balance {
+      color: var(--gem-purple);
+      background: rgba(206,147,216,0.08);
+      border-left: 2px solid var(--gem-purple);
+    }
+
+    .change-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .change-list li {
+      font-size: 8px;
+      color: var(--text-primary);
+      line-height: 2;
+      padding-left: 16px;
+      position: relative;
+    }
+
+    .change-list li::before {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 4px;
+      height: 4px;
+      background: var(--border-stone);
+    }
+  </style>
+</head>
+<body>
+  <div class="changelog-backdrop">
+    <div class="changelog-panel">
+      <a href="index.html" class="back-link">Back to Game</a>
+
+      <div class="changelog-header">
+        <h1>Changelog</h1>
+        <p class="subtitle">Dig notes from the underground</p>
+      </div>
+
+      <!-- ==================== CHANGELOG ENTRIES ==================== -->
+      <!-- Add new entries at the top. Use the template below:
+
+      <div class="version-entry">
+        <div class="version-heading">
+          <span class="version-tag">vX.X.X</span>
+          <span class="version-date">YYYY-MM-DD</span>
+        </div>
+        <div class="version-title">Short summary of this release</div>
+
+        <div class="change-category">
+          <div class="category-label added">Added</div>
+          <ul class="change-list">
+            <li>New feature description</li>
+          </ul>
+        </div>
+
+        <div class="change-category">
+          <div class="category-label changed">Changed</div>
+          <ul class="change-list">
+            <li>What was changed</li>
+          </ul>
+        </div>
+
+        <div class="change-category">
+          <div class="category-label fixed">Fixed</div>
+          <ul class="change-list">
+            <li>Bug that was fixed</li>
+          </ul>
+        </div>
+
+        <div class="change-category">
+          <div class="category-label balance">Balance</div>
+          <ul class="change-list">
+            <li>Gameplay tuning change</li>
+          </ul>
+        </div>
+      </div>
+
+      -->
+
+      <div class="version-entry">
+        <div class="version-heading">
+          <span class="version-tag">v0.1.0</span>
+          <span class="version-date">2026-04-02</span>
+        </div>
+        <div class="version-title">Initial changelog</div>
+
+        <div class="change-category">
+          <div class="category-label added">Added</div>
+          <ul class="change-list">
+            <li>Changelog page to track game updates</li>
+            <li>Single-player and multiplayer game modes</li>
+            <li>4 playable breeds: Labrador, Dachshund, Husky, Terrier</li>
+            <li>Procedural world generation with caves, tunnels, and biomes</li>
+            <li>Shop system with decorations, emotes, and upgrades</li>
+            <li>In-browser sprite editor</li>
+            <li>BotW-style stamina and climbing system</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ==================== END CHANGELOG ENTRIES ==================== -->
+
+    </div>
+  </div>
+</body>
+</html>

@@ -104,6 +104,48 @@ Client sends `INPUT` messages with `{left, right, up, down, jump, dig}` booleans
 - **New upgrade:** Add to `UPGRADES` in constants.js with id, name, icon, desc, category, cost, effect (stat multipliers), and optional `requires` (prerequisite upgrade id). Server-side `applyServerUpgrades()` in `rooms.js` and client-side `applyUpgrades()` in `player.js` handle stat recalculation.
 - **Tuning balance:** All gameplay constants (stamina, climbing, movement feel, tile hardness, dig cost) are in `shared/constants.js`.
 
+## Changelog
+
+**Every significant change must include a changelog entry.** When you make changes to gameplay balance, add features, fix bugs, or make other player-facing changes, add an entry to `client/changelog.html`.
+
+### What requires a changelog entry
+- New features (breeds, tiles, decorations, upgrades, game modes)
+- Balance changes (stamina, physics, dig speed, resource values, tile hardness)
+- Bug fixes that affect gameplay
+- UI/UX improvements visible to players
+- New or modified game mechanics
+
+### What does NOT require a changelog entry
+- Code refactors with no player-visible effect
+- Documentation-only changes (CLAUDE.md, comments)
+- Dev tooling changes (scripts, build config)
+
+### How to add an entry
+1. Open `client/changelog.html`
+2. Add a new `<div class="version-entry">` block **at the top** of the entries section (below the HTML comment template)
+3. Use the appropriate category labels: `added`, `changed`, `fixed`, `balance`
+4. Bump the version number: patch (x.x.**X**) for fixes/tweaks, minor (x.**X**.0) for new features
+5. Set the date to the current date (YYYY-MM-DD format)
+
+### Entry format
+```html
+<div class="version-entry">
+  <div class="version-heading">
+    <span class="version-tag">vX.X.X</span>
+    <span class="version-date">YYYY-MM-DD</span>
+  </div>
+  <div class="version-title">Short summary</div>
+  <div class="change-category">
+    <div class="category-label added">Added</div>
+    <ul class="change-list">
+      <li>Description of what was added</li>
+    </ul>
+  </div>
+</div>
+```
+
+Available category labels: `added` (green), `changed` (gold), `fixed` (red), `balance` (purple).
+
 ## Frontend Design Guidelines
 
 When building or modifying UI for this game, follow these principles to create distinctive, polished interfaces that avoid generic "AI slop" aesthetics.
