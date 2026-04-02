@@ -2,7 +2,7 @@ import {
   TILE_SIZE, TILE, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, HARDNESS,
   SOLID_TILES, WORLD_WIDTH, DECORATIONS,
   EMOTES, PARK_TOP, PARK_BOTTOM, STAMINA_DIG_COST, UPGRADES, EMOTE_DISPLAY_FRAMES,
-  getNearbyShop, placeShopFloors,
+  RESPAWN_FRAMES, getNearbyShop, placeShopFloors, BLUEPRINT_DROPS,
 } from '../../shared/constants.js';
 import { World } from './world.js';
 import { Player } from './player.js';
@@ -45,6 +45,9 @@ export class LocalGame {
 
     // Persistent tile damage: Map of "x,y" -> accumulated dig progress
     this.tileDamage = new Map();
+
+    // Passive resource generation timer
+    this.lastGenTime = Date.now();
   }
 
   start(playerName, breedId, saveData) {
@@ -84,6 +87,9 @@ export class LocalGame {
         this.localPlayer.ownedUpgrades = saveData.player.ownedUpgrades;
         this.localPlayer.applyUpgrades(this.decorations);
       }
+      if (saveData.player.discoveredBlueprints) {
+        this.localPlayer.discoveredBlueprints = saveData.player.discoveredBlueprints;
+      }
     }
 
     this.players.set('local', this.localPlayer);
@@ -112,7 +118,7 @@ export class LocalGame {
       this.deductCost(emoteDef.cost);
       this.localPlayer.unlockedEmotes.push(emoteId);
       this.hud.updateResources(this.localPlayer.resources);
-      this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades);
+      this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, null, this.localPlayer.discoveredBlueprints);
       this.notify('Emote unlocked!');
     };
     this.shop.onBuyUpgrade = (upgradeId) => {
@@ -128,7 +134,7 @@ export class LocalGame {
       this.localPlayer.ownedUpgrades.push(upgradeId);
       this.localPlayer.applyUpgrades(this.decorations);
       this.hud.updateResources(this.localPlayer.resources);
-      this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades);
+      this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, null, this.localPlayer.discoveredBlueprints);
       this.notify(`${upgrade.name} equipped!`);
     };
 
@@ -183,7 +189,7 @@ export class LocalGame {
       if (this.shop.visible) {
         this.shop.hide();
       } else if (this.nearbyShop) {
-        this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, this.nearbyShop.type);
+        this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, this.nearbyShop.type, this.localPlayer.discoveredBlueprints);
       } else {
         this.notify('Find a shop at the surface to buy items!');
       }
@@ -231,16 +237,78 @@ export class LocalGame {
       this.handleDigging(inputState);
     }
 
-    // Update stamina HUD
-    this.hud.updateStamina(this.localPlayer.stamina, this.localPlayer.maxStamina, this.localPlayer.exhausted);
-    this.hud.updateBuff(this.localPlayer.emoteBuff);
+    // Landing effects: particles + screen shake
+    const p = this.localPlayer;
+    if (p.justLanded) {
+      this.particles.emitLand(
+        p.x * TILE_SIZE,
+        p.y * TILE_SIZE
+      );
+      if (p.landingVelocity > 8) {
+        const intensity = Math.min(3, (p.landingVelocity - 8) * 0.75);
+        this.camera.shake(intensity, 6);
+      }
+    }
+    // Wall slide particles
+    if (p.wallSliding && Math.random() < 0.3) {
+      const wx = p.clingWallSide < 0
+        ? (p.x - p.hitboxWidth / 2) * TILE_SIZE
+        : (p.x + p.hitboxWidth / 2) * TILE_SIZE;
+      this.particles.emitWallSlide(wx, (p.y - p.hitboxHeight / 2) * TILE_SIZE, p.clingWallSide);
+    }
 
-    this.camera.follow(this.localPlayer.x, this.localPlayer.y);
+    // Determine stamina drain source for HUD
+    let drainSource = null;
+    if (p.digging) drainSource = 'DIG';
+    else if (p.climbing) drainSource = 'CLIMB';
+    else if (p.clinging) drainSource = 'CLING';
+    else if (this.input.sprint && p.grounded && (this.input.left || this.input.right)) drainSource = 'SPRINT';
+
+    // Update stamina HUD
+    this.hud.updateStamina(p.stamina, p.maxStamina, p.exhausted, drainSource);
+    this.hud.updateBuff(p.emoteBuff);
+
+    this.camera.follow(p.x, p.y);
     this.particles.update();
 
     const depth = Math.max(0, Math.floor(this.localPlayer.y - SURFACE_Y));
     this.hud.updateDepth(depth);
     this.hud.updatePlayerList(this.players);
+
+    // Passive resource generation from decorations
+    const now = Date.now();
+    const elapsed = now - this.lastGenTime;
+    if (elapsed > 10000) { // check every 10 seconds
+      for (const dec of this.decorations) {
+        const def = DECORATIONS.find(d => d.id === dec.id);
+        if (!def || !def.generates) continue;
+        if (!dec.lastGenTime) dec.lastGenTime = now;
+        if (now - dec.lastGenTime >= def.generates.intervalMs) {
+          dec.lastGenTime = now;
+          const res = def.generates.resource;
+          p.resources[res] = (p.resources[res] || 0) + 1;
+          this.hud.updateResources(p.resources);
+          this.notify(`${def.name} produced 1 ${res}!`);
+        }
+      }
+      this.lastGenTime = now;
+    }
+
+    // Contextual hints
+    this.hud.updateHints();
+    if (p.checkWall && !p.grounded) {
+      const nearWall = p.checkWall(this.world, -1) || p.checkWall(this.world, 1);
+      if (nearWall && !p.clinging) {
+        this.hud.showHint('climb', 'Hold SHIFT + direction toward wall to climb!');
+      }
+    }
+    if (p.clinging) {
+      this.hud.showHint('walljump', 'Press SPACE on a wall to wall jump!');
+    }
+    if (depth > 5 && depth < 20) {
+      this.hud.showHint('sprint', 'Hold SHIFT while moving to sprint!');
+    }
+
     this.input.update();
   }
 
@@ -328,7 +396,29 @@ export class LocalGame {
         if (p.lootBonus && Math.random() < p.lootBonus) amount = 2;
         p.resources[resourceName] = (p.resources[resourceName] || 0) + amount;
         this.hud.updateResources(p.resources);
-        this.notify(`+${amount} ${resourceName}!`);
+        // Floating text
+        this.particles.emitText(
+          tx * TILE_SIZE + TILE_SIZE / 2,
+          ty * TILE_SIZE - 4,
+          `+${amount} ${resourceName}`,
+          gemColor
+        );
+
+        // Blueprint discovery
+        const blueprintDrop = BLUEPRINT_DROPS[tileType];
+        if (blueprintDrop && !p.discoveredBlueprints.includes(blueprintDrop.decorationId)) {
+          if (Math.random() < blueprintDrop.chance) {
+            p.discoveredBlueprints.push(blueprintDrop.decorationId);
+            const decDef = DECORATIONS.find(d => d.id === blueprintDrop.decorationId);
+            this.notify(`Blueprint discovered: ${decDef.name}!`);
+            this.particles.emitText(
+              tx * TILE_SIZE + TILE_SIZE / 2,
+              ty * TILE_SIZE - 16,
+              `BLUEPRINT!`,
+              '#FFD700'
+            );
+          }
+        }
       }
 
       this.tileDamage.delete(tileKey);
@@ -356,6 +446,11 @@ export class LocalGame {
 
     this.particles.render(ctx, this.camera);
 
+    // Death screen overlay
+    if (this.localPlayer.dead) {
+      this.renderer.drawDeathScreen(this.localPlayer.respawnTimer, RESPAWN_FRAMES);
+    }
+
     // Shop interaction prompt
     if (this.nearbyShop && !this.shop.visible) {
       this.renderer.drawShopPrompt(this.nearbyShop, this.camera);
@@ -365,7 +460,8 @@ export class LocalGame {
       const mouseWorld = this.screenToWorld(this.input.mouseX, this.input.mouseY);
       const tx = Math.floor(mouseWorld.x);
       const ty = Math.floor(mouseWorld.y);
-      const valid = ty >= PARK_TOP && ty <= PARK_BOTTOM;
+      const placeDef = DECORATIONS.find(d => d.id === this.placingDecoration);
+      const valid = (placeDef && placeDef.canPlaceAnywhere) || (ty >= PARK_TOP && ty <= PARK_BOTTOM);
       this.renderer.drawPlacementPreview(tx, ty, this.placingDecoration, valid, this.camera);
     }
 
@@ -378,7 +474,10 @@ export class LocalGame {
     const tx = Math.floor(mouseWorld.x);
     const ty = Math.floor(mouseWorld.y);
 
-    if (ty >= PARK_TOP && ty <= PARK_BOTTOM) {
+    const decDef = DECORATIONS.find(d => d.id === this.placingDecoration);
+    const canPlaceHere = (decDef && decDef.canPlaceAnywhere) || (ty >= PARK_TOP && ty <= PARK_BOTTOM);
+
+    if (canPlaceHere) {
       const decoration = {
         id: this.placingDecoration,
         x: tx, y: ty,
@@ -396,16 +495,37 @@ export class LocalGame {
 
   recallToSurface() {
     const p = this.localPlayer;
-    // Lose 50% of all resources
+
+    // Find nearest recall beacon
+    let nearestBeacon = null;
+    let nearestDist = Infinity;
+    for (const dec of this.decorations) {
+      const def = DECORATIONS.find(d => d.id === dec.id);
+      if (!def || !def.isRecallBeacon) continue;
+      const dist = Math.abs(dec.x - p.x) + Math.abs(dec.y - p.y);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestBeacon = dec;
+      }
+    }
+
+    // Penalty: 25% with beacon, 50% without
+    const penaltyRate = nearestBeacon ? 0.25 : 0.5;
     const lost = {};
     for (const [key, amount] of Object.entries(p.resources)) {
-      const penalty = Math.floor(amount / 2);
+      const penalty = Math.floor(amount * penaltyRate);
       if (penalty > 0) lost[key] = penalty;
       p.resources[key] = amount - penalty;
     }
-    // Teleport to surface
-    p.x = WORLD_WIDTH / 2;
-    p.y = SURFACE_Y - 1;
+
+    // Teleport to beacon or surface
+    if (nearestBeacon) {
+      p.x = nearestBeacon.x + 0.5;
+      p.y = nearestBeacon.y;
+    } else {
+      p.x = WORLD_WIDTH / 2;
+      p.y = SURFACE_Y - 1;
+    }
     p.vx = 0;
     p.vy = 0;
     p.grounded = false;
@@ -413,10 +533,11 @@ export class LocalGame {
 
     this.hud.updateResources(p.resources);
     const lostStr = Object.entries(lost).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(', ');
+    const dest = nearestBeacon ? 'beacon' : 'surface';
     if (lostStr) {
-      this.notify(`Recalled to surface! Lost: ${lostStr}`);
+      this.notify(`Recalled to ${dest}! Lost: ${lostStr}`);
     } else {
-      this.notify('Recalled to surface!');
+      this.notify(`Recalled to ${dest}!`);
     }
   }
 
@@ -455,6 +576,7 @@ export class LocalGame {
         resources: this.localPlayer.resources,
         unlockedEmotes: this.localPlayer.unlockedEmotes,
         ownedUpgrades: this.localPlayer.ownedUpgrades,
+        discoveredBlueprints: this.localPlayer.discoveredBlueprints,
       },
       savedAt: Date.now(),
     };

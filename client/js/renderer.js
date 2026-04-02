@@ -114,14 +114,17 @@ export class Renderer {
     const sx = screenPos.x - TILE_SIZE / 2;
     const sy = screenPos.y - TILE_SIZE;
 
+    // Squash & stretch
+    const sclX = player.scaleX || 1;
+    const sclY = player.scaleY || 1;
+
     this.ctx.save();
-    if (player.facing < 0) {
-      // Flip horizontally
-      this.ctx.scale(-1, 1);
-      this.ctx.drawImage(sprite, Math.floor(-sx - TILE_SIZE), Math.floor(sy));
-    } else {
-      this.ctx.drawImage(sprite, Math.floor(sx), Math.floor(sy));
-    }
+    // Translate to sprite center-bottom for scaling pivot
+    const cx = Math.floor(sx + TILE_SIZE / 2);
+    const cy = Math.floor(sy + TILE_SIZE);
+    this.ctx.translate(cx, cy);
+    this.ctx.scale(player.facing < 0 ? -sclX : sclX, sclY);
+    this.ctx.drawImage(sprite, -TILE_SIZE / 2, -TILE_SIZE);
     this.ctx.restore();
 
     // Buff glow effect
@@ -251,6 +254,68 @@ export class Renderer {
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
     this.ctx.fillText(text, Math.floor(sx), Math.floor(sy));
+  }
+
+  drawPings(pings, camera) {
+    for (const ping of pings) {
+      const screenPos = camera.worldToScreen(ping.x, ping.y);
+      const alpha = Math.min(1, ping.life / 60);
+      const pulse = 1 + 0.2 * Math.sin(Date.now() * 0.008);
+
+      this.ctx.save();
+      this.ctx.globalAlpha = alpha;
+
+      // Outer ring
+      this.ctx.strokeStyle = '#4FC3F7';
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.arc(screenPos.x, screenPos.y, 6 * pulse, 0, Math.PI * 2);
+      this.ctx.stroke();
+
+      // Inner dot
+      this.ctx.fillStyle = '#4FC3F7';
+      this.ctx.beginPath();
+      this.ctx.arc(screenPos.x, screenPos.y, 2, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Name label
+      this.ctx.font = '4px "Press Start 2P", monospace';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(ping.playerName, screenPos.x, screenPos.y - 10);
+
+      this.ctx.restore();
+    }
+  }
+
+  drawDeathScreen(respawnTimer, maxRespawnFrames) {
+    // Dark overlay
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    this.ctx.fillRect(0, 0, this.renderWidth, this.renderHeight);
+
+    const cx = this.renderWidth / 2;
+    const cy = this.renderHeight / 2;
+
+    // Skull / death message
+    this.ctx.fillStyle = '#EF5350';
+    this.ctx.font = '10px "Press Start 2P", monospace';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText('You fell in lava!', cx, cy - 20);
+
+    // Respawn countdown
+    const secs = Math.ceil(respawnTimer / 60);
+    this.ctx.fillStyle = '#FFF';
+    this.ctx.font = '7px "Press Start 2P", monospace';
+    this.ctx.fillText(`Respawning in ${secs}...`, cx, cy + 5);
+
+    // Progress bar
+    const barW = 80;
+    const barH = 4;
+    const progress = 1 - (respawnTimer / maxRespawnFrames);
+    this.ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    this.ctx.fillRect(cx - barW / 2, cy + 15, barW, barH);
+    this.ctx.fillStyle = '#EF5350';
+    this.ctx.fillRect(cx - barW / 2, cy + 15, barW * progress, barH);
   }
 
   // Draw placement preview when in decoration placement mode

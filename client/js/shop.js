@@ -31,10 +31,11 @@ export class Shop {
     this.closeBtn.addEventListener('click', () => this.hide());
   }
 
-  show(resources, unlockedEmotes, ownedUpgrades, category) {
+  show(resources, unlockedEmotes, ownedUpgrades, category, discoveredBlueprints) {
     this.playerResources = resources;
     this.unlockedEmotes = unlockedEmotes;
     this.ownedUpgrades = ownedUpgrades || [];
+    this.discoveredBlueprints = discoveredBlueprints || [];
     this.visible = true;
     this.overlay.style.display = 'flex';
 
@@ -70,21 +71,35 @@ export class Shop {
 
     if (this.currentTab === 'decorations') {
       for (const dec of DECORATIONS) {
+        const needsBlueprint = dec.requiresBlueprint && !this.discoveredBlueprints.includes(dec.id);
         const canAfford = this.checkAfford(dec.cost);
         const el = document.createElement('div');
         el.className = 'shop-item';
-        el.innerHTML = `
-          <div class="shop-item-icon" style="background:${dec.color}"></div>
-          <div class="shop-item-info">
-            <div class="shop-item-name">${dec.name}</div>
-            <div class="shop-item-desc" style="font-size:11px;color:#4FC3F7">${dec.desc || ''} <span style="color:#aaa;font-size:10px">(all players)</span></div>
-            <div class="shop-item-cost">${this.formatCost(dec.cost)}</div>
-          </div>
-          <button class="shop-item-buy" ${canAfford ? '' : 'disabled'}>Place</button>
-        `;
-        el.querySelector('.shop-item-buy').addEventListener('click', () => {
-          if (this.onBuyDecoration) this.onBuyDecoration(dec.id);
-        });
+
+        if (needsBlueprint) {
+          el.innerHTML = `
+            <div class="shop-item-icon" style="background:#333;opacity:0.5"></div>
+            <div class="shop-item-info">
+              <div class="shop-item-name" style="color:#666">???</div>
+              <div class="shop-item-desc" style="font-size:10px;color:#666">Find the blueprint underground!</div>
+              <div class="shop-item-cost" style="color:#666">Blueprint required</div>
+            </div>
+            <button class="shop-item-buy" disabled>Locked</button>
+          `;
+        } else {
+          el.innerHTML = `
+            <div class="shop-item-icon" style="background:${dec.color}"></div>
+            <div class="shop-item-info">
+              <div class="shop-item-name">${dec.name}</div>
+              <div class="shop-item-desc" style="font-size:11px;color:#4FC3F7">${dec.desc || ''} <span style="color:#aaa;font-size:10px">(all players)</span></div>
+              <div class="shop-item-cost">${this.formatCost(dec.cost)}</div>
+            </div>
+            <button class="shop-item-buy" ${canAfford ? '' : 'disabled'}>Place</button>
+          `;
+          el.querySelector('.shop-item-buy').addEventListener('click', () => {
+            if (this.onBuyDecoration) this.onBuyDecoration(dec.id);
+          });
+        }
         this.itemsContainer.appendChild(el);
       }
     } else if (this.currentTab === 'emotes') {
@@ -174,7 +189,11 @@ export class Shop {
 
   formatCost(cost) {
     return Object.entries(cost)
-      .map(([key, amount]) => `${amount} ${key}`)
+      .map(([key, amount]) => {
+        const have = this.playerResources[key] || 0;
+        const color = have >= amount ? '#66BB6A' : '#EF5350';
+        return `<span style="color:${color}">${amount} ${key}</span>`;
+      })
       .join(', ');
   }
 }

@@ -5,6 +5,9 @@ import {
   DECORATIONS, EMOTES, PARK_TOP, PARK_BOTTOM, DOG_BREEDS, STAMINA_DIG_COST, STAMINA_RUN_COST, SPRINT_SPEED_MULT, STAMINA_SPRINT_COST,
   UPGRADES, calcDecorationBonuses, BASE_MAX_STAMINA, BASE_STAMINA_REGEN_RATE,
   STAMINA_REGEN_DELAY, STAMINA_EXHAUSTION_TIME, EMOTE_DISPLAY_TICKS, RESPAWN_TICKS, placeShopFloors,
+  FALL_DAMAGE_THRESHOLD, FALL_DAMAGE_MULTIPLIER, FALL_DAMAGE_STUN_FRAMES,
+  BOUNCY_TILES, BOUNCY_FORCE,
+  COOP_DIG_RANGE, COOP_DIG_BONUS,
 } from '../shared/constants.js';
 import { generateWorld } from './world-gen.js';
 import { saveWorld, loadWorld, savePlayer, loadPlayer, listWorlds } from './persistence.js';
@@ -153,9 +156,17 @@ function updatePlayer(room, player, dt) {
       player.stamina = 0;
     }
   }
-  if (inp.left) { player.vx = -speed; player.facing = -1; }
-  else if (inp.right) { player.vx = speed; player.facing = 1; }
-  else { player.vx *= FRICTION; if (Math.abs(player.vx) < 0.1) player.vx = 0; }
+  if (inp.left) {
+    // In air, preserve sprint momentum (don't reduce vx below current speed)
+    if (player.grounded || Math.abs(player.vx) <= speed) player.vx = -speed;
+    player.facing = -1;
+  } else if (inp.right) {
+    if (player.grounded || Math.abs(player.vx) <= speed) player.vx = speed;
+    player.facing = 1;
+  } else {
+    player.vx *= FRICTION;
+    if (Math.abs(player.vx) < 0.1) player.vx = 0;
+  }
 
   // Jump (use breed jump force)
   const jumpF = player.jumpForce || JUMP_FORCE;
@@ -188,16 +199,37 @@ function updatePlayer(room, player, dt) {
     player.grounded = false;
   } else {
     if (player.vy > 0) {
+      const preVy = player.vy;
       // Landing
       player.y = Math.floor(player.y) + 0.01;
       // Find the exact ground
       while (!collidesAt(room, player.x, player.y + 0.1, pw, ph)) player.y += 0.1;
       player.grounded = true;
+      player.vy = 0;
+
+      // Check for bouncy tiles
+      const tileBelow = getTile(room, Math.floor(player.x), Math.floor(player.y + 0.1));
+      if (BOUNCY_TILES.has(tileBelow) && preVy > 1) {
+        const jumpF = player.jumpForce || JUMP_FORCE;
+        player.vy = jumpF * BOUNCY_FORCE;
+        player.grounded = false;
+      } else {
+        // Fall damage (non-lethal)
+        if (preVy > FALL_DAMAGE_THRESHOLD) {
+          const damage = (preVy - FALL_DAMAGE_THRESHOLD) * FALL_DAMAGE_MULTIPLIER;
+          player.stamina -= damage;
+          if (player.stamina <= 0) {
+            player.stamina = 0;
+            player.exhausted = true;
+            player.exhaustionTimer = FALL_DAMAGE_STUN_FRAMES;
+          }
+        }
+      }
     } else {
       // Hit ceiling
       player.y = Math.floor(player.y - ph) + ph;
+      player.vy = 0;
     }
-    player.vy = 0;
   }
 
   // Clamp position
@@ -290,7 +322,18 @@ function handleDigging(room, player) {
   player.digging = true;
   player.stamina -= STAMINA_DIG_COST;
   if (player.stamina < 0) player.stamina = 0;
-  player.digProgress += (player.digSpeed || 1);
+
+  // Cooperative digging bonus: check if other players are digging nearby
+  let coopBonus = 0;
+  for (const [, other] of room.players) {
+    if (other.id === player.id || !other.digging) continue;
+    const dist = Math.abs(other.x - player.x) + Math.abs(other.y - player.y);
+    if (dist <= COOP_DIG_RANGE) {
+      coopBonus = COOP_DIG_BONUS;
+      break;
+    }
+  }
+  player.digProgress += (player.digSpeed || 1) * (1 + coopBonus);
 
   // Persist damage on the tile
   room.tileDamage.set(tileKey, player.digProgress);
@@ -592,6 +635,18 @@ export function handleMessage(roomId, playerId, msg) {
     case MSG.LOAD_WORLD:
       sendTo(player, { type: MSG.WORLD_LIST, worlds: listWorlds() });
       break;
+
+    case MSG.PING: {
+      const px = typeof msg.x === 'number' ? msg.x : player.x;
+      const py = typeof msg.y === 'number' ? msg.y : player.y;
+      broadcast(room, {
+        type: MSG.PING_PLACED,
+        x: px, y: py,
+        playerName: player.name,
+        playerId: player.id,
+      });
+      break;
+    }
   }
 }
 

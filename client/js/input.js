@@ -41,6 +41,7 @@ export class Input {
   get jump() { return this.isDown('Space'); }
   get dig() { return this.isDown('KeyF') || this.isDown('KeyJ') || this.isDown('KeyK'); }
   get sprint() { return this.isDown('ShiftLeft') || this.isDown('ShiftRight'); }
+  get ping() { return this.isDown('KeyP'); }
 
   getState() {
     return {
