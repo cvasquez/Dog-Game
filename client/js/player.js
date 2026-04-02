@@ -452,7 +452,7 @@ export class Player {
       newState = 'climb';
     } else if (this.digging) {
       newState = 'dig';
-    } else if (!this.grounded && this.vy < -0.5) {
+    } else if (!this.grounded) {
       newState = 'jump';
     } else if (Math.abs(this.vx) > 0.5) {
       newState = 'walk';
