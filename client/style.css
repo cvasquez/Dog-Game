@@ -437,6 +437,32 @@ input[type="text"]::placeholder {
   border-color: var(--border-stone);
 }
 
+/* ========== LOBBY FOOTER ========== */
+.lobby-footer {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+.lobby-link {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  transition: all 0.1s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lobby-link:hover {
+  color: var(--gem-gold);
+  border-color: var(--border-stone);
+  background: rgba(255,215,0,0.05);
+}
+
 /* ========== HUD ========== */
 #hud {
   position: fixed;
