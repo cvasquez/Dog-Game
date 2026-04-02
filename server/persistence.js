@@ -50,21 +50,22 @@ export function initDB() {
     // Column already exists
   }
 
-  // Seed decoration sprites from sprite-data.js if the table is empty
-  const count = db.prepare('SELECT COUNT(*) as n FROM decoration_sprites').get().n;
-  if (count === 0) {
-    const insert = db.prepare(
-      'INSERT INTO decoration_sprites (dec_id, pixels, palette, updated_at) VALUES (?, ?, ?, ?)'
-    );
-    const now = Date.now();
-    const seedAll = db.transaction(() => {
-      for (const [id, pixels] of Object.entries(DECORATION_SPRITES)) {
-        const palette = DECORATION_PALETTES[id] || [null];
-        insert.run(parseInt(id), JSON.stringify(pixels), JSON.stringify(palette), now);
-      }
-    });
-    seedAll();
-  }
+  // Seed decoration sprites from sprite-data.js (insert any missing entries)
+  const existingIds = new Set(
+    db.prepare('SELECT dec_id FROM decoration_sprites').all().map(r => r.dec_id)
+  );
+  const insertNew = db.prepare(
+    'INSERT INTO decoration_sprites (dec_id, pixels, palette, updated_at) VALUES (?, ?, ?, ?)'
+  );
+  const now = Date.now();
+  const seedMissing = db.transaction(() => {
+    for (const [id, pixels] of Object.entries(DECORATION_SPRITES)) {
+      if (existingIds.has(parseInt(id))) continue;
+      const palette = DECORATION_PALETTES[id] || [null];
+      insertNew.run(parseInt(id), JSON.stringify(pixels), JSON.stringify(palette), now);
+    }
+  });
+  seedMissing();
 
   return db;
 }
