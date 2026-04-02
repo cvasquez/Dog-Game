@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { initDB } from './persistence.js';
+import { initDB, getAllDecorationSprites, getDecorationSprite, saveDecorationSprite } from './persistence.js';
 import {
   createRoom, joinRoom, leaveRoom, getRoom, tryLoadRoom,
   handleMessage, createPlayer, sendTo,
@@ -25,6 +25,29 @@ app.use(express.static(path.join(__dirname, '..', 'client')));
 
 // Serve shared constants for client ES module import
 app.use('/shared', express.static(path.join(__dirname, '..', 'shared')));
+
+// --- Decoration sprite API ---
+app.use(express.json({ limit: '1mb' }));
+
+app.get('/api/decoration-sprites', (req, res) => {
+  const data = getAllDecorationSprites();
+  res.json(data);
+});
+
+app.get('/api/decoration-sprites/:id', (req, res) => {
+  const decId = parseInt(req.params.id);
+  const data = getDecorationSprite(decId);
+  if (!data) return res.status(404).json({ error: 'Not found' });
+  res.json(data);
+});
+
+app.put('/api/decoration-sprites/:id', (req, res) => {
+  const decId = parseInt(req.params.id);
+  const { pixels, palette } = req.body;
+  if (!pixels || !palette) return res.status(400).json({ error: 'pixels and palette required' });
+  saveDecorationSprite(decId, pixels, palette);
+  res.json({ ok: true });
+});
 
 // WebSocket server
 const wss = new WebSocketServer({ server });

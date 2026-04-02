@@ -96,6 +96,10 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
     <h3>Decoration</h3>
     <select id="decorationSelect"></select>
     <div id="decInfo" style="font-size:11px;color:#888;margin-top:4px"></div>
+    <div style="display:flex;gap:4px;margin-top:6px">
+      <button id="decSaveBtn">Save to DB</button>
+      <button id="decSaveAllBtn">Save All to DB</button>
+    </div>
   </div>
 
   <h3>Palette</h3>
@@ -1161,8 +1165,71 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
   });
 });
 
+// --- Decoration DB persistence (local SQLite via server API) ---
+
+async function loadDecorationsFromDB() {
+  try {
+    const res = await fetch('/api/decoration-sprites');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.sprites) {
+      for (const [id, pixels] of Object.entries(data.sprites)) {
+        decorationSprites[id] = pixels;
+      }
+    }
+    if (data.palettes) {
+      for (const [id, palette] of Object.entries(data.palettes)) {
+        decorationPalettes[id] = palette;
+      }
+    }
+    rebuildUI();
+    showCloudStatus('Loaded decorations from DB', false);
+  } catch {
+    // Server not available — keep file defaults
+  }
+}
+
+async function saveDecorationToDB(decId) {
+  try {
+    const res = await fetch('/api/decoration-sprites/' + decId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pixels: decorationSprites[decId],
+        palette: decorationPalettes[decId],
+      }),
+    });
+    if (!res.ok) {
+      showCloudStatus('Save failed: ' + (await res.text()), true);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    showCloudStatus('Save failed: ' + e.message, true);
+    return false;
+  }
+}
+
+document.getElementById('decSaveBtn').addEventListener('click', async () => {
+  const dec = DECORATIONS.find(d => d.id === currentDecoration);
+  showCloudStatus('Saving ' + (dec ? dec.name : 'decoration') + '...', false);
+  const ok = await saveDecorationToDB(currentDecoration);
+  if (ok) showCloudStatus(`Saved ${dec ? dec.name : 'decoration ' + currentDecoration}`, false);
+});
+
+document.getElementById('decSaveAllBtn').addEventListener('click', async () => {
+  showCloudStatus('Saving all decorations...', false);
+  let saved = 0;
+  for (const decId of Object.keys(decorationSprites)) {
+    const ok = await saveDecorationToDB(parseInt(decId));
+    if (ok) saved++;
+  }
+  showCloudStatus(`Saved ${saved} decorations`, false);
+});
+
 // Load sprites from DB on startup
 loadSpritesFromDB();
+loadDecorationsFromDB();
 </script>
 </body>
 </html>
