@@ -57,9 +57,12 @@ export class Renderer {
     // Scale from the center of the viewport
     const cx = this.renderWidth / 2;
     const cy = this.renderHeight / 2;
-    this.ctx.translate(cx, cy);
+    // Round translate values to avoid sub-pixel seams
+    this.ctx.translate(Math.round(cx), Math.round(cy));
     this.ctx.scale(camera.zoom, camera.zoom);
-    this.ctx.translate(-cx, -cy);
+    this.ctx.translate(-Math.round(cx), -Math.round(cy));
+    // Ensure pixel art stays crisp during zoom
+    this.ctx.imageSmoothingEnabled = false;
   }
 
   endZoom(camera) {

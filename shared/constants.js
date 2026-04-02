@@ -572,6 +572,7 @@ export const SLIPPERY_TILES = new Set([TILE.CRYSTAL_ROCK, TILE.CRYSTAL]);
 export const IDLE_ZOOM_SCALE = 1.3;          // how much to zoom in (1.0 = no zoom)
 export const IDLE_ZOOM_IN_SPEED = 0.008;     // zoom-in lerp speed per frame (slow)
 export const IDLE_ZOOM_OUT_SPEED = 0.04;     // zoom-out lerp speed per frame (faster)
+export const IDLE_SIT_DELAY = 180;           // frames before idle triggers sit (~3s at 60fps)
 
 // Server tick rate
 export const SERVER_TICK_MS = 50; // 20Hz
