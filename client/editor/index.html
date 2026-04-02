@@ -74,6 +74,7 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
   <div style="display:flex;gap:4px">
     <button id="modeBreeds" class="active">Breeds</button>
     <button id="modeDecorations">Decorations</button>
+    <button id="modeShops">Shops</button>
   </div>
 
   <div id="breedSection">
@@ -102,6 +103,18 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
       <button id="decSaveAllBtn">Save All to DB</button>
     </div>
     <div id="decCloudStatus" class="cloud-status"></div>
+  </div>
+
+  <div id="shopSection" style="display:none">
+    <h3>Shop Machine</h3>
+    <select id="shopSelect"></select>
+    <div id="shopInfo" style="font-size:11px;color:#888;margin-top:4px">32x32 px (2x2 tiles)</div>
+    <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+      <button id="shopLoadBtn">Load from DB</button>
+      <button id="shopSaveBtn">Save to DB</button>
+      <button id="shopSaveAllBtn">Save All to DB</button>
+    </div>
+    <div id="shopCloudStatus" class="cloud-status"></div>
   </div>
 
   <h3>Palette</h3>
@@ -189,8 +202,8 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
 <script type="module">
-import { DOG_BREEDS, DECORATIONS } from '../../shared/constants.js';
-import { DOG_SPRITES, SPRITE_PALETTE, ANIM_STATES, DECORATION_SPRITES, DECORATION_PALETTES } from '../../shared/sprite-data.js';
+import { DOG_BREEDS, DECORATIONS, SHOP_LOCATIONS } from '../../shared/constants.js';
+import { DOG_SPRITES, SPRITE_PALETTE, ANIM_STATES, DECORATION_SPRITES, DECORATION_PALETTES, SHOP_SPRITES, SHOP_PALETTES } from '../../shared/sprite-data.js';
 
 // Working sprite data — will be replaced by DB data on load
 let sprites = JSON.parse(JSON.stringify(DOG_SPRITES));
@@ -200,6 +213,10 @@ let customPalette = [...SPRITE_PALETTE];
 let decorationSprites = JSON.parse(JSON.stringify(DECORATION_SPRITES));
 let decorationPalettes = JSON.parse(JSON.stringify(DECORATION_PALETTES));
 
+// Shop machine working data
+let shopSprites = JSON.parse(JSON.stringify(SHOP_SPRITES));
+let shopPalettes = JSON.parse(JSON.stringify(SHOP_PALETTES));
+
 // Track Supabase row IDs per breed so we can update in place
 const dbRowIds = {}; // breed_key -> uuid
 
@@ -207,11 +224,13 @@ const CELL_SIZE = 24; // pixels per cell on editor grid
 const MAX_PALETTE = 16; // single hex digit: 0-9, a-f
 
 // State
-let editorMode = 'breeds'; // 'breeds' or 'decorations'
+let editorMode = 'breeds'; // 'breeds', 'decorations', or 'shops'
 let currentBreed = 'labrador';
 let currentAnim = 'idle';
 let currentFrame = 0;
 let currentDecoration = 0;
+let currentShop = 'decorations';
+const SHOP_TYPES = SHOP_LOCATIONS.map(s => s.type);
 let currentPalIdx = 1;
 let currentTool = 'pen'; // pen, erase, fill
 let playing = false;
@@ -237,6 +256,9 @@ function getGridDims() {
     const dec = DECORATIONS.find(d => d.id === currentDecoration);
     return { w: (dec ? dec.w : 1) * 16, h: (dec ? dec.h : 1) * 16 };
   }
+  if (editorMode === 'shops') {
+    return { w: 32, h: 32 };
+  }
   return { w: 16, h: 16 };
 }
 
@@ -255,23 +277,33 @@ decorationSelect.addEventListener('change', () => {
   rebuildUI();
 });
 
+// Shop selector
+const shopSelect = document.getElementById('shopSelect');
+SHOP_LOCATIONS.forEach(s => {
+  const opt = document.createElement('option');
+  opt.value = s.type;
+  opt.textContent = s.name;
+  shopSelect.appendChild(opt);
+});
+shopSelect.addEventListener('change', () => {
+  currentShop = shopSelect.value;
+  rebuildUI();
+});
+
 // Mode toggle
-document.getElementById('modeBreeds').addEventListener('click', () => {
-  editorMode = 'breeds';
-  document.getElementById('modeBreeds').className = 'active';
-  document.getElementById('modeDecorations').className = '';
-  document.getElementById('breedSection').style.display = '';
-  document.getElementById('decorationSection').style.display = 'none';
+function setEditorMode(mode) {
+  editorMode = mode;
+  document.getElementById('modeBreeds').className = mode === 'breeds' ? 'active' : '';
+  document.getElementById('modeDecorations').className = mode === 'decorations' ? 'active' : '';
+  document.getElementById('modeShops').className = mode === 'shops' ? 'active' : '';
+  document.getElementById('breedSection').style.display = mode === 'breeds' ? '' : 'none';
+  document.getElementById('decorationSection').style.display = mode === 'decorations' ? '' : 'none';
+  document.getElementById('shopSection').style.display = mode === 'shops' ? '' : 'none';
   rebuildUI();
-});
-document.getElementById('modeDecorations').addEventListener('click', () => {
-  editorMode = 'decorations';
-  document.getElementById('modeDecorations').className = 'active';
-  document.getElementById('modeBreeds').className = '';
-  document.getElementById('breedSection').style.display = 'none';
-  document.getElementById('decorationSection').style.display = '';
-  rebuildUI();
-});
+}
+document.getElementById('modeBreeds').addEventListener('click', () => setEditorMode('breeds'));
+document.getElementById('modeDecorations').addEventListener('click', () => setEditorMode('decorations'));
+document.getElementById('modeShops').addEventListener('click', () => setEditorMode('shops'));
 
 // Breed selector
 DOG_BREEDS.forEach((b, i) => {
@@ -306,6 +338,9 @@ function buildAnimTabs() {
 function resolvePalette() {
   if (editorMode === 'decorations') {
     return decorationPalettes[currentDecoration] || [null];
+  }
+  if (editorMode === 'shops') {
+    return shopPalettes[currentShop] || [null];
   }
   const breed = DOG_BREEDS.find(b => b.name.toLowerCase() === currentBreed) || DOG_BREEDS[0];
   return customPalette.map(entry => {
@@ -363,6 +398,10 @@ function getFrames() {
     const pixels = decorationSprites[currentDecoration];
     return pixels ? [pixels] : [];
   }
+  if (editorMode === 'shops') {
+    const pixels = shopSprites[currentShop];
+    return pixels ? [pixels] : [];
+  }
   return sprites[currentBreed]?.[currentAnim] || [];
 }
 
@@ -386,6 +425,13 @@ function setPixel(x, y, val) {
     if (!pixels || y >= pixels.length) return;
     const row = pixels[y];
     decorationSprites[currentDecoration][y] = row.substring(0, x) + toHexChar(val) + row.substring(x + 1);
+    return;
+  }
+  if (editorMode === 'shops') {
+    const pixels = shopSprites[currentShop];
+    if (!pixels || y >= pixels.length) return;
+    const row = pixels[y];
+    shopSprites[currentShop][y] = row.substring(0, x) + toHexChar(val) + row.substring(x + 1);
     return;
   }
   const frames = getFrames();
@@ -609,6 +655,7 @@ let addingColorIdx = -1;
 
 function getActivePalette() {
   if (editorMode === 'decorations') return decorationPalettes[currentDecoration];
+  if (editorMode === 'shops') return shopPalettes[currentShop];
   return customPalette;
 }
 
@@ -641,7 +688,7 @@ document.getElementById('colorPicker').addEventListener('change', () => {
 
 // Frame management
 document.getElementById('addFrame').addEventListener('click', () => {
-  if (editorMode === 'decorations') return; // decorations are single-frame
+  if (editorMode === 'decorations' || editorMode === 'shops') return; // single-frame modes
   if (!sprites[currentBreed]) sprites[currentBreed] = {};
   if (!sprites[currentBreed][currentAnim]) sprites[currentBreed][currentAnim] = [];
   sprites[currentBreed][currentAnim].push(emptyFrame());
@@ -671,6 +718,11 @@ document.getElementById('clearFrame').addEventListener('click', () => {
   const { w: gridW, h: gridH } = getGridDims();
   if (editorMode === 'decorations') {
     decorationSprites[currentDecoration] = emptyFrame(gridW, gridH);
+    rebuildUI();
+    return;
+  }
+  if (editorMode === 'shops') {
+    shopSprites[currentShop] = emptyFrame(gridW, gridH);
     rebuildUI();
     return;
   }
@@ -711,6 +763,13 @@ document.getElementById('mirrorH').addEventListener('click', () => {
     rebuildUI();
     return;
   }
+  if (editorMode === 'shops') {
+    const pixels = shopSprites[currentShop];
+    if (!pixels) return;
+    shopSprites[currentShop] = pixels.map(row => row.split('').reverse().join(''));
+    rebuildUI();
+    return;
+  }
   const frames = getFrames();
   if (currentFrame >= frames.length) return;
   frames[currentFrame] = frames[currentFrame].map(row => row.split('').reverse().join(''));
@@ -732,6 +791,22 @@ function shiftPixels(dx, dy) {
       }
     }
     decorationSprites[currentDecoration] = newFrame;
+    rebuildUI();
+    return;
+  }
+  if (editorMode === 'shops') {
+    const old = shopSprites[currentShop];
+    if (!old) return;
+    const newFrame = emptyFrame(gridW, gridH);
+    for (let y = 0; y < gridH; y++) {
+      for (let x = 0; x < gridW; x++) {
+        const sx = x - dx, sy = y - dy;
+        if (sx >= 0 && sx < gridW && sy >= 0 && sy < gridH) {
+          newFrame[y] = newFrame[y].substring(0, x) + old[sy][sx] + newFrame[y].substring(x + 1);
+        }
+      }
+    }
+    shopSprites[currentShop] = newFrame;
     rebuildUI();
     return;
   }
@@ -826,6 +901,19 @@ function serializeAll() {
   for (const decId of Object.keys(decorationSprites)) {
     out += serializeDecoration(parseInt(decId));
   }
+  out += `};\n\n`;
+  // Shop sprite data
+  out += `export const SHOP_PALETTES = ${JSON.stringify(shopPalettes)};\n\n`;
+  out += `export const SHOP_SPRITES = {\n`;
+  for (const shopType of SHOP_TYPES) {
+    const rows = shopSprites[shopType];
+    if (!rows) continue;
+    out += `  '${shopType}': [\n`;
+    for (const row of rows) {
+      out += `    "${row}",\n`;
+    }
+    out += `  ],\n`;
+  }
   out += `};\n`;
   return out;
 }
@@ -843,6 +931,19 @@ document.getElementById('exportBreedBtn').addEventListener('click', async () => 
     const text = serializeDecoration(currentDecoration);
     await navigator.clipboard.writeText(text);
     statusText.textContent = `${dec ? dec.name : 'Decoration'} data copied to clipboard!`;
+    setTimeout(() => { statusText.textContent = ''; }, 3000);
+    return;
+  }
+  if (editorMode === 'shops') {
+    const rows = shopSprites[currentShop];
+    if (!rows) return;
+    const shop = SHOP_LOCATIONS.find(s => s.type === currentShop);
+    let text = `  // ${shop ? shop.name : currentShop} shop machine\n`;
+    text += `  '${currentShop}': [\n`;
+    for (const row of rows) text += `    "${row}",\n`;
+    text += `  ],\n`;
+    await navigator.clipboard.writeText(text);
+    statusText.textContent = `${shop ? shop.name : currentShop} shop data copied to clipboard!`;
     setTimeout(() => { statusText.textContent = ''; }, 3000);
     return;
   }
@@ -911,12 +1012,19 @@ function rebuildUI() {
     buildAnimTabs();
     buildFrameList();
     currentFrame = Math.min(currentFrame, Math.max(0, getFrames().length - 1));
-  } else {
+  } else if (editorMode === 'decorations') {
     currentFrame = 0;
     const dec = DECORATIONS.find(d => d.id === currentDecoration);
     const info = document.getElementById('decInfo');
     if (dec && info) {
       info.textContent = `${dec.w}x${dec.h} tiles (${dec.w*16}x${dec.h*16}px) - ${dec.desc}`;
+    }
+  } else if (editorMode === 'shops') {
+    currentFrame = 0;
+    const shop = SHOP_LOCATIONS.find(s => s.type === currentShop);
+    const info = document.getElementById('shopInfo');
+    if (info) {
+      info.textContent = `32x32 px (2x2 tiles) — ${shop ? shop.name : currentShop}`;
     }
   }
   buildPalette();
@@ -926,6 +1034,9 @@ function rebuildUI() {
   if (editorMode === 'decorations') {
     const dec = DECORATIONS.find(d => d.id === currentDecoration);
     statusText.textContent = `Decoration: ${dec ? dec.name : currentDecoration}`;
+  } else if (editorMode === 'shops') {
+    const shop = SHOP_LOCATIONS.find(s => s.type === currentShop);
+    statusText.textContent = `Shop: ${shop ? shop.name : currentShop}`;
   } else {
     statusText.textContent = `${currentBreed} / ${currentAnim} / frame ${currentFrame}`;
   }
@@ -1307,9 +1418,109 @@ document.getElementById('decSaveAllBtn').addEventListener('click', async () => {
   showDecStatus(`Saved ${saved} decorations`, false);
 });
 
+// --- Shop sprite DB persistence (Supabase) ---
+
+function showShopStatus(msg, isError) {
+  const el = document.getElementById('shopCloudStatus');
+  el.textContent = msg;
+  el.className = 'cloud-status ' + (isError ? 'err' : 'ok');
+  setTimeout(() => { el.textContent = ''; }, 4000);
+}
+
+async function loadShopsFromDB() {
+  if (!isSupabaseConfigured()) {
+    showShopStatus('Supabase not configured', true);
+    return;
+  }
+  const sb = getSupabaseClient();
+  if (!sb) return;
+
+  showShopStatus('Loading shop sprites from database...', false);
+  try {
+    const { data, error } = await sb
+      .from('shop_sprites')
+      .select('shop_type, pixels, palette');
+    if (error) {
+      showShopStatus('DB load failed: ' + error.message, true);
+      return;
+    }
+    if (!data || data.length === 0) {
+      showShopStatus('No shop sprites in DB. Using defaults.', true);
+      return;
+    }
+    let count = 0;
+    for (const row of data) {
+      shopSprites[row.shop_type] = row.pixels;
+      shopPalettes[row.shop_type] = row.palette;
+      count++;
+    }
+    rebuildUI();
+    showShopStatus(`Loaded ${count} shop sprites from DB`, false);
+  } catch (e) {
+    showShopStatus('Load failed: ' + e.message, true);
+  }
+}
+
+async function saveShopToDB(shopType) {
+  const pixels = shopSprites[shopType];
+  const palette = shopPalettes[shopType];
+  if (!pixels || !palette) {
+    showShopStatus('No sprite data for shop ' + shopType, true);
+    return false;
+  }
+
+  if (!isSupabaseConfigured()) {
+    showShopStatus('Supabase not configured', true);
+    return false;
+  }
+  const sb = getSupabaseClient();
+  if (!sb) return false;
+
+  try {
+    const { error } = await sb
+      .from('shop_sprites')
+      .upsert({
+        shop_type: shopType,
+        pixels,
+        palette,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'shop_type' });
+    if (error) {
+      showShopStatus('Save failed: ' + error.message, true);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    showShopStatus('Save failed: ' + e.message, true);
+    return false;
+  }
+}
+
+document.getElementById('shopLoadBtn').addEventListener('click', async () => {
+  await loadShopsFromDB();
+});
+
+document.getElementById('shopSaveBtn').addEventListener('click', async () => {
+  const shop = SHOP_LOCATIONS.find(s => s.type === currentShop);
+  showShopStatus('Saving ' + (shop ? shop.name : currentShop) + '...', false);
+  const ok = await saveShopToDB(currentShop);
+  if (ok) showShopStatus(`Saved ${shop ? shop.name : currentShop}`, false);
+});
+
+document.getElementById('shopSaveAllBtn').addEventListener('click', async () => {
+  showShopStatus('Saving all shop sprites...', false);
+  let saved = 0;
+  for (const shopType of SHOP_TYPES) {
+    const ok = await saveShopToDB(shopType);
+    if (ok) saved++;
+  }
+  showShopStatus(`Saved ${saved} shop sprites`, false);
+});
+
 // Load sprites from DB on startup
 loadSpritesFromDB();
 loadDecorationsFromDB();
+loadShopsFromDB();
 </script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 import { LocalGame } from './local-game.js';
-import { loadCustomSprites, loadDecorationSprites, getDogSprite } from './sprites.js';
+import { loadCustomSprites, loadDecorationSprites, loadShopSprites, getDogSprite } from './sprites.js';
 import { DOG_BREEDS } from '../../shared/constants.js';
 
 let game = null;
@@ -7,6 +7,7 @@ let game = null;
 // Load custom sprites from Supabase in the background (non-blocking)
 loadCustomSprites().catch(() => {});
 loadDecorationSprites().catch(() => {});
+loadShopSprites().catch(() => {});
 
 // Render animated breed preview sprites in lobby
 function renderBreedPreviews() {

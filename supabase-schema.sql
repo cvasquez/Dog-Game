@@ -62,6 +62,28 @@ CREATE POLICY "Anyone can update decoration sprites"
   ON decoration_sprites FOR UPDATE
   USING (true);
 
+-- Shop machine sprites edited in the sprite editor
+CREATE TABLE shop_sprites (
+  shop_type TEXT PRIMARY KEY,         -- 'decorations', 'emotes', 'upgrades'
+  pixels JSONB NOT NULL,              -- array of hex-string rows (32 chars each for 32px wide)
+  palette JSONB NOT NULL,             -- array of color strings (index 0 = null/transparent)
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE shop_sprites ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Shop sprites are viewable by everyone"
+  ON shop_sprites FOR SELECT
+  USING (true);
+
+CREATE POLICY "Anyone can create shop sprites"
+  ON shop_sprites FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "Anyone can update shop sprites"
+  ON shop_sprites FOR UPDATE
+  USING (true);
+
 -- Persistent worlds
 CREATE TABLE worlds (
   room_id TEXT PRIMARY KEY,
