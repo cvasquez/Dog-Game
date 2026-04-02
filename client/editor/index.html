@@ -96,10 +96,12 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
     <h3>Decoration</h3>
     <select id="decorationSelect"></select>
     <div id="decInfo" style="font-size:11px;color:#888;margin-top:4px"></div>
-    <div style="display:flex;gap:4px;margin-top:6px">
+    <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+      <button id="decLoadBtn">Load from DB</button>
       <button id="decSaveBtn">Save to DB</button>
       <button id="decSaveAllBtn">Save All to DB</button>
     </div>
+    <div id="decCloudStatus" class="cloud-status"></div>
   </div>
 
   <h3>Palette</h3>
@@ -1167,23 +1169,37 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 
 // --- Decoration DB persistence (Supabase with local server API fallback) ---
 
+function showDecStatus(msg, isError) {
+  const el = document.getElementById('decCloudStatus');
+  el.textContent = msg;
+  el.className = 'cloud-status ' + (isError ? 'err' : 'ok');
+  setTimeout(() => { el.textContent = ''; }, 4000);
+}
+
 async function loadDecorationsFromDB() {
   // Try Supabase first
   if (isSupabaseConfigured()) {
     const sb = getSupabaseClient();
     if (sb) {
       try {
+        showDecStatus('Loading decorations from database...', false);
         const { data, error } = await sb
           .from('decoration_sprites')
           .select('dec_id, pixels, palette')
           .order('dec_id');
-        if (!error && data && data.length > 0) {
+        if (error) {
+          showDecStatus('DB load failed: ' + error.message, true);
+        } else if (!data || data.length === 0) {
+          showDecStatus('No decorations in DB. Using local defaults.', true);
+        } else {
+          let count = 0;
           for (const row of data) {
             decorationSprites[row.dec_id] = row.pixels;
             decorationPalettes[row.dec_id] = row.palette;
+            count++;
           }
           rebuildUI();
-          showCloudStatus('Loaded decorations from Supabase', false);
+          showDecStatus(`Loaded ${count} decorations from DB`, false);
           return;
         }
       } catch {
@@ -1196,9 +1212,11 @@ async function loadDecorationsFromDB() {
     const res = await fetch('/api/decoration-sprites');
     if (!res.ok) return;
     const data = await res.json();
+    let count = 0;
     if (data.sprites) {
       for (const [id, pixels] of Object.entries(data.sprites)) {
         decorationSprites[id] = pixels;
+        count++;
       }
     }
     if (data.palettes) {
@@ -1207,7 +1225,7 @@ async function loadDecorationsFromDB() {
       }
     }
     rebuildUI();
-    showCloudStatus('Loaded decorations from server', false);
+    showDecStatus(`Loaded ${count} decorations from server`, false);
   } catch {
     // Server not available — keep file defaults
   }
@@ -1217,7 +1235,7 @@ async function saveDecorationToDB(decId) {
   const pixels = decorationSprites[decId];
   const palette = decorationPalettes[decId];
   if (!pixels || !palette) {
-    showCloudStatus('No sprite data for decoration ' + decId, true);
+    showDecStatus('No sprite data for decoration ' + decId, true);
     return false;
   }
 
@@ -1235,12 +1253,12 @@ async function saveDecorationToDB(decId) {
             updated_at: new Date().toISOString(),
           }, { onConflict: 'dec_id' });
         if (error) {
-          showCloudStatus('Save failed: ' + error.message, true);
+          showDecStatus('Save failed: ' + error.message, true);
           return false;
         }
         return true;
       } catch (e) {
-        showCloudStatus('Supabase save failed: ' + e.message, true);
+        showDecStatus('Supabase save failed: ' + e.message, true);
         return false;
       }
     }
@@ -1254,31 +1272,35 @@ async function saveDecorationToDB(decId) {
       body: JSON.stringify({ pixels, palette }),
     });
     if (!res.ok) {
-      showCloudStatus('Save failed: ' + (await res.text()), true);
+      showDecStatus('Save failed: ' + (await res.text()), true);
       return false;
     }
     return true;
   } catch (e) {
-    showCloudStatus('Save failed: ' + e.message, true);
+    showDecStatus('Save failed: ' + e.message, true);
     return false;
   }
 }
 
+document.getElementById('decLoadBtn').addEventListener('click', async () => {
+  await loadDecorationsFromDB();
+});
+
 document.getElementById('decSaveBtn').addEventListener('click', async () => {
   const dec = DECORATIONS.find(d => d.id === currentDecoration);
-  showCloudStatus('Saving ' + (dec ? dec.name : 'decoration') + '...', false);
+  showDecStatus('Saving ' + (dec ? dec.name : 'decoration') + '...', false);
   const ok = await saveDecorationToDB(currentDecoration);
-  if (ok) showCloudStatus(`Saved ${dec ? dec.name : 'decoration ' + currentDecoration}`, false);
+  if (ok) showDecStatus(`Saved ${dec ? dec.name : 'decoration ' + currentDecoration}`, false);
 });
 
 document.getElementById('decSaveAllBtn').addEventListener('click', async () => {
-  showCloudStatus('Saving all decorations...', false);
+  showDecStatus('Saving all decorations...', false);
   let saved = 0;
   for (const decId of Object.keys(decorationSprites)) {
     const ok = await saveDecorationToDB(parseInt(decId));
     if (ok) saved++;
   }
-  showCloudStatus(`Saved ${saved} decorations`, false);
+  showDecStatus(`Saved ${saved} decorations`, false);
 });
 
 // Load sprites from DB on startup
