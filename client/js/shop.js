@@ -1,5 +1,11 @@
 import { DECORATIONS, EMOTES, UPGRADES } from '../../shared/constants.js';
 
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
 export class Shop {
   constructor() {
     this.overlay = document.getElementById('shopOverlay');
@@ -88,10 +94,10 @@ export class Shop {
           `;
         } else {
           el.innerHTML = `
-            <div class="shop-item-icon" style="background:${dec.color}"></div>
+            <div class="shop-item-icon" style="background:${escapeHtml(dec.color)}"></div>
             <div class="shop-item-info">
-              <div class="shop-item-name">${dec.name}</div>
-              <div class="shop-item-desc" style="font-size:11px;color:#4FC3F7">${dec.desc || ''} <span style="color:#aaa;font-size:10px">(all players)</span></div>
+              <div class="shop-item-name">${escapeHtml(dec.name)}</div>
+              <div class="shop-item-desc" style="font-size:11px;color:#4FC3F7">${escapeHtml(dec.desc || '')} <span style="color:#aaa;font-size:10px">(all players)</span></div>
               <div class="shop-item-cost">${this.formatCost(dec.cost)}</div>
             </div>
             <button class="shop-item-buy" ${canAfford ? '' : 'disabled'}>Place</button>
@@ -122,13 +128,13 @@ export class Shop {
         }
 
         el.innerHTML = `
-          <div class="shop-item-icon" style="background:rgba(255,255,255,0.1);font-size:24px">${emote.symbol}</div>
+          <div class="shop-item-icon" style="background:rgba(255,255,255,0.1);font-size:24px">${escapeHtml(emote.symbol)}</div>
           <div class="shop-item-info">
-            <div class="shop-item-name">${emote.name}</div>
-            ${emote.buffDesc ? `<div class="shop-item-desc" style="font-size:11px;color:#4FC3F7">${emote.buffDesc} <span style="color:#aaa;font-size:10px">(${emote.cooldown}s cd)</span></div>` : ''}
+            <div class="shop-item-name">${escapeHtml(emote.name)}</div>
+            ${emote.buffDesc ? `<div class="shop-item-desc" style="font-size:11px;color:#4FC3F7">${escapeHtml(emote.buffDesc)} <span style="color:#aaa;font-size:10px">(${escapeHtml(String(emote.cooldown))}s cd)</span></div>` : ''}
             <div class="shop-item-cost">${emote.cost ? this.formatCost(emote.cost) : 'Free'}</div>
           </div>
-          <button class="shop-item-buy" ${btnDisabled ? 'disabled' : ''}>${btnText}</button>
+          <button class="shop-item-buy" ${btnDisabled ? 'disabled' : ''}>${escapeHtml(btnText)}</button>
         `;
 
         if (!owned && emote.cost) {
@@ -161,13 +167,13 @@ export class Shop {
         }
 
         el.innerHTML = `
-          <div class="shop-item-icon" style="background:rgba(255,255,255,0.1);font-size:24px">${upgrade.icon}</div>
+          <div class="shop-item-icon" style="background:rgba(255,255,255,0.1);font-size:24px">${escapeHtml(upgrade.icon)}</div>
           <div class="shop-item-info">
-            <div class="shop-item-name">${upgrade.name}</div>
-            <div class="shop-item-desc" style="font-size:11px;color:#aaa">${upgrade.desc}</div>
-            <div class="shop-item-cost">${locked ? 'Requires: ' + prereq.name : this.formatCost(upgrade.cost)}</div>
+            <div class="shop-item-name">${escapeHtml(upgrade.name)}</div>
+            <div class="shop-item-desc" style="font-size:11px;color:#aaa">${escapeHtml(upgrade.desc)}</div>
+            <div class="shop-item-cost">${locked ? 'Requires: ' + escapeHtml(prereq.name) : this.formatCost(upgrade.cost)}</div>
           </div>
-          <button class="shop-item-buy" ${btnDisabled ? 'disabled' : ''}>${btnText}</button>
+          <button class="shop-item-buy" ${btnDisabled ? 'disabled' : ''}>${escapeHtml(btnText)}</button>
         `;
 
         if (!owned && !locked) {
@@ -192,7 +198,7 @@ export class Shop {
       .map(([key, amount]) => {
         const have = this.playerResources[key] || 0;
         const color = have >= amount ? '#66BB6A' : '#EF5350';
-        return `<span style="color:${color}">${amount} ${key}</span>`;
+        return `<span style="color:${escapeHtml(color)}">${escapeHtml(String(amount))} ${escapeHtml(key)}</span>`;
       })
       .join(', ');
   }

@@ -8,7 +8,7 @@ import {
   createRoom, joinRoom, leaveRoom, getRoom, tryLoadRoom,
   handleMessage, createPlayer, sendTo,
 } from './rooms.js';
-import { MSG } from '../shared/constants.js';
+import { MSG, DECORATIONS } from '../shared/constants.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -19,6 +19,15 @@ initDB();
 // Express app
 const app = express();
 const server = createServer(app);
+
+// --- Security headers ---
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
 
 // Serve client files
 app.use(express.static(path.join(__dirname, '..', 'client')));
@@ -43,8 +52,17 @@ app.get('/api/decoration-sprites/:id', (req, res) => {
 
 app.put('/api/decoration-sprites/:id', (req, res) => {
   const decId = parseInt(req.params.id);
+  if (!Number.isFinite(decId) || decId < 0) {
+    return res.status(400).json({ error: 'Invalid decoration ID' });
+  }
   const { pixels, palette } = req.body;
-  if (!pixels || !palette) return res.status(400).json({ error: 'pixels and palette required' });
+  if (!Array.isArray(pixels) || !Array.isArray(palette)) {
+    return res.status(400).json({ error: 'pixels and palette must be arrays' });
+  }
+  // Limit payload size to prevent abuse
+  if (pixels.length > 10000 || palette.length > 256) {
+    return res.status(413).json({ error: 'Data too large' });
+  }
   saveDecorationSprite(decId, pixels, palette);
   res.json({ ok: true });
 });
@@ -54,11 +72,34 @@ const wss = new WebSocketServer({ server });
 
 let nextPlayerId = 1;
 
+// Rate limiting per connection
+const RATE_LIMIT_WINDOW_MS = 1000;
+const RATE_LIMIT_MAX_MESSAGES = 60;
+
 wss.on('connection', (ws) => {
   let playerId = null;
   let roomId = null;
 
+  // Rate limiter state
+  let msgCount = 0;
+  let windowStart = Date.now();
+
   ws.on('message', (raw) => {
+    // Rate limiting
+    const now = Date.now();
+    if (now - windowStart > RATE_LIMIT_WINDOW_MS) {
+      msgCount = 0;
+      windowStart = now;
+    }
+    msgCount++;
+    if (msgCount > RATE_LIMIT_MAX_MESSAGES) {
+      ws.close(1008, 'Rate limit exceeded');
+      return;
+    }
+
+    // Reject oversized messages (prevent memory abuse)
+    if (raw.length > 4096) return;
+
     let msg;
     try {
       msg = JSON.parse(raw.toString());
@@ -66,10 +107,18 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    // Basic shape validation: must be a plain object with a type
+    if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.type !== 'string') return;
+
     if (msg.type === MSG.JOIN) {
+      // Prevent re-joining
+      if (playerId) return;
+
       playerId = 'p' + (nextPlayerId++);
-      const playerName = (msg.name || 'Dog').slice(0, 20);
-      const breedId = Math.max(0, Math.min(3, msg.breedId || 0));
+      // Sanitize player name: strip control chars and limit length
+      const rawName = String(msg.name || 'Dog').slice(0, 20).replace(/[\x00-\x1F\x7F]/g, '').trim();
+      const playerName = rawName || 'Dog';
+      const breedId = Number.isInteger(msg.breedId) && msg.breedId >= 0 && msg.breedId <= 3 ? msg.breedId : 0;
 
       const player = createPlayer(playerId, playerName, breedId);
 

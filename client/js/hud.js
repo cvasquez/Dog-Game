@@ -1,5 +1,11 @@
 import { EMOTES, BIOMES, SURFACE_Y } from '../../shared/constants.js';
 
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 export class HUD {
   constructor() {
     this.resourceBar = document.getElementById('resourceBar');
@@ -42,7 +48,12 @@ export class HUD {
     this.staminaBar.appendChild(this.staminaDrainLabel);
 
     // Contextual hints system
-    this.shownHints = JSON.parse(localStorage.getItem('doggame_hints') || '{}');
+    try {
+      const raw = JSON.parse(localStorage.getItem('doggame_hints') || '{}');
+      this.shownHints = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
+    } catch {
+      this.shownHints = {};
+    }
     this.hintEl = document.createElement('div');
     this.hintEl.id = 'contextHint';
     this.hintEl.style.cssText = `
@@ -97,7 +108,7 @@ export class HUD {
         }
       }
       if (biomeName) {
-        this.depthMeter.innerHTML = `Depth: ${depth}m <span style="color:${biomeColor};font-size:9px"> ${biomeName}</span>`;
+        this.depthMeter.innerHTML = `Depth: ${depth}m <span style="color:${escapeHtml(biomeColor)};font-size:9px"> ${escapeHtml(biomeName)}</span>`;
       } else {
         this.depthMeter.textContent = `Depth: ${depth}m`;
       }
@@ -205,11 +216,12 @@ export class HUD {
   }
 
   updatePlayerList(players) {
-    const entries = [];
+    this.playerListEl.innerHTML = '';
     for (const [, p] of players) {
-      const marker = p.isLocal ? '→ ' : '  ';
-      entries.push(`<div class="player-entry">${marker}${p.name}</div>`);
+      const entry = document.createElement('div');
+      entry.className = 'player-entry';
+      entry.textContent = (p.isLocal ? '→ ' : '  ') + p.name;
+      this.playerListEl.appendChild(entry);
     }
-    this.playerListEl.innerHTML = entries.join('');
   }
 }
