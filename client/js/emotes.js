@@ -1,8 +1,21 @@
 import { EMOTES } from '../../shared/constants.js';
 
+const ACTION_DESCRIPTIONS = {
+  0: 'Bark to boost your speed!',
+  1: 'Wag your tail to recover faster.',
+  2: 'Share the love — boost everything.',
+  3: 'Power-dig blocks instantly.',
+  4: 'Leap higher and run faster.',
+  5: 'Howl for extra endurance.',
+  6: 'Flaunt your wealth for bonus loot.',
+  7: 'Royalty gets the best of everything.',
+  8: 'Warp home without losing resources.',
+};
+
 export class ActionBar {
-  constructor() {
+  constructor(hud) {
     this.bar = document.getElementById('actionBar');
+    this.hud = hud || null;
     this.slots = [];
     this.unlockedEmotes = [];
     this.cooldowns = {};
@@ -12,14 +25,35 @@ export class ActionBar {
     for (let i = 0; i < 8; i++) {
       const slot = document.createElement('div');
       slot.className = 'action-slot empty';
+      slot.dataset.slotIndex = i;
       slot.innerHTML = `
         <span class="slot-key">${i + 1}</span>
         <span class="slot-icon"></span>
         <div class="slot-cooldown-overlay"></div>
       `;
+      slot.addEventListener('mouseenter', (e) => this._showSlotTooltip(i, e));
+      slot.addEventListener('mousemove', (e) => { if (this.hud) this.hud.moveTooltip(e); });
+      slot.addEventListener('mouseleave', () => { if (this.hud) this.hud.hideTooltip(); });
       this.bar.appendChild(slot);
       this.slots.push(slot);
     }
+  }
+
+  _showSlotTooltip(idx, e) {
+    if (!this.hud) return;
+    const emoteId = this.unlockedEmotes[idx];
+    const emote = emoteId != null ? EMOTES[emoteId] : null;
+    if (!emote) {
+      this.hud.hideTooltip();
+      return;
+    }
+    const key = idx + 1;
+    let html = `<div class="tooltip-title">${emote.symbol} ${emote.name} [${key}]</div>`;
+    if (emote.buffDesc) html += `<div class="tooltip-desc">${emote.buffDesc}</div>`;
+    if (emote.cooldown) html += `<div class="tooltip-desc">Cooldown: ${emote.cooldown}s</div>`;
+    const desc = ACTION_DESCRIPTIONS[emote.id];
+    if (desc) html += `<div class="tooltip-desc">${desc}</div>`;
+    this.hud.showTooltip(html, e);
   }
 
   /** Update which emotes are unlocked and their cooldown state */
@@ -50,7 +84,7 @@ export class ActionBar {
         (this.activeEmoteId === emoteId ? ' active-buff' : '');
       slot.querySelector('.slot-icon').textContent = emote.symbol;
       slot.querySelector('.slot-cooldown-overlay').style.height = Math.round(cdFrac * 100) + '%';
-      slot.title = emote.name + (emote.buffDesc ? ' — ' + emote.buffDesc : '');
+      slot.title = '';
     }
   }
 

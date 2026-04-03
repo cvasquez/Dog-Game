@@ -57,6 +57,33 @@ export class HUD {
     this.staminaBar.style.position = 'relative';
     this.staminaBar.appendChild(this.staminaDrainLabel);
 
+    // Shared tooltip element
+    this.tooltip = document.createElement('div');
+    this.tooltip.className = 'game-tooltip';
+    document.body.appendChild(this.tooltip);
+
+    // HP/Stamina bar hover tooltips
+    this._currentHP = 0;
+    this._maxHP = 0;
+    this._currentStamina = 0;
+    this._maxStamina = 0;
+    this._setupBarTooltip(this.hpBar, () =>
+      `<div class="tooltip-title">Health</div>` +
+      `<div class="tooltip-desc">${Math.round(this._currentHP)} / ${Math.round(this._maxHP)}</div>` +
+      `<div class="tooltip-desc">Lava and hazards drain HP.</div>` +
+      `<div class="tooltip-desc">Death drops all carried resources</div>` +
+      `<div class="tooltip-desc">and respawns you at the surface.</div>` +
+      `<div class="tooltip-desc">Bank resources to keep them safe!</div>`
+    );
+    this._setupBarTooltip(this.staminaBar, () =>
+      `<div class="tooltip-title">Stamina</div>` +
+      `<div class="tooltip-desc">${Math.round(this._currentStamina)} / ${Math.round(this._maxStamina)}</div>` +
+      `<div class="tooltip-desc">Used by digging, climbing,</div>` +
+      `<div class="tooltip-desc">clinging to walls, and sprinting.</div>` +
+      `<div class="tooltip-desc">Regens when resting on ground.</div>` +
+      `<div class="tooltip-desc">Empty = exhausted (brief lockout).</div>`
+    );
+
     // Contextual hints system
     try {
       const raw = JSON.parse(localStorage.getItem('doggame_hints') || '{}');
@@ -77,6 +104,39 @@ export class HUD {
     document.body.appendChild(this.hintEl);
     this.activeHint = null;
     this.hintTimer = 0;
+  }
+
+  _setupBarTooltip(el, contentFn) {
+    el.addEventListener('mouseenter', (e) => {
+      this.tooltip.innerHTML = contentFn();
+      this.tooltip.style.display = 'block';
+      this._positionTooltip(e);
+    });
+    el.addEventListener('mousemove', (e) => {
+      this._positionTooltip(e);
+    });
+    el.addEventListener('mouseleave', () => {
+      this.tooltip.style.display = 'none';
+    });
+  }
+
+  _positionTooltip(e) {
+    this.tooltip.style.left = (e.clientX + 12) + 'px';
+    this.tooltip.style.top = (e.clientY + 12) + 'px';
+  }
+
+  showTooltip(html, e) {
+    this.tooltip.innerHTML = html;
+    this.tooltip.style.display = 'block';
+    this._positionTooltip(e);
+  }
+
+  moveTooltip(e) {
+    this._positionTooltip(e);
+  }
+
+  hideTooltip() {
+    this.tooltip.style.display = 'none';
   }
 
   updateResources(resources) {
@@ -130,6 +190,8 @@ export class HUD {
   }
 
   updateHP(current, max) {
+    this._currentHP = current;
+    this._maxHP = max;
     const pct = Math.max(0, Math.min(100, (current / max) * 100));
     this.hpFill.style.width = pct + '%';
 
@@ -154,6 +216,8 @@ export class HUD {
   }
 
   updateStamina(current, max, exhausted, drainSource) {
+    this._currentStamina = current;
+    this._maxStamina = max;
     const pct = Math.max(0, Math.min(100, (current / max) * 100));
     this.staminaFill.style.width = pct + '%';
 
@@ -162,9 +226,9 @@ export class HUD {
     else if (pct > 30) this.staminaFill.style.background = '#FFA726';
     else if (pct > 0) this.staminaFill.style.background = '#EF5350';
 
-    // Visibility: show when draining or not full, fade when full
+    // Visibility: dim when full, bright when draining
     if (pct >= 100) {
-      this.staminaBar.style.opacity = '0';
+      this.staminaBar.style.opacity = '0.3';
     } else {
       this.staminaBar.style.opacity = '1';
     }

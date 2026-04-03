@@ -21,7 +21,7 @@ export class Game {
     this.network = new Network();
     this.hud = new HUD();
     this.shop = new Shop();
-    this.actionBar = new ActionBar();
+    this.actionBar = new ActionBar(this.hud);
 
     this.localPlayer = null;
     this.players = new Map();

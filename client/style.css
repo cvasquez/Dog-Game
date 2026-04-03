@@ -499,8 +499,9 @@ input[type="text"]::placeholder {
 #hpBar {
   position: fixed;
   left: 16px; top: 36px;
-  pointer-events: none;
+  pointer-events: auto;
   transition: opacity 0.5s;
+  cursor: default;
 }
 
 .hp-label {
@@ -538,8 +539,9 @@ input[type="text"]::placeholder {
 #staminaBar {
   position: fixed;
   left: 16px; top: 60px;
-  pointer-events: none;
+  pointer-events: auto;
   transition: opacity 0.5s;
+  cursor: default;
 }
 
 .stamina-label {
@@ -1455,7 +1457,7 @@ input[type="text"]::placeholder {
   display: flex;
   gap: 3px;
   z-index: 40;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .action-slot {
@@ -1513,6 +1515,34 @@ input[type="text"]::placeholder {
   background: rgba(180, 40, 40, 0.45);
   z-index: 1;
   transition: height 0.15s linear;
+}
+
+/* ========== GAME TOOLTIPS ========== */
+.game-tooltip {
+  position: fixed;
+  display: none;
+  padding: 5px 9px;
+  background: rgba(20, 14, 8, 0.92);
+  border: 1px solid rgba(120, 90, 50, 0.7);
+  border-radius: 2px;
+  color: #FFF3E0;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  line-height: 1.8;
+  max-width: 260px;
+  pointer-events: none;
+  z-index: 200;
+  text-shadow: 1px 1px 0 rgba(0,0,0,1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+
+.game-tooltip .tooltip-title {
+  color: #FFA726;
+  margin-bottom: 2px;
+}
+
+.game-tooltip .tooltip-desc {
+  color: #BDBDBD;
 }
 
 /* ========== NOTIFICATIONS ========== */
