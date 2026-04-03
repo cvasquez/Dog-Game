@@ -632,7 +632,7 @@ export const ICY_TILES = new Set([TILE.FROZEN_ICE, TILE.FROZEN_GEM]);
 export const SLIPPERY_TILES = new Set([TILE.CRYSTAL_ROCK, TILE.CRYSTAL]);
 
 // Idle camera zoom
-export const IDLE_ZOOM_SCALE = 1.3;          // how much to zoom in (1.0 = no zoom)
+export const IDLE_ZOOM_SCALE = 1.3125;       // how much to zoom in (21/16 for pixel-perfect scaling)
 export const IDLE_ZOOM_IN_SPEED = 0.008;     // zoom-in lerp speed per frame (slow)
 export const IDLE_ZOOM_OUT_SPEED = 0.04;     // zoom-out lerp speed per frame (faster)
 export const IDLE_SIT_DELAY = 180;           // frames before idle triggers sit (~3s at 60fps)
@@ -640,7 +640,7 @@ export const IDLE_SIT_DELAY = 180;           // frames before idle triggers sit 
 // Depth-based camera zoom (claustrophobia effect)
 export const DEPTH_ZOOM_START = 30;          // depth (tiles below surface) where zoom starts
 export const DEPTH_ZOOM_MAX_DEPTH = 220;     // depth at which zoom reaches maximum
-export const DEPTH_ZOOM_MAX_SCALE = 1.45;    // maximum zoom scale at deepest point
+export const DEPTH_ZOOM_MAX_SCALE = 1.4375;  // maximum zoom scale at deepest point (23/16 for pixel-perfect scaling)
 export const DEPTH_ZOOM_SPEED = 0.015;       // lerp speed for depth zoom transitions
 
 // Darkness vignette
