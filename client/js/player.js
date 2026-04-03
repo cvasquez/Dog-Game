@@ -245,6 +245,7 @@ export class Player {
           this.facing = this.clingWallSide; // face the wall
           this.vx = 0;
           this.vy = 0;
+          this.fallPeakY = this.y; // reset fall distance on cling
         }
       }
 
@@ -650,6 +651,7 @@ export class Player {
     this.mantleSide = side;
     this.vx = 0;
     this.vy = 0;
+    this.fallPeakY = this.y; // reset fall distance on mantle
     if (this.clinging) this.releaseCling();
   }
 
