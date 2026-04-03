@@ -463,7 +463,19 @@ export class LocalGame {
       const tx = Math.floor(mouseWorld.x);
       const ty = Math.floor(mouseWorld.y);
       const placeDef = DECORATIONS.find(d => d.id === this.placingDecoration);
-      const valid = (placeDef && placeDef.canPlaceAnywhere) || (ty >= PARK_TOP && ty <= PARK_BOTTOM);
+      let valid = (placeDef && placeDef.canPlaceAnywhere) || (ty >= PARK_TOP && ty <= PARK_BOTTOM);
+      // Must touch ground
+      if (valid && placeDef && !placeDef.canPlaceAnywhere) {
+        const bottomY = ty + placeDef.h;
+        let touchesGround = false;
+        for (let dx = 0; dx < placeDef.w; dx++) {
+          if (SOLID_TILES.has(this.world.getTile(tx + dx, bottomY))) {
+            touchesGround = true;
+            break;
+          }
+        }
+        if (!touchesGround) valid = false;
+      }
       this.renderer.drawPlacementPreview(tx, ty, this.placingDecoration, valid, this.camera);
     }
 
@@ -484,7 +496,19 @@ export class LocalGame {
     const ty = Math.floor(mouseWorld.y);
 
     const decDef = DECORATIONS.find(d => d.id === this.placingDecoration);
-    const canPlaceHere = (decDef && decDef.canPlaceAnywhere) || (ty >= PARK_TOP && ty <= PARK_BOTTOM);
+    let canPlaceHere = (decDef && decDef.canPlaceAnywhere) || (ty >= PARK_TOP && ty <= PARK_BOTTOM);
+    // Must touch ground
+    if (canPlaceHere && decDef && !decDef.canPlaceAnywhere) {
+      const bottomY = ty + decDef.h;
+      let touchesGround = false;
+      for (let dx = 0; dx < decDef.w; dx++) {
+        if (SOLID_TILES.has(this.world.getTile(tx + dx, bottomY))) {
+          touchesGround = true;
+          break;
+        }
+      }
+      canPlaceHere = touchesGround;
+    }
 
     if (canPlaceHere) {
       const decoration = {
@@ -498,7 +522,7 @@ export class LocalGame {
       this.localPlayer.applyUpgrades(this.decorations);
       this.notify('Decoration placed!');
     } else {
-      this.notify('Must place in the dog park area (above ground)');
+      this.notify('Must place on the ground in the dog park area');
     }
   }
 

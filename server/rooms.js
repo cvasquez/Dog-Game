@@ -604,6 +604,21 @@ export function handleMessage(roomId, playerId, msg) {
         sendTo(player, { type: MSG.ERROR, message: 'Must place in the dog park area' });
         break;
       }
+      // Check decoration touches ground (solid tile below its bottom edge)
+      if (!decDef.canPlaceAnywhere) {
+        const bottomY = decY + decDef.h;
+        let touchesGround = false;
+        for (let dx = 0; dx < decDef.w; dx++) {
+          if (isSolid(room, decX + dx, bottomY)) {
+            touchesGround = true;
+            break;
+          }
+        }
+        if (!touchesGround) {
+          sendTo(player, { type: MSG.ERROR, message: 'Decoration must be placed on the ground' });
+          break;
+        }
+      }
       deductCost(player.resources, decDef.cost);
       const decoration = { id: decDef.id, x: decX, y: decY, placedBy: player.name };
       room.decorations.push(decoration);
