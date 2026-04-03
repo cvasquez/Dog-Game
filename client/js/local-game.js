@@ -31,7 +31,7 @@ export class LocalGame {
     this.hud = new HUD();
     this.shop = new Shop();
     this.bank = new Bank();
-    this.actionBar = new ActionBar();
+    this.actionBar = new ActionBar(this.hud);
 
     this.localPlayer = null;
     this.players = new Map();
