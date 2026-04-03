@@ -133,9 +133,6 @@ export class Camera {
     this.zoom += (this.targetZoom - this.zoom) * speed;
     // Snap when very close
     if (Math.abs(this.zoom - this.targetZoom) < 0.001) this.zoom = this.targetZoom;
-    // Snap to nearest zoom where TILE_SIZE * zoom is an integer,
-    // ensuring every game pixel maps to the same number of screen pixels
-    this.zoom = Math.round(this.zoom * TILE_SIZE) / TILE_SIZE;
   }
 
   resize(width, height) {

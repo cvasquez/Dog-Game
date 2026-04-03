@@ -23,6 +23,7 @@ export class Renderer {
   }
 
   resize() {
+    const ratio = window.devicePixelRatio || 1;
     // Scale to fill window while maintaining aspect
     const scaleX = window.innerWidth / RENDER_WIDTH;
     const scaleY = window.innerHeight / RENDER_HEIGHT;
@@ -31,13 +32,12 @@ export class Renderer {
     const logicalW = Math.ceil(window.innerWidth / this.scale);
     const logicalH = Math.ceil(window.innerHeight / this.scale);
 
-    // Render at 1:1 logical resolution — no devicePixelRatio multiplication.
-    // CSS image-rendering: pixelated handles nearest-neighbor upscaling,
-    // keeping every pixel square with no anti-aliasing artifacts on text.
-    this.canvas.width = logicalW;
-    this.canvas.height = logicalH;
+    // Use devicePixelRatio for sharper text rendering
+    this.canvas.width = logicalW * ratio;
+    this.canvas.height = logicalH * ratio;
     this.canvas.style.width = window.innerWidth + 'px';
     this.canvas.style.height = window.innerHeight + 'px';
+    this.ctx.scale(ratio, ratio);
     this.ctx.imageSmoothingEnabled = false;
 
     this.renderWidth = logicalW;
@@ -60,7 +60,10 @@ export class Renderer {
     const cx = Math.floor(this.renderWidth / 2);
     const cy = Math.floor(this.renderHeight / 2);
     this.ctx.translate(cx, cy);
-    this.ctx.scale(camera.zoom, camera.zoom);
+    // Snap to nearest zoom where TILE_SIZE * zoom is integer,
+    // so every game pixel maps to the same number of screen pixels
+    const snappedZoom = Math.round(camera.zoom * TILE_SIZE) / TILE_SIZE;
+    this.ctx.scale(snappedZoom, snappedZoom);
     this.ctx.translate(-cx, -cy);
     // Ensure pixel art stays crisp during zoom
     this.ctx.imageSmoothingEnabled = false;
