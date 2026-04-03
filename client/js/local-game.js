@@ -206,10 +206,15 @@ export class LocalGame {
       if (this.input.justPressed('Digit' + k)) {
         const emoteId = this.actionBar.getEmoteForSlot(k);
         if (emoteId != null && !this.localPlayer.emoteCooldowns[emoteId]) {
+          const emDef = EMOTES[emoteId];
           this.localPlayer.activeEmote = emoteId;
           this.localPlayer.emoteTimer = EMOTE_DISPLAY_FRAMES;
-          this.localPlayer.activateEmoteBuff(emoteId);
-          this.localPlayer.applyUpgrades(this.decorations);
+          if (emDef && emDef.isRecall) {
+            this.emoteRecallToSurface(emoteId);
+          } else {
+            this.localPlayer.activateEmoteBuff(emoteId);
+            this.localPlayer.applyUpgrades(this.decorations);
+          }
         }
       }
     }
@@ -572,6 +577,21 @@ export class LocalGame {
     } else {
       this.notify(`Recalled to ${dest}!`);
     }
+  }
+
+  emoteRecallToSurface(emoteId) {
+    const p = this.localPlayer;
+    const emDef = EMOTES[emoteId];
+    // Start cooldown
+    p.emoteCooldowns[emoteId] = Math.round(emDef.cooldown * 60);
+    // Teleport to surface with no penalty
+    p.x = WORLD_WIDTH / 2;
+    p.y = SURFACE_Y - 1;
+    p.vx = 0;
+    p.vy = 0;
+    p.grounded = false;
+    p.stamina = p.maxStamina;
+    this.notify('Scratched your way back to the surface!');
   }
 
   screenToWorld(screenX, screenY) {

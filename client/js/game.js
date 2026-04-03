@@ -1,4 +1,4 @@
-import { TILE_SIZE, TILE, MSG, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, EMOTE_DISPLAY_FRAMES, RESPAWN_FRAMES, getNearbyShop, SOLID_TILES, DECORATIONS, PARK_TOP, PARK_BOTTOM } from '../../shared/constants.js';
+import { TILE_SIZE, TILE, MSG, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, EMOTE_DISPLAY_FRAMES, RESPAWN_FRAMES, getNearbyShop, SOLID_TILES, DECORATIONS, PARK_TOP, PARK_BOTTOM, EMOTES } from '../../shared/constants.js';
 import { World } from './world.js';
 import { Player } from './player.js';
 import { Camera } from './camera.js';
@@ -281,11 +281,18 @@ export class Game {
       if (this.input.justPressed('Digit' + k)) {
         const emoteId = this.actionBar.getEmoteForSlot(k);
         if (emoteId != null && !this.localPlayer.emoteCooldowns[emoteId]) {
+          const emDef = EMOTES[emoteId];
           this.network.sendEmote(emoteId);
           this.localPlayer.activeEmote = emoteId;
           this.localPlayer.emoteTimer = EMOTE_DISPLAY_FRAMES;
-          this.localPlayer.activateEmoteBuff(emoteId);
-          this.localPlayer.applyUpgrades(this.decorations);
+          if (emDef && emDef.isRecall) {
+            // Recall: server handles teleport, just start cooldown locally
+            this.localPlayer.emoteCooldowns[emoteId] = Math.round(emDef.cooldown * 60);
+            this.notify('Scratched your way back to the surface!');
+          } else {
+            this.localPlayer.activateEmoteBuff(emoteId);
+            this.localPlayer.applyUpgrades(this.decorations);
+          }
         }
       }
     }

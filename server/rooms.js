@@ -565,8 +565,17 @@ export function handleMessage(roomId, playerId, msg) {
       // Display emote bubble
       player.activeEmote = msg.emoteId;
       player.emoteTimer = EMOTE_DISPLAY_TICKS;
-      // Activate buff
-      if (emDef.effect) {
+      // Handle recall emotes (teleport to surface)
+      if (emDef.isRecall) {
+        const cooldownTicks = Math.round(emDef.cooldown * (1000 / SERVER_TICK_MS));
+        player.emoteCooldowns[msg.emoteId] = cooldownTicks;
+        player.x = WORLD_WIDTH / 2;
+        player.y = SURFACE_Y - 1;
+        player.vx = 0;
+        player.vy = 0;
+        player.grounded = false;
+      } else if (emDef.effect) {
+        // Activate buff
         const durationTicks = Math.round(emDef.duration * (1000 / SERVER_TICK_MS));
         const cooldownTicks = Math.round(emDef.cooldown * (1000 / SERVER_TICK_MS));
         player.emoteBuff = { effect: emDef.effect, timer: durationTicks, emoteId: msg.emoteId };

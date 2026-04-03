@@ -394,7 +394,7 @@ export const EMOTES = [
   { id: 7, name: 'Diva', symbol: '\uD83D\uDC51', cost: { diamonds: 1 },
     buffDesc: '+10% all stats for 8s', duration: 8, cooldown: 45, effect: { moveSpeed: 0.10, jumpForce: 0.10, digSpeed: 0.10, maxStamina: 0.10, staminaRegen: 0.10, climbEfficiency: 0.10 } },
   { id: 8, name: 'Scratch', symbol: '\uD83D\uDC3E', cost: { bones: 8 },
-    buffDesc: '+15% dig speed, +10% stamina regen for 7s', duration: 7, cooldown: 30, effect: { digSpeed: 0.15, staminaRegen: 0.10 } },
+    buffDesc: 'Recall to surface (no penalty)', duration: 0, cooldown: 240, effect: {}, isRecall: true, recallPenalty: 0 },
 ];
 
 // Digging stamina cost per frame
