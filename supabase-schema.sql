@@ -64,7 +64,7 @@ CREATE POLICY "Anyone can update decoration sprites"
 
 -- Shop machine sprites edited in the sprite editor
 CREATE TABLE shop_sprites (
-  shop_type TEXT PRIMARY KEY,         -- 'decorations', 'emotes', 'upgrades'
+  shop_type TEXT PRIMARY KEY,         -- 'decorations', 'emotes', 'upgrades', 'stash'
   pixels JSONB NOT NULL,              -- array of hex-string rows (32 chars each for 32px wide)
   palette JSONB NOT NULL,             -- array of color strings (index 0 = null/transparent)
   updated_at TIMESTAMPTZ DEFAULT now()
