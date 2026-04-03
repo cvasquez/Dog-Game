@@ -555,9 +555,9 @@ export function calcDecorationBonuses(decorations) {
 
 // Surface shop locations — three separate machines for each shop category
 export const SHOP_LOCATIONS = [
-  { x: 20, width: 2, type: 'decorations', name: 'Decorations', symbol: '\uD83C\uDFA8' },
+  { x: 30, width: 2, type: 'decorations', name: 'Decorations', symbol: '\uD83C\uDFA8' },
   { x: 32, width: 2, type: 'emotes', name: 'Emotes', symbol: '\uD83D\uDCAC' },
-  { x: 44, width: 2, type: 'upgrades', name: 'Upgrades', symbol: '\u2692\uFE0F' },
+  { x: 34, width: 2, type: 'upgrades', name: 'Upgrades', symbol: '\u2692\uFE0F' },
 ];
 
 // Shop floor padding — extra undiggable tiles on each side of shop machine
@@ -566,16 +566,21 @@ export const SHOP_FLOOR_PADDING = 1;
 // Returns the shop the player is near, or null
 export function getNearbyShop(playerX, playerY) {
   if (playerY > SURFACE_Y + 1) return null; // must be at surface level
+  let closest = null;
+  let minDist = 2.5;
   for (const shop of SHOP_LOCATIONS) {
     const shopCenterX = shop.x + shop.width / 2;
     const dist = Math.abs(playerX - shopCenterX);
-    if (dist < 2.5) return shop;
+    if (dist < minDist) {
+      minDist = dist;
+      closest = shop;
+    }
   }
-  return null;
+  return closest;
 }
 
 // Resource bank on surface — safe storage that survives death and teleport
-export const BANK_LOCATION = { x: 8, width: 2, name: 'Stash Box', symbol: '📦' };
+export const BANK_LOCATION = { x: 28, width: 2, name: 'Stash Box', symbol: '📦' };
 
 // Returns true if the player is near the bank
 export function getNearbyBank(playerX, playerY) {
@@ -588,21 +593,12 @@ export function getNearbyBank(playerX, playerY) {
 
 // Places shop floor tiles in a world tile array (call after world gen or on load)
 export function placeShopFloors(tiles) {
-  for (const shop of SHOP_LOCATIONS) {
-    const startX = shop.x - SHOP_FLOOR_PADDING;
-    const endX = shop.x + shop.width + SHOP_FLOOR_PADDING;
-    for (let x = startX; x < endX; x++) {
-      if (x > 0 && x < WORLD_WIDTH - 1) {
-        // Surface level and one below
-        tiles[SURFACE_Y * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;
-        tiles[(SURFACE_Y + 1) * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;
-      }
-    }
-  }
-  // Bank floor tiles
-  const bankStart = BANK_LOCATION.x - SHOP_FLOOR_PADDING;
-  const bankEnd = BANK_LOCATION.x + BANK_LOCATION.width + SHOP_FLOOR_PADDING;
-  for (let x = bankStart; x < bankEnd; x++) {
+  // Continuous platform under all shops + bank (the "town")
+  const allX = [...SHOP_LOCATIONS.map(s => s.x), BANK_LOCATION.x];
+  const allEndX = [...SHOP_LOCATIONS.map(s => s.x + s.width), BANK_LOCATION.x + BANK_LOCATION.width];
+  const startX = Math.min(...allX) - SHOP_FLOOR_PADDING;
+  const endX = Math.max(...allEndX) + SHOP_FLOOR_PADDING;
+  for (let x = startX; x < endX; x++) {
     if (x > 0 && x < WORLD_WIDTH - 1) {
       tiles[SURFACE_Y * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;
       tiles[(SURFACE_Y + 1) * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;
