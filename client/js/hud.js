@@ -54,7 +54,6 @@ export class HUD {
       font-size: 8px; font-family: 'Press Start 2P', monospace;
       color: #FFA726; white-space: nowrap; display: none;
     `;
-    this.staminaBar.style.position = 'relative';
     this.staminaBar.appendChild(this.staminaDrainLabel);
 
     // Shared tooltip element
@@ -121,8 +120,18 @@ export class HUD {
   }
 
   _positionTooltip(e) {
-    this.tooltip.style.left = (e.clientX + 12) + 'px';
-    this.tooltip.style.top = (e.clientY + 12) + 'px';
+    const pad = 8;
+    const rect = this.tooltip.getBoundingClientRect();
+    let x = e.clientX + 12;
+    let y = e.clientY + 12;
+    if (x + rect.width + pad > window.innerWidth) {
+      x = e.clientX - rect.width - 12;
+    }
+    if (y + rect.height + pad > window.innerHeight) {
+      y = e.clientY - rect.height - 12;
+    }
+    this.tooltip.style.left = x + 'px';
+    this.tooltip.style.top = y + 'px';
   }
 
   showTooltip(html, e) {
