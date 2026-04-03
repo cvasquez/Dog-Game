@@ -65,6 +65,12 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
 .cloud-status { font-size: 11px; padding: 4px 0; }
 .cloud-status.ok { color: #76FF03; }
 .cloud-status.err { color: #e94560; }
+
+/* Selection tool */
+@keyframes marching-ants {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -12; }
+}
 </style>
 </head>
 <body>
@@ -129,6 +135,7 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
     <button id="toolPen" class="active">Pen</button>
     <button id="toolErase">Erase</button>
     <button id="toolFill">Fill</button>
+    <button id="toolSelect">Select</button>
   </div>
 
   <h3>Actions</h3>
@@ -160,8 +167,9 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
     <span id="statusText" style="font-size:11px;color:#888"></span>
   </div>
   <div class="canvas-area">
-    <div class="grid-wrap">
+    <div class="grid-wrap" style="position:relative">
       <canvas id="gridCanvas" class="grid-canvas" width="384" height="384"></canvas>
+      <svg id="selectionOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible"></svg>
     </div>
     <div class="preview-section">
       <label>Preview (4x)</label>
@@ -232,8 +240,12 @@ let currentDecoration = 0;
 let currentShop = 'decorations';
 const SHOP_TYPES = SHOP_LOCATIONS.map(s => s.type);
 let currentPalIdx = 1;
-let currentTool = 'pen'; // pen, erase, fill
+let currentTool = 'pen'; // pen, erase, fill, select
 let playing = false;
+
+// Selection tool state
+let selection = null; // { x, y, w, h } in grid coords (normalized so w,h > 0)
+let selDragStart = null; // { x, y } grid coord where drag began
 let playTimer = null;
 let playFrame = 0;
 
@@ -611,8 +623,13 @@ gridCanvas.addEventListener('mousedown', (e) => {
   paintButton = e.button;
   const cell = cellFromEvent(e);
   if (!cell) return;
+  if (currentTool === 'select' && e.button === 0) {
+    selDragStart = { x: cell.x, y: cell.y };
+    selection = { x: cell.x, y: cell.y, w: 1, h: 1 };
+    drawSelectionOverlay();
+    return;
+  }
   if (e.button === 2) {
-    // Right click = erase
     setPixel(cell.x, cell.y, 0);
     drawGrid();
     drawPreviews();
@@ -625,6 +642,11 @@ gridCanvas.addEventListener('mousemove', (e) => {
   if (!painting) return;
   const cell = cellFromEvent(e);
   if (!cell) return;
+  if (currentTool === 'select' && selDragStart) {
+    selection = normalizeRect(selDragStart.x, selDragStart.y, cell.x, cell.y);
+    drawSelectionOverlay();
+    return;
+  }
   if (paintButton === 2) {
     setPixel(cell.x, cell.y, 0);
     drawGrid();
@@ -634,8 +656,14 @@ gridCanvas.addEventListener('mousemove', (e) => {
   }
 });
 
-gridCanvas.addEventListener('mouseup', () => { painting = false; });
-gridCanvas.addEventListener('mouseleave', () => { painting = false; });
+gridCanvas.addEventListener('mouseup', () => {
+  painting = false;
+  selDragStart = null;
+});
+gridCanvas.addEventListener('mouseleave', () => {
+  painting = false;
+  selDragStart = null;
+});
 gridCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
 // ------ Tools ------
@@ -644,11 +672,13 @@ function updateToolButtons() {
   document.getElementById('toolPen').className = currentTool === 'pen' ? 'active' : '';
   document.getElementById('toolErase').className = currentTool === 'erase' ? 'active' : '';
   document.getElementById('toolFill').className = currentTool === 'fill' ? 'active' : '';
+  document.getElementById('toolSelect').className = currentTool === 'select' ? 'active' : '';
 }
 
-document.getElementById('toolPen').addEventListener('click', () => { currentTool = 'pen'; updateToolButtons(); });
-document.getElementById('toolErase').addEventListener('click', () => { currentTool = 'erase'; updateToolButtons(); });
-document.getElementById('toolFill').addEventListener('click', () => { currentTool = 'fill'; updateToolButtons(); });
+document.getElementById('toolPen').addEventListener('click', () => { currentTool = 'pen'; clearSelection(); updateToolButtons(); });
+document.getElementById('toolErase').addEventListener('click', () => { currentTool = 'erase'; clearSelection(); updateToolButtons(); });
+document.getElementById('toolFill').addEventListener('click', () => { currentTool = 'fill'; clearSelection(); updateToolButtons(); });
+document.getElementById('toolSelect').addEventListener('click', () => { currentTool = 'select'; updateToolButtons(); });
 
 // Add custom color
 let addingColorIdx = -1;
@@ -1009,6 +1039,104 @@ document.getElementById('importBtn').addEventListener('click', async () => {
   }
 });
 
+// ------ Selection tool ------
+
+const selectionOverlay = document.getElementById('selectionOverlay');
+
+function clearSelection() {
+  selection = null;
+  selDragStart = null;
+  drawSelectionOverlay();
+}
+
+function normalizeRect(x1, y1, x2, y2) {
+  const x = Math.min(x1, x2);
+  const y = Math.min(y1, y2);
+  return { x, y, w: Math.abs(x2 - x1) + 1, h: Math.abs(y2 - y1) + 1 };
+}
+
+function drawSelectionOverlay() {
+  selectionOverlay.innerHTML = '';
+  if (!selection) return;
+  const rect = gridCanvas.getBoundingClientRect();
+  const cssCell = rect.width / (gridCanvas.width / CELL_SIZE);
+  const sx = selection.x * cssCell;
+  const sy = selection.y * cssCell;
+  const sw = selection.w * cssCell;
+  const sh = selection.h * cssCell;
+
+  selectionOverlay.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+  // White dashed rect with marching ants
+  const r1 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  r1.setAttribute('x', sx); r1.setAttribute('y', sy);
+  r1.setAttribute('width', sw); r1.setAttribute('height', sh);
+  r1.setAttribute('fill', 'rgba(100,180,255,0.12)');
+  r1.setAttribute('stroke', '#000');
+  r1.setAttribute('stroke-width', '1.5');
+  r1.setAttribute('stroke-dasharray', '4 4');
+  selectionOverlay.appendChild(r1);
+
+  const r2 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  r2.setAttribute('x', sx); r2.setAttribute('y', sy);
+  r2.setAttribute('width', sw); r2.setAttribute('height', sh);
+  r2.setAttribute('fill', 'none');
+  r2.setAttribute('stroke', '#fff');
+  r2.setAttribute('stroke-width', '1.5');
+  r2.setAttribute('stroke-dasharray', '4 4');
+  r2.setAttribute('stroke-dashoffset', '4');
+  r2.style.animation = 'marching-ants 0.4s linear infinite';
+  selectionOverlay.appendChild(r2);
+}
+
+function shiftSelection(dx, dy) {
+  if (!selection) return;
+  const { w: gridW, h: gridH } = getGridDims();
+  const pixels = getCurrentPixels();
+  if (!pixels) return;
+
+  // Extract selected pixels
+  const buf = [];
+  for (let r = 0; r < selection.h; r++) {
+    let row = '';
+    for (let c = 0; c < selection.w; c++) {
+      const gx = selection.x + c;
+      const gy = selection.y + r;
+      row += (gx >= 0 && gx < gridW && gy >= 0 && gy < gridH) ? pixels[gy][gx] : '0';
+    }
+    buf.push(row);
+  }
+
+  // Clear the old selection area
+  for (let r = 0; r < selection.h; r++) {
+    for (let c = 0; c < selection.w; c++) {
+      const gx = selection.x + c;
+      const gy = selection.y + r;
+      if (gx >= 0 && gx < gridW && gy >= 0 && gy < gridH) {
+        setPixel(gx, gy, 0);
+      }
+    }
+  }
+
+  // Move selection rect
+  selection.x += dx;
+  selection.y += dy;
+
+  // Paste pixels at new position
+  for (let r = 0; r < selection.h; r++) {
+    for (let c = 0; c < selection.w; c++) {
+      const gx = selection.x + c;
+      const gy = selection.y + r;
+      if (gx >= 0 && gx < gridW && gy >= 0 && gy < gridH) {
+        setPixel(gx, gy, fromHexChar(buf[r][c]));
+      }
+    }
+  }
+
+  drawGrid();
+  drawPreviews();
+  drawSelectionOverlay();
+}
+
 // Keyboard shortcuts
 window.addEventListener('keydown', (e) => {
   const hexIdx = parseInt(e.key, 16);
@@ -1019,9 +1147,19 @@ window.addEventListener('keydown', (e) => {
     updateToolButtons();
     e.preventDefault();
   }
-  if (e.key === 'e') { currentTool = 'erase'; updateToolButtons(); }
-  if (e.key === 'p') { currentTool = 'pen'; updateToolButtons(); }
-  if (e.key === 'f') { currentTool = 'fill'; updateToolButtons(); }
+  if (e.key === 'e') { currentTool = 'erase'; clearSelection(); updateToolButtons(); }
+  if (e.key === 'p') { currentTool = 'pen'; clearSelection(); updateToolButtons(); }
+  if (e.key === 'f') { currentTool = 'fill'; clearSelection(); updateToolButtons(); }
+  if (e.key === 's' && !e.ctrlKey && !e.metaKey) { currentTool = 'select'; updateToolButtons(); e.preventDefault(); }
+  if (e.key === 'Escape') { clearSelection(); }
+  // Arrow keys shift selection (no modifier needed)
+  if (selection && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key) && !e.ctrlKey) {
+    const dx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+    const dy = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+    shiftSelection(dx, dy);
+    e.preventDefault();
+    return;
+  }
   if (e.key === 'ArrowLeft' && e.ctrlKey) {
     currentFrame = Math.max(0, currentFrame - 1);
     rebuildUI();
@@ -1061,6 +1199,7 @@ function rebuildUI() {
   drawGrid();
   drawPreviews();
   drawAnimPreview();
+  drawSelectionOverlay();
   if (editorMode === 'decorations') {
     const dec = DECORATIONS.find(d => d.id === currentDecoration);
     statusText.textContent = `Decoration: ${dec ? dec.name : currentDecoration}`;
