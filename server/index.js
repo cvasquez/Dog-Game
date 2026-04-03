@@ -2,6 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { initDB, getAllDecorationSprites, getDecorationSprite, saveDecorationSprite } from './persistence.js';
 import {
@@ -65,6 +66,30 @@ app.put('/api/decoration-sprites/:id', (req, res) => {
   }
   saveDecorationSprite(decId, pixels, palette);
   res.json({ ok: true });
+});
+
+// --- Sync sprite-data.js file endpoint ---
+const SPRITE_DATA_PATH = path.join(__dirname, '..', 'shared', 'sprite-data.js');
+
+app.post('/api/sync-sprite-file', (req, res) => {
+  const { content } = req.body;
+  if (typeof content !== 'string' || content.length === 0) {
+    return res.status(400).json({ error: 'content must be a non-empty string' });
+  }
+  // Sanity check: must look like a JS module with expected exports
+  if (!content.includes('export const SPRITE_PALETTE') || !content.includes('export const DOG_SPRITES')) {
+    return res.status(400).json({ error: 'content does not look like valid sprite-data.js' });
+  }
+  // Cap file size at 500KB to prevent abuse
+  if (content.length > 512000) {
+    return res.status(413).json({ error: 'Content too large' });
+  }
+  try {
+    fs.writeFileSync(SPRITE_DATA_PATH, content, 'utf8');
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to write file: ' + e.message });
+  }
 });
 
 // WebSocket server
