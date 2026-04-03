@@ -203,7 +203,7 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
 
 <script type="module">
 import { DOG_BREEDS, DECORATIONS, SHOP_LOCATIONS } from '../../shared/constants.js';
-import { DOG_SPRITES, SPRITE_PALETTE, ANIM_STATES, DECORATION_SPRITES, DECORATION_PALETTES, SHOP_SPRITES, SHOP_PALETTES } from '../../shared/sprite-data.js';
+import { DOG_SPRITES, SPRITE_PALETTE, ANIM_STATES, DECORATION_SPRITES, DECORATION_PALETTES, SHOP_SPRITES, SHOP_PALETTES, BANK_SPRITE, BANK_PALETTE } from '../../shared/sprite-data.js';
 
 // Working sprite data — will be replaced by DB data on load
 let sprites = JSON.parse(JSON.stringify(DOG_SPRITES));
@@ -914,8 +914,38 @@ function serializeAll() {
     }
     out += `  ],\n`;
   }
-  out += `};\n`;
+  out += `};\n\n`;
+  // Bank sprite (preserved from file — not editable in this editor yet)
+  out += `// Bank (stash box) sprite — same format as shop machines (2x2 tiles = 32x32 px)\n`;
+  out += `export const BANK_PALETTE = ${JSON.stringify(BANK_PALETTE)};\n`;
+  out += `export const BANK_SPRITE = [\n`;
+  for (const row of BANK_SPRITE) {
+    out += `  "${row}",\n`;
+  }
+  out += `];\n`;
   return out;
+}
+
+// Sync current editor state to local sprite-data.js via server API
+async function syncToFile() {
+  try {
+    const content = serializeAll();
+    const res = await fetch('/api/sync-sprite-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      console.warn('File sync failed:', err.error);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    // Server not running (e.g. GitHub Pages) — silently skip
+    console.warn('File sync skipped (server unavailable):', e.message);
+    return false;
+  }
 }
 
 document.getElementById('exportBtn').addEventListener('click', async () => {
@@ -1185,7 +1215,10 @@ document.getElementById('cloudSaveBtn').addEventListener('click', async () => {
   }
   showCloudStatus('Saving ' + currentBreed + '...', false);
   const ok = await saveBreedToDB(currentBreed);
-  if (ok) showCloudStatus(`Saved ${currentBreed}`, false);
+  if (ok) {
+    const synced = await syncToFile();
+    showCloudStatus(`Saved ${currentBreed}` + (synced ? ' (DB + file)' : ' (DB only)'), false);
+  }
 });
 
 // Save all breeds
@@ -1200,7 +1233,10 @@ document.getElementById('cloudSaveAllBtn').addEventListener('click', async () =>
     const ok = await saveBreedToDB(breedKey);
     if (ok) saved++;
   }
-  showCloudStatus(`Saved ${saved} breeds`, false);
+  if (saved > 0) {
+    const synced = await syncToFile();
+    showCloudStatus(`Saved ${saved} breeds` + (synced ? ' (DB + file)' : ' (DB only)'), false);
+  }
 });
 
 // Browse / load modal
@@ -1434,7 +1470,10 @@ document.getElementById('decSaveBtn').addEventListener('click', async () => {
   const dec = DECORATIONS.find(d => d.id === currentDecoration);
   showDecStatus('Saving ' + (dec ? dec.name : 'decoration') + '...', false);
   const ok = await saveDecorationToDB(currentDecoration);
-  if (ok) showDecStatus(`Saved ${dec ? dec.name : 'decoration ' + currentDecoration}`, false);
+  if (ok) {
+    const synced = await syncToFile();
+    showDecStatus(`Saved ${dec ? dec.name : 'decoration ' + currentDecoration}` + (synced ? ' (DB + file)' : ' (DB only)'), false);
+  }
 });
 
 document.getElementById('decSaveAllBtn').addEventListener('click', async () => {
@@ -1444,7 +1483,10 @@ document.getElementById('decSaveAllBtn').addEventListener('click', async () => {
     const ok = await saveDecorationToDB(parseInt(decId));
     if (ok) saved++;
   }
-  showDecStatus(`Saved ${saved} decorations`, false);
+  if (saved > 0) {
+    const synced = await syncToFile();
+    showDecStatus(`Saved ${saved} decorations` + (synced ? ' (DB + file)' : ' (DB only)'), false);
+  }
 });
 
 // --- Shop sprite DB persistence (Supabase) ---
@@ -1533,7 +1575,10 @@ document.getElementById('shopSaveBtn').addEventListener('click', async () => {
   const shop = SHOP_LOCATIONS.find(s => s.type === currentShop);
   showShopStatus('Saving ' + (shop ? shop.name : currentShop) + '...', false);
   const ok = await saveShopToDB(currentShop);
-  if (ok) showShopStatus(`Saved ${shop ? shop.name : currentShop}`, false);
+  if (ok) {
+    const synced = await syncToFile();
+    showShopStatus(`Saved ${shop ? shop.name : currentShop}` + (synced ? ' (DB + file)' : ' (DB only)'), false);
+  }
 });
 
 document.getElementById('shopSaveAllBtn').addEventListener('click', async () => {
@@ -1543,7 +1588,10 @@ document.getElementById('shopSaveAllBtn').addEventListener('click', async () => 
     const ok = await saveShopToDB(shopType);
     if (ok) saved++;
   }
-  showShopStatus(`Saved ${saved} shop sprites`, false);
+  if (saved > 0) {
+    const synced = await syncToFile();
+    showShopStatus(`Saved ${saved} shop sprites` + (synced ? ' (DB + file)' : ' (DB only)'), false);
+  }
 });
 
 // Load sprites from DB on startup — await breed sprites before allowing edits
