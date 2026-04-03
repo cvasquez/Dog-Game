@@ -75,8 +75,8 @@ export class Camera {
     // Bottom edge: camera.y + cy + halfVisH <= worldHeight
     const maxY = WORLD_HEIGHT * TILE_SIZE - cy - halfVisH;
 
-    this.x = Math.max(minX, Math.min(maxX, this.x));
-    this.y = Math.max(minY, Math.min(maxY, this.y));
+    this.x = Math.round(Math.max(minX, Math.min(maxX, this.x)));
+    this.y = Math.round(Math.max(minY, Math.min(maxY, this.y)));
   }
 
   // Get visible tile range for culling
@@ -133,6 +133,9 @@ export class Camera {
     this.zoom += (this.targetZoom - this.zoom) * speed;
     // Snap when very close
     if (Math.abs(this.zoom - this.targetZoom) < 0.001) this.zoom = this.targetZoom;
+    // Snap to nearest zoom where TILE_SIZE * zoom is an integer,
+    // ensuring every game pixel maps to the same number of screen pixels
+    this.zoom = Math.round(this.zoom * TILE_SIZE) / TILE_SIZE;
   }
 
   resize(width, height) {
