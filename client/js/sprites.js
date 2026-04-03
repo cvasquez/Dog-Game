@@ -1,5 +1,5 @@
 import { TILE, TILE_COLORS, DOG_COLORS, TILE_SIZE, DOG_BREEDS, SHOP_LOCATIONS } from '../../shared/constants.js';
-import { DOG_SPRITES, SPRITE_PALETTE, DECORATION_SPRITES, DECORATION_PALETTES, SHOP_SPRITES, SHOP_PALETTES, BANK_SPRITE, BANK_PALETTE } from '../../shared/sprite-data.js';
+import { DOG_SPRITES, SPRITE_PALETTE, DECORATION_SPRITES, DECORATION_PALETTES, SHOP_SPRITES, SHOP_PALETTES } from '../../shared/sprite-data.js';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase.js';
 
 const spriteCache = new Map();
@@ -421,28 +421,7 @@ export function getShopMachineSprite(shopType) {
 }
 
 export function getBankSprite() {
-  const key = 'bank_machine';
-  if (!spriteCache.has(key)) {
-    const pixels = BANK_SPRITE;
-    const palette = BANK_PALETTE;
-    if (!pixels || !palette) return null;
-    const h = pixels.length;
-    const w = pixels[0].length;
-    const c = createCanvas(w, h);
-    const ctx = c.getContext('2d');
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const idx = parseInt(pixels[y][x], 16);
-        if (idx === 0) continue;
-        if (palette[idx]) {
-          ctx.fillStyle = palette[idx];
-          ctx.fillRect(x, y, 1, 1);
-        }
-      }
-    }
-    spriteCache.set(key, c);
-  }
-  return spriteCache.get(key);
+  return getShopMachineSprite('stash');
 }
 
 export function getFrameCount(breedId, animState) {
