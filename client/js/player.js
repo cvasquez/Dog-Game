@@ -9,9 +9,10 @@ import {
   ACCEL_GROUND, DECEL_GROUND, DECEL_AIR,
   COYOTE_TIME, JUMP_BUFFER_TIME, JUMP_CUT_MULTIPLIER, APEX_GRAVITY_MULT,
   calcDecorationBonuses,
+  BASE_MAX_HP, HP_REGEN_RATE, HP_REGEN_DELAY, LAVA_DAMAGE,
   FALL_DAMAGE_THRESHOLD, FALL_DAMAGE_MULTIPLIER, FALL_DAMAGE_STUN_FRAMES,
   BOUNCY_TILES, BOUNCY_FORCE, ICY_TILES, SLIPPERY_TILES,
-  IDLE_SIT_DELAY,
+  IDLE_SIT_DELAY, PRESTIGE_STAT_BONUS, PRESTIGE_HP_BONUS,
 } from '../../shared/constants.js';
 
 export class Player {
@@ -60,6 +61,9 @@ export class Player {
     this.mantleEndX = 0;
     this.mantleEndY = 0;
 
+    // Prestige level (persistent across resets)
+    this.prestigeLevel = 0;
+
     // Breed-adjusted base stats (before upgrades)
     const s = this.breed.stats;
     this.baseMoveSpeed = MOVE_SPEED * s.moveSpeed;
@@ -69,6 +73,7 @@ export class Player {
     this.baseMaxStamina = BASE_MAX_STAMINA * s.maxStamina;
     this.baseStaminaRegen = BASE_STAMINA_REGEN_RATE * s.staminaRegen;
     this.baseClimbEfficiency = 1.0;
+    this.baseMaxHP = BASE_MAX_HP * (s.maxHP || 1.0);
 
     // Active stats (recalculated when upgrades change)
     this.moveSpeed = this.baseMoveSpeed;
@@ -103,7 +108,13 @@ export class Player {
     this.hitboxWidth = this.breed.hitboxWidth || PLAYER_WIDTH;
     this.hitboxHeight = this.breed.hitboxHeight || PLAYER_HEIGHT;
 
-    // Lava damage
+    // Health
+    this.maxHP = this.baseMaxHP;
+    this.hp = this.maxHP;
+    this.hpRegenTimer = 0;  // frames since last damage
+    this.lastDamageType = null; // for death screen message
+
+    // Death
     this.dead = false;
     this.respawnTimer = 0;
 
@@ -135,6 +146,8 @@ export class Player {
         this.vx = 0;
         this.vy = 0;
         this.stamina = this.maxStamina;
+        this.hp = this.maxHP;
+        this.lastDamageType = null;
       }
       return;
     }
@@ -359,6 +372,12 @@ export class Player {
       this.stamina = Math.min(this.maxStamina, this.stamina + this.staminaRegenRate);
     }
 
+    // HP regen (slow, requires being grounded for a while)
+    this.hpRegenTimer++;
+    if (this.grounded && this.hpRegenTimer > HP_REGEN_DELAY && this.hp < this.maxHP) {
+      this.hp = Math.min(this.maxHP, this.hp + HP_REGEN_RATE);
+    }
+
     // --- PHYSICS ---
     const prevGrounded = this.grounded;
     const preVy = this.vy;
@@ -430,12 +449,11 @@ export class Player {
         this.scaleY = 1 - 0.25 * intensity;
         this.squashTimer = 6;
 
-        // Fall damage (non-lethal, stamina loss + stun)
+        // Fall damage (HP loss + stun)
         if (preVy > FALL_DAMAGE_THRESHOLD) {
           const damage = (preVy - FALL_DAMAGE_THRESHOLD) * FALL_DAMAGE_MULTIPLIER;
-          this.stamina -= damage;
-          if (this.stamina <= 0) {
-            this.stamina = 0;
+          this.takeDamage(damage, 'fall');
+          if (!this.dead) {
             this.triggerExhaustion();
             this.exhaustionTimer = FALL_DAMAGE_STUN_FRAMES;
           }
@@ -517,10 +535,21 @@ export class Player {
     for (const ty of [cy, cy2]) {
       for (const tx of [cx, Math.floor(this.x - this.hitboxWidth / 2), Math.floor(this.x + this.hitboxWidth / 2 - 0.01)]) {
         if (HAZARD_TILES.has(world.getTile(tx, ty))) {
-          this.die();
+          this.takeDamage(LAVA_DAMAGE, 'lava');
           return;
         }
       }
+    }
+  }
+
+  takeDamage(amount, source) {
+    if (this.dead) return;
+    this.hp -= amount;
+    this.hpRegenTimer = 0;
+    this.lastDamageType = source;
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.die();
     }
   }
 
@@ -697,8 +726,21 @@ export class Player {
     this.lootBonus = this.baseLootBonus;
     this.climbEfficiency = this.baseClimbEfficiency;
     const oldMax = this.maxStamina;
+    const oldMaxHP = this.maxHP;
     this.maxStamina = this.baseMaxStamina;
     this.staminaRegenRate = this.baseStaminaRegen;
+    this.maxHP = this.baseMaxHP;
+
+    // Apply prestige bonuses (permanent across resets)
+    if (this.prestigeLevel > 0) {
+      const pBonus = this.prestigeLevel * PRESTIGE_STAT_BONUS;
+      this.moveSpeed += this.baseMoveSpeed * pBonus;
+      this.jumpForce += this.baseJumpForce * pBonus;
+      this.digSpeed += this.baseDigSpeed * pBonus;
+      this.maxStamina += this.baseMaxStamina * pBonus;
+      this.staminaRegenRate += this.baseStaminaRegen * pBonus;
+      this.maxHP += this.baseMaxHP * (this.prestigeLevel * PRESTIGE_HP_BONUS);
+    }
 
     // Apply each owned upgrade's effects additively (self-only)
     for (const id of this.ownedUpgrades) {
@@ -741,6 +783,10 @@ export class Player {
     // Scale current stamina proportionally if max changed
     if (oldMax > 0 && this.maxStamina !== oldMax) {
       this.stamina = (this.stamina / oldMax) * this.maxStamina;
+    }
+    // Scale current HP proportionally if max changed
+    if (oldMaxHP > 0 && this.maxHP !== oldMaxHP) {
+      this.hp = (this.hp / oldMaxHP) * this.maxHP;
     }
   }
 

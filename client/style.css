@@ -496,9 +496,48 @@ input[type="text"]::placeholder {
   text-align: right;
 }
 
-#staminaBar {
+#hpBar {
   position: fixed;
   left: 16px; top: 36px;
+  pointer-events: none;
+  transition: opacity 0.5s;
+}
+
+.hp-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #EF5350;
+  margin-bottom: 2px;
+  text-shadow: 1px 1px 0 rgba(0,0,0,1);
+}
+
+.hp-track {
+  width: 80px;
+  height: 6px;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid var(--border-shadow);
+  overflow: hidden;
+}
+
+.hp-fill {
+  height: 100%;
+  width: 100%;
+  background: #EF5350;
+  transition: width 0.15s linear, background 0.2s;
+}
+
+#hpBar.low .hp-track {
+  animation: hpPulse 0.8s ease-in-out infinite;
+}
+
+@keyframes hpPulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(229,57,53,0.3); }
+  50% { box-shadow: 0 0 12px rgba(229,57,53,0.9); }
+}
+
+#staminaBar {
+  position: fixed;
+  left: 16px; top: 60px;
   pointer-events: none;
   transition: opacity 0.5s;
 }
@@ -712,6 +751,27 @@ input[type="text"]::placeholder {
   border-color: var(--border-shadow);
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.prestige-section {
+  border: 1px solid rgba(255,215,0,0.3) !important;
+  background: rgba(255,215,0,0.05) !important;
+  margin-top: 12px;
+}
+
+.prestige-btn:not(:disabled) {
+  background: linear-gradient(180deg, #FFD700, #FF8F00) !important;
+  color: #1a0e08 !important;
+  font-weight: bold;
+  border-color: #FFD700 !important;
+}
+
+.prestige-btn:not(:disabled):hover {
+  background: linear-gradient(180deg, #FFEB3B, #FFB300) !important;
+}
+
+.achievement-unlocked {
+  border-left: 2px solid #FFD700 !important;
 }
 
 #shopClose {

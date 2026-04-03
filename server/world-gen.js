@@ -168,7 +168,27 @@ export function generateWorld(seed) {
     }
   }
 
-  // --- Pass 8: Shop floors (undiggable platforms at surface) ---
+  // --- Pass 8: Crumbling tiles (bridges over caves and lava) ---
+  const numCrumble = 12 + Math.floor(rand() * 10);
+  for (let c = 0; c < numCrumble; c++) {
+    const depth = 20 + Math.floor(rand() * (WORLD_HEIGHT - SURFACE_Y - 40));
+    const cy = SURFACE_Y + depth;
+    const cx = 3 + Math.floor(rand() * (WORLD_WIDTH - 6));
+    const cw = 2 + Math.floor(rand() * 4);
+    for (let dx = 0; dx < cw; dx++) {
+      const x = cx + dx;
+      if (x <= 0 || x >= WORLD_WIDTH - 1) continue;
+      const below = tiles[(cy + 1) * WORLD_WIDTH + x];
+      if (below === TILE.AIR || below === undefined) {
+        tiles[cy * WORLD_WIDTH + x] = TILE.CRUMBLE;
+        if (cy > SURFACE_Y + 1) {
+          tiles[(cy - 1) * WORLD_WIDTH + x] = TILE.AIR;
+        }
+      }
+    }
+  }
+
+  // --- Pass 9: Shop floors (undiggable platforms at surface) ---
   placeShopFloors(tiles);
 
   return tiles;

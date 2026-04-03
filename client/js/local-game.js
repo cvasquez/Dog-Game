@@ -1,8 +1,9 @@
 import {
   TILE_SIZE, TILE, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, HARDNESS,
-  SOLID_TILES, WORLD_WIDTH, DECORATIONS,
+  SOLID_TILES, WORLD_WIDTH, WORLD_HEIGHT, DECORATIONS,
   EMOTES, PARK_TOP, PARK_BOTTOM, STAMINA_DIG_COST, UPGRADES, EMOTE_DISPLAY_FRAMES,
   RESPAWN_FRAMES, getNearbyShop, placeShopFloors, BLUEPRINT_DROPS,
+  CRUMBLE_TILES, CRUMBLE_DELAY_FRAMES, ACHIEVEMENTS, BIOMES,
 } from '../../shared/constants.js';
 import { World } from './world.js';
 import { Player } from './player.js';
@@ -46,8 +47,20 @@ export class LocalGame {
     // Persistent tile damage: Map of "x,y" -> accumulated dig progress
     this.tileDamage = new Map();
 
+    // Crumbling tiles: Map of "x,y" -> { x, y, timer, maxTimer }
+    this.crumblingTiles = new Map();
+
     // Passive resource generation timer
     this.lastGenTime = Date.now();
+
+    // Achievement system
+    this.achievements = new Set();
+    this.stats = {
+      totalBones: 0, totalGems: 0, totalGold: 0, totalDiamonds: 0,
+      totalArtifacts: 0, maxDepth: 0, tilesDigged: 0,
+      deaths: 0, fallDamagesTaken: 0,
+    };
+    this.achievementQueue = []; // pending popups
   }
 
   start(playerName, breedId, saveData) {
@@ -85,11 +98,27 @@ export class LocalGame {
       this.localPlayer.unlockedEmotes = saveData.player.unlockedEmotes;
       if (saveData.player.ownedUpgrades) {
         this.localPlayer.ownedUpgrades = saveData.player.ownedUpgrades;
-        this.localPlayer.applyUpgrades(this.decorations);
       }
       if (saveData.player.discoveredBlueprints) {
         this.localPlayer.discoveredBlueprints = saveData.player.discoveredBlueprints;
       }
+      if (saveData.player.prestigeLevel) {
+        this.localPlayer.prestigeLevel = saveData.player.prestigeLevel;
+      }
+      if (saveData.player.hp != null) {
+        this.localPlayer.hp = saveData.player.hp;
+      }
+      this.localPlayer.applyUpgrades(this.decorations);
+      if (saveData.player.hp != null) {
+        this.localPlayer.hp = saveData.player.hp; // re-set after applyUpgrades scales it
+      }
+    }
+    // Restore achievements and stats
+    if (saveData && saveData.achievements) {
+      this.achievements = new Set(saveData.achievements);
+    }
+    if (saveData && saveData.stats) {
+      Object.assign(this.stats, saveData.stats);
     }
 
     this.players.set('local', this.localPlayer);
@@ -118,7 +147,7 @@ export class LocalGame {
       this.deductCost(emoteDef.cost);
       this.localPlayer.unlockedEmotes.push(emoteId);
       this.hud.updateResources(this.localPlayer.resources);
-      this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, null, this.localPlayer.discoveredBlueprints);
+      this.refreshShop();
       this.notify('Emote unlocked!');
     };
     this.shop.onBuyUpgrade = (upgradeId) => {
@@ -134,8 +163,13 @@ export class LocalGame {
       this.localPlayer.ownedUpgrades.push(upgradeId);
       this.localPlayer.applyUpgrades(this.decorations);
       this.hud.updateResources(this.localPlayer.resources);
-      this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, null, this.localPlayer.discoveredBlueprints);
+      this.refreshShop();
       this.notify(`${upgrade.name} equipped!`);
+      this.checkAchievement('first_upgrade');
+      if (this.localPlayer.ownedUpgrades.length >= UPGRADES.length) this.checkAchievement('all_upgrades');
+    };
+    this.shop.onPrestige = () => {
+      this.prestige();
     };
 
     // Show game
@@ -150,7 +184,7 @@ export class LocalGame {
     // Controls hint
     const hint = document.createElement('div');
     hint.className = 'controls-hint';
-    hint.innerHTML = 'WASD/Arrows: Move | Shift: Sprint<br>F/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>R: Recall to surface (lose 50% loot)<br>E: Emotes | B: Shop (at surface) | Tab: Save';
+    hint.innerHTML = 'WASD/Arrows: Move | Shift: Sprint<br>F/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>R: Recall to surface (lose 50% loot)<br>B: Shop (at surface) | Tab: Save';
     document.body.appendChild(hint);
 
     this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
@@ -189,7 +223,7 @@ export class LocalGame {
       if (this.shop.visible) {
         this.shop.hide();
       } else if (this.nearbyShop) {
-        this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, this.nearbyShop.type, this.localPlayer.discoveredBlueprints);
+        this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, this.nearbyShop.type, this.localPlayer.discoveredBlueprints, this.localPlayer.prestigeLevel, this.achievements, this.stats);
       } else {
         this.notify('Find a shop at the surface to buy items!');
       }
@@ -264,12 +298,47 @@ export class LocalGame {
     else if (p.clinging) drainSource = 'CLING';
     else if (this.input.sprint && p.grounded && (this.input.left || this.input.right)) drainSource = 'SPRINT';
 
-    // Update stamina HUD
+    // Update HUD
+    this.hud.updateHP(p.hp, p.maxHP);
     this.hud.updateStamina(p.stamina, p.maxStamina, p.exhausted, drainSource);
     this.hud.updateBuff(p.emoteBuff);
 
+    // Crumbling tiles: check if player is standing on any
+    if (p.grounded && !p.dead) {
+      const footTiles = [
+        { x: Math.floor(p.x), y: Math.floor(p.y + 0.1) },
+        { x: Math.floor(p.x - p.hitboxWidth / 2), y: Math.floor(p.y + 0.1) },
+        { x: Math.floor(p.x + p.hitboxWidth / 2 - 0.01), y: Math.floor(p.y + 0.1) },
+      ];
+      for (const ft of footTiles) {
+        const tile = this.world.getTile(ft.x, ft.y);
+        if (CRUMBLE_TILES.has(tile)) {
+          const key = ft.x + ',' + ft.y;
+          if (!this.crumblingTiles.has(key)) {
+            this.crumblingTiles.set(key, { x: ft.x, y: ft.y, timer: CRUMBLE_DELAY_FRAMES, maxTimer: CRUMBLE_DELAY_FRAMES });
+          }
+        }
+      }
+    }
+    // Tick crumbling tiles
+    for (const [key, info] of this.crumblingTiles) {
+      info.timer--;
+      if (info.timer <= 0) {
+        this.world.setTile(info.x, info.y, TILE.AIR);
+        this.particles.emitDig(
+          info.x * TILE_SIZE + TILE_SIZE / 2,
+          info.y * TILE_SIZE + TILE_SIZE / 2,
+          '#8D6E63'
+        );
+        this.crumblingTiles.delete(key);
+        // Track for achievements
+        this.checkAchievement('crumble_fall');
+      }
+    }
+
     // Trigger idle zoom when sitting
     this.camera.setIdleZoom(p.animState === 'sit');
+    this.camera.setDepthZoom(p.y);
 
     this.camera.follow(p.x, p.y);
     this.particles.update();
@@ -277,6 +346,31 @@ export class LocalGame {
     const depth = Math.max(0, Math.floor(this.localPlayer.y - SURFACE_Y));
     this.hud.updateDepth(depth);
     this.hud.updatePlayerList(this.players);
+
+    // Track max depth for achievements
+    if (depth > this.stats.maxDepth) {
+      this.stats.maxDepth = depth;
+      if (depth >= 50) this.checkAchievement('depth_50');
+      if (depth >= 100) this.checkAchievement('depth_100');
+      if (depth >= 150) this.checkAchievement('depth_150');
+      if (depth >= 200) this.checkAchievement('depth_200');
+      if (depth >= 240) this.checkAchievement('depth_240');
+    }
+
+    // Track biome discoveries
+    for (const biome of BIOMES) {
+      if (depth >= biome.minDepth && depth <= biome.maxDepth) {
+        this.checkAchievement('biome_' + biome.id);
+      }
+    }
+
+    // Track fall damage for achievements
+    if (p.lastDamageType === 'fall' && !p.dead) {
+      this.checkAchievement('fall_damage');
+    }
+    if (p.lastDamageType === 'lava' && p.dead) {
+      this.checkAchievement('survive_lava');
+    }
 
     // Passive resource generation from decorations
     const now = Date.now();
@@ -399,6 +493,14 @@ export class LocalGame {
         if (p.lootBonus && Math.random() < p.lootBonus) amount = 2;
         p.resources[resourceName] = (p.resources[resourceName] || 0) + amount;
         this.hud.updateResources(p.resources);
+
+        // Track stats for achievements
+        this.stats.tilesDigged++;
+        if (resourceName === 'bones') { this.stats.totalBones += amount; if (this.stats.totalBones >= 100) this.checkAchievement('collect_100_bones'); }
+        if (resourceName === 'gems') { this.stats.totalGems += amount; if (this.stats.totalGems >= 50) this.checkAchievement('collect_50_gems'); }
+        if (resourceName === 'gold') { this.stats.totalGold += amount; if (this.stats.totalGold >= 25) this.checkAchievement('collect_25_gold'); }
+        if (resourceName === 'diamonds') { this.stats.totalDiamonds += amount; if (this.stats.totalDiamonds >= 10) this.checkAchievement('collect_10_diamonds'); }
+        if (resourceName === 'artifacts') { this.stats.totalArtifacts += amount; if (this.stats.totalArtifacts >= 5) this.checkAchievement('collect_5_artifacts'); }
         // Floating text
         this.particles.emitText(
           tx * TILE_SIZE + TILE_SIZE / 2,
@@ -414,6 +516,10 @@ export class LocalGame {
             p.discoveredBlueprints.push(blueprintDrop.decorationId);
             const decDef = DECORATIONS.find(d => d.id === blueprintDrop.decorationId);
             this.notify(`Blueprint discovered: ${decDef.name}!`);
+            this.checkAchievement('first_blueprint');
+            // Check if all blueprints discovered
+            const totalBlueprints = DECORATIONS.filter(d => d.requiresBlueprint).length;
+            if (p.discoveredBlueprints.length >= totalBlueprints) this.checkAchievement('all_blueprints');
             this.particles.emitText(
               tx * TILE_SIZE + TILE_SIZE / 2,
               ty * TILE_SIZE - 16,
@@ -437,7 +543,7 @@ export class LocalGame {
     const ctx = this.renderer.ctx;
     this.renderer.clear();
 
-    // Apply idle camera zoom
+    // Apply camera zoom (idle + depth)
     this.renderer.beginZoom(this.camera);
 
     this.renderer.drawSky(this.camera);
@@ -446,6 +552,11 @@ export class LocalGame {
     this.renderer.drawParkZone(this.camera);
     this.renderer.drawDecorations(this.decorations, this.camera);
     this.renderer.drawShopMachines(this.camera);
+
+    // Draw crumbling tile effects
+    if (this.crumblingTiles.size > 0) {
+      this.renderer.drawCrumblingTiles(this.crumblingTiles, this.camera);
+    }
 
     for (const [, player] of this.players) {
       this.renderer.drawPlayer(player, this.camera, player.isLocal);
@@ -469,10 +580,17 @@ export class LocalGame {
 
     this.renderer.endZoom(this.camera);
 
+    // Darkness vignette (drawn outside zoom so it covers the full screen)
+    const depth = Math.max(0, Math.floor(this.localPlayer.y - SURFACE_Y));
+    this.renderer.drawDarknessVignette(depth);
+
     // Death screen overlay (drawn outside zoom so it fills the full screen)
     if (this.localPlayer.dead) {
-      this.renderer.drawDeathScreen(this.localPlayer.respawnTimer, RESPAWN_FRAMES);
+      this.renderer.drawDeathScreen(this.localPlayer.respawnTimer, RESPAWN_FRAMES, this.localPlayer.lastDamageType);
     }
+
+    // Achievement popup
+    this.renderAchievementPopup(ctx);
 
     // Action bar is HTML-based, no canvas render needed
   }
@@ -497,6 +615,7 @@ export class LocalGame {
       // Recalculate stats (decoration buffs affect all players)
       this.localPlayer.applyUpgrades(this.decorations);
       this.notify('Decoration placed!');
+      this.checkAchievement('first_decoration');
     } else {
       this.notify('Must place in the dog park area (above ground)');
     }
@@ -564,6 +683,12 @@ export class LocalGame {
     };
   }
 
+  refreshShop() {
+    if (this.shop.visible) {
+      this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, null, this.localPlayer.discoveredBlueprints, this.localPlayer.prestigeLevel, this.achievements, this.stats);
+    }
+  }
+
   // Economy helpers
   canAfford(cost) {
     for (const [key, amount] of Object.entries(cost)) {
@@ -592,7 +717,11 @@ export class LocalGame {
         unlockedEmotes: this.localPlayer.unlockedEmotes,
         ownedUpgrades: this.localPlayer.ownedUpgrades,
         discoveredBlueprints: this.localPlayer.discoveredBlueprints,
+        prestigeLevel: this.localPlayer.prestigeLevel,
+        hp: this.localPlayer.hp,
       },
+      achievements: Array.from(this.achievements),
+      stats: this.stats,
       savedAt: Date.now(),
     };
 
@@ -613,6 +742,113 @@ export class LocalGame {
     let id = '';
     for (let i = 0; i < 6; i++) id += chars[Math.floor(Math.random() * chars.length)];
     return id;
+  }
+
+  // --- Achievement System ---
+  checkAchievement(id) {
+    if (this.achievements.has(id)) return;
+    const def = ACHIEVEMENTS.find(a => a.id === id);
+    if (!def) return;
+    this.achievements.add(id);
+    this.achievementQueue.push({ ...def, timer: 240 }); // 4 seconds display
+  }
+
+  renderAchievementPopup(ctx) {
+    if (this.achievementQueue.length === 0) return;
+    const popup = this.achievementQueue[0];
+    popup.timer--;
+    if (popup.timer <= 0) {
+      this.achievementQueue.shift();
+      return;
+    }
+
+    const rw = this.renderer.renderWidth;
+    // Slide in/out animation
+    const slideIn = Math.min(1, (240 - popup.timer) / 20);
+    const slideOut = Math.min(1, popup.timer / 20);
+    const alpha = Math.min(slideIn, slideOut);
+
+    const boxW = 200;
+    const boxH = 36;
+    const bx = rw / 2 - boxW / 2;
+    const by = 10 + (1 - alpha) * -20;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // Background
+    ctx.fillStyle = 'rgba(30, 15, 5, 0.9)';
+    ctx.fillRect(bx, by, boxW, boxH);
+    // Gold border
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(bx, by, boxW, boxH);
+
+    // Icon
+    ctx.font = '16px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#FFF';
+    ctx.fillText(popup.icon, bx + 8, by + boxH / 2);
+
+    // Title
+    ctx.font = '7px "Press Start 2P", monospace';
+    ctx.fillStyle = '#FFD700';
+    ctx.fillText('Achievement!', bx + 30, by + 12);
+
+    // Name
+    ctx.font = '5px "Press Start 2P", monospace';
+    ctx.fillStyle = '#FFF3E0';
+    ctx.fillText(popup.name, bx + 30, by + 26);
+
+    ctx.restore();
+  }
+
+  // --- Prestige System ---
+  prestige() {
+    const p = this.localPlayer;
+    p.prestigeLevel++;
+
+    // Reset resources
+    for (const key of Object.keys(p.resources)) {
+      p.resources[key] = 0;
+    }
+
+    // Reset upgrades (keep blueprints)
+    p.ownedUpgrades = [];
+
+    // Regenerate world
+    this.seed = Math.floor(Math.random() * 2147483647);
+    const tiles = generateWorld(this.seed);
+    this.world.loadFromArray(tiles);
+
+    // Reset decorations
+    this.decorations = [];
+
+    // Reset tile damage and crumbling tiles
+    this.tileDamage.clear();
+    this.crumblingTiles.clear();
+
+    // Teleport to surface, full HP/stamina
+    p.x = WORLD_WIDTH / 2;
+    p.y = SURFACE_Y - 1;
+    p.vx = 0;
+    p.vy = 0;
+    p.dead = false;
+    p.applyUpgrades(this.decorations);
+    p.hp = p.maxHP;
+    p.stamina = p.maxStamina;
+
+    // Update HUD
+    this.hud.updateResources(p.resources);
+
+    // Track prestige achievements
+    this.checkAchievement('prestige_1');
+    if (p.prestigeLevel >= 3) this.checkAchievement('prestige_3');
+    if (p.prestigeLevel >= 5) this.checkAchievement('prestige_5');
+
+    this.save();
+    this.notify(`Prestige ${p.prestigeLevel}! +${p.prestigeLevel * 8}% all stats`);
   }
 
   notify(text) {

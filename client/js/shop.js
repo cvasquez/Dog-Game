@@ -1,4 +1,4 @@
-import { DECORATIONS, EMOTES, UPGRADES } from '../../shared/constants.js';
+import { DECORATIONS, EMOTES, UPGRADES, ACHIEVEMENTS } from '../../shared/constants.js';
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -22,6 +22,10 @@ export class Shop {
     this.onBuyDecoration = null;
     this.onBuyEmote = null;
     this.onBuyUpgrade = null;
+    this.onPrestige = null;
+    this.prestigeLevel = 0;
+    this.achievements = new Set();
+    this.stats = {};
 
     // Tab switching
     document.querySelectorAll('.shop-tab').forEach(tab => {
@@ -37,11 +41,14 @@ export class Shop {
     this.closeBtn.addEventListener('click', () => this.hide());
   }
 
-  show(resources, unlockedEmotes, ownedUpgrades, category, discoveredBlueprints) {
+  show(resources, unlockedEmotes, ownedUpgrades, category, discoveredBlueprints, prestigeLevel, achievements, stats) {
     this.playerResources = resources;
     this.unlockedEmotes = unlockedEmotes;
     this.ownedUpgrades = ownedUpgrades || [];
     this.discoveredBlueprints = discoveredBlueprints || [];
+    this.prestigeLevel = prestigeLevel || 0;
+    this.achievements = achievements || new Set();
+    this.stats = stats || {};
     this.visible = true;
     this.overlay.style.display = 'flex';
 
@@ -183,6 +190,82 @@ export class Shop {
         }
         this.itemsContainer.appendChild(el);
       }
+
+      // Prestige section at bottom of upgrades
+      const prestigeEl = document.createElement('div');
+      prestigeEl.className = 'shop-item prestige-section';
+      const pLevel = this.prestigeLevel;
+      const pBonus = pLevel * 8;
+      const nextBonus = (pLevel + 1) * 8;
+      const allOwned = this.ownedUpgrades.length >= UPGRADES.length;
+
+      prestigeEl.innerHTML = `
+        <div class="shop-item-icon" style="background:rgba(255,215,0,0.2);font-size:24px">🔄</div>
+        <div class="shop-item-info">
+          <div class="shop-item-name" style="color:#FFD700">Prestige${pLevel > 0 ? ' (Level ' + escapeHtml(String(pLevel)) + ')' : ''}</div>
+          <div class="shop-item-desc" style="font-size:11px;color:#FFD700">
+            ${pLevel > 0 ? 'Current: +' + escapeHtml(String(pBonus)) + '% all stats. ' : ''}
+            Reset world &amp; upgrades for +${escapeHtml(String(nextBonus))}% all stats permanently
+          </div>
+          <div class="shop-item-cost" style="color:#aaa">${allOwned ? 'Ready to prestige!' : 'Buy all upgrades to unlock'}</div>
+        </div>
+        <button class="shop-item-buy prestige-btn" ${allOwned ? '' : 'disabled'}>${allOwned ? 'Prestige!' : 'Locked'}</button>
+      `;
+
+      if (allOwned) {
+        prestigeEl.querySelector('.prestige-btn').addEventListener('click', () => {
+          if (this.onPrestige) {
+            this.onPrestige();
+            this.hide();
+          }
+        });
+      }
+      this.itemsContainer.appendChild(prestigeEl);
+    } else if (this.currentTab === 'achievements') {
+      // Group achievements by category
+      const categories = ['exploration', 'collection', 'progression', 'prestige', 'survival'];
+      const categoryNames = { exploration: 'Exploration', collection: 'Collection', progression: 'Progression', prestige: 'Prestige', survival: 'Survival' };
+
+      for (const cat of categories) {
+        const catAchievements = ACHIEVEMENTS.filter(a => a.category === cat);
+        if (catAchievements.length === 0) continue;
+
+        const header = document.createElement('div');
+        header.className = 'shop-item';
+        header.style.cssText = 'background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.2);margin-top:8px';
+        header.innerHTML = `<div class="shop-item-info"><div class="shop-item-name" style="color:#FFD700">${escapeHtml(categoryNames[cat] || cat)}</div></div>`;
+        this.itemsContainer.appendChild(header);
+
+        for (const ach of catAchievements) {
+          const unlocked = this.achievements.has(ach.id);
+          const el = document.createElement('div');
+          el.className = 'shop-item' + (unlocked ? ' achievement-unlocked' : '');
+          el.innerHTML = `
+            <div class="shop-item-icon" style="background:${unlocked ? 'rgba(255,215,0,0.15)' : 'rgba(255,255,255,0.05)'};font-size:20px;${unlocked ? '' : 'filter:grayscale(1);opacity:0.5'}">${escapeHtml(ach.icon)}</div>
+            <div class="shop-item-info">
+              <div class="shop-item-name" style="color:${unlocked ? '#FFD700' : '#666'}">${escapeHtml(ach.name)}</div>
+              <div class="shop-item-desc" style="font-size:11px;color:${unlocked ? '#FFF3E0' : '#555'}">${escapeHtml(ach.desc)}</div>
+            </div>
+            <span style="font-size:14px;color:${unlocked ? '#66BB6A' : '#444'}">${unlocked ? '✓' : '○'}</span>
+          `;
+          this.itemsContainer.appendChild(el);
+        }
+      }
+
+      // Stats summary
+      const statsEl = document.createElement('div');
+      statsEl.className = 'shop-item';
+      statsEl.style.cssText = 'background:rgba(79,195,247,0.08);border:1px solid rgba(79,195,247,0.2);margin-top:12px;flex-direction:column;align-items:flex-start;padding:12px';
+      const s = this.stats;
+      statsEl.innerHTML = `
+        <div class="shop-item-name" style="color:#4FC3F7;margin-bottom:6px">Stats</div>
+        <div style="font-size:10px;color:#aaa;line-height:1.8">
+          Max Depth: ${escapeHtml(String(s.maxDepth || 0))}m |
+          Tiles Dug: ${escapeHtml(String(s.tilesDigged || 0))} |
+          Prestige: ${escapeHtml(String(this.prestigeLevel))}
+        </div>
+      `;
+      this.itemsContainer.appendChild(statsEl);
     }
   }
 

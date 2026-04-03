@@ -246,6 +246,29 @@ function genTileSprite(tileType) {
     ctx.fillRect(11, 8, 1, 8);
   }
 
+  // Crumbling tile
+  if (tileType === TILE.CRUMBLE) {
+    // Cracked surface pattern
+    ctx.fillStyle = '#6D4C41';
+    ctx.fillRect(2, 3, 5, 1);
+    ctx.fillRect(7, 3, 1, 4);
+    ctx.fillRect(7, 7, 4, 1);
+    ctx.fillRect(3, 9, 4, 1);
+    ctx.fillRect(10, 11, 3, 1);
+    // Lighter crack edges
+    ctx.fillStyle = '#BCAAA4';
+    ctx.fillRect(3, 2, 3, 1);
+    ctx.fillRect(8, 6, 3, 1);
+    ctx.fillRect(4, 8, 2, 1);
+    ctx.fillRect(11, 10, 2, 1);
+    // Crumble dots (debris)
+    ctx.fillStyle = '#5D4037';
+    ctx.fillRect(1, 14, 1, 1);
+    ctx.fillRect(5, 13, 1, 1);
+    ctx.fillRect(9, 14, 1, 1);
+    ctx.fillRect(13, 13, 1, 1);
+  }
+
   // Resource gem overlay
   if (colors.gem) {
     ctx.fillStyle = colors.gem;
