@@ -68,10 +68,20 @@ export class HUD {
     this._currentStamina = 0;
     this._maxStamina = 0;
     this._setupBarTooltip(this.hpBar, () =>
-      `<div class="tooltip-title">Health</div><div class="tooltip-desc">${Math.round(this._currentHP)} / ${Math.round(this._maxHP)}</div>`
+      `<div class="tooltip-title">Health</div>` +
+      `<div class="tooltip-desc">${Math.round(this._currentHP)} / ${Math.round(this._maxHP)}</div>` +
+      `<div class="tooltip-desc">Lava and hazards drain HP.</div>` +
+      `<div class="tooltip-desc">Death drops all carried resources</div>` +
+      `<div class="tooltip-desc">and respawns you at the surface.</div>` +
+      `<div class="tooltip-desc">Bank resources to keep them safe!</div>`
     );
     this._setupBarTooltip(this.staminaBar, () =>
-      `<div class="tooltip-title">Stamina</div><div class="tooltip-desc">${Math.round(this._currentStamina)} / ${Math.round(this._maxStamina)}</div>`
+      `<div class="tooltip-title">Stamina</div>` +
+      `<div class="tooltip-desc">${Math.round(this._currentStamina)} / ${Math.round(this._maxStamina)}</div>` +
+      `<div class="tooltip-desc">Used by digging, climbing,</div>` +
+      `<div class="tooltip-desc">clinging to walls, and sprinting.</div>` +
+      `<div class="tooltip-desc">Regens when resting on ground.</div>` +
+      `<div class="tooltip-desc">Empty = exhausted (brief lockout).</div>`
     );
 
     // Contextual hints system

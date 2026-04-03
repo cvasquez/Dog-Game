@@ -1521,15 +1521,15 @@ input[type="text"]::placeholder {
 .game-tooltip {
   position: fixed;
   display: none;
-  padding: 4px 8px;
+  padding: 5px 9px;
   background: rgba(20, 14, 8, 0.92);
   border: 1px solid rgba(120, 90, 50, 0.7);
   border-radius: 2px;
   color: #FFF3E0;
   font-family: 'Press Start 2P', monospace;
   font-size: 7px;
-  line-height: 1.6;
-  white-space: nowrap;
+  line-height: 1.8;
+  max-width: 260px;
   pointer-events: none;
   z-index: 200;
   text-shadow: 1px 1px 0 rgba(0,0,0,1);

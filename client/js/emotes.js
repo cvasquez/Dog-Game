@@ -1,5 +1,17 @@
 import { EMOTES } from '../../shared/constants.js';
 
+const ACTION_DESCRIPTIONS = {
+  0: 'Bark to boost your speed!',
+  1: 'Wag your tail to recover faster.',
+  2: 'Share the love — boost everything.',
+  3: 'Power-dig blocks instantly.',
+  4: 'Leap higher and run faster.',
+  5: 'Howl for extra endurance.',
+  6: 'Flaunt your wealth for bonus loot.',
+  7: 'Royalty gets the best of everything.',
+  8: 'Warp home without losing resources.',
+};
+
 export class ActionBar {
   constructor(hud) {
     this.bar = document.getElementById('actionBar');
@@ -39,6 +51,8 @@ export class ActionBar {
     let html = `<div class="tooltip-title">${emote.symbol} ${emote.name} [${key}]</div>`;
     if (emote.buffDesc) html += `<div class="tooltip-desc">${emote.buffDesc}</div>`;
     if (emote.cooldown) html += `<div class="tooltip-desc">Cooldown: ${emote.cooldown}s</div>`;
+    const desc = ACTION_DESCRIPTIONS[emote.id];
+    if (desc) html += `<div class="tooltip-desc">${desc}</div>`;
     this.hud.showTooltip(html, e);
   }
 
