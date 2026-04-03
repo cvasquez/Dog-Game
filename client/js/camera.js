@@ -127,7 +127,8 @@ export class Camera {
     // Compute target: idle zoom takes precedence (stacks with depth zoom)
     const baseTarget = this.depthZoom;
     const idleTarget = this.idleZoomActive ? Math.max(baseTarget, IDLE_ZOOM_SCALE) : baseTarget;
-    this.targetZoom = idleTarget;
+    // Snap target to n/16 so zoom always lands on a pixel-perfect value
+    this.targetZoom = Math.round(idleTarget * TILE_SIZE) / TILE_SIZE;
 
     const speed = this.targetZoom > this.zoom ? Math.max(IDLE_ZOOM_IN_SPEED, DEPTH_ZOOM_SPEED) : IDLE_ZOOM_OUT_SPEED;
     this.zoom += (this.targetZoom - this.zoom) * speed;

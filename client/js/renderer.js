@@ -60,10 +60,7 @@ export class Renderer {
     const cx = Math.floor(this.renderWidth / 2);
     const cy = Math.floor(this.renderHeight / 2);
     this.ctx.translate(cx, cy);
-    // Snap to nearest zoom where TILE_SIZE * zoom is integer,
-    // so every game pixel maps to the same number of screen pixels
-    const snappedZoom = Math.round(camera.zoom * TILE_SIZE) / TILE_SIZE;
-    this.ctx.scale(snappedZoom, snappedZoom);
+    this.ctx.scale(camera.zoom, camera.zoom);
     this.ctx.translate(-cx, -cy);
     // Ensure pixel art stays crisp during zoom
     this.ctx.imageSmoothingEnabled = false;
