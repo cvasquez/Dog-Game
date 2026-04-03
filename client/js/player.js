@@ -390,16 +390,22 @@ export class Player {
         this.vy = 0;
         if (this.clinging) this.releaseCling();
       } else {
-        // Hitting ceiling — try corner correction first
+        // Hitting ceiling — try corner correction (nudge horizontally to slip past)
         let corrected = false;
-        const nudgeAmount = 0.25;
-        for (const nudge of [nudgeAmount, -nudgeAmount]) {
-          if (!this.collidesAt(world, this.x + nudge, newY)) {
-            this.x += nudge;
-            this.y = newY;
-            corrected = true;
-            break;
+        // Prefer the direction the player is moving; fall back to the other side
+        const primaryDir = this.vx >= 0 ? 1 : -1;
+        const dirs = [primaryDir, -primaryDir];
+        for (const dir of dirs) {
+          // Try progressively larger nudges up to just under half the hitbox width
+          for (let n = 0.1; n <= 0.45; n += 0.1) {
+            if (!this.collidesAt(world, this.x + dir * n, newY)) {
+              this.x += dir * n;
+              this.y = newY;
+              corrected = true;
+              break;
+            }
           }
+          if (corrected) break;
         }
         if (!corrected) {
           this.y = Math.floor(this.y - this.hitboxHeight) + this.hitboxHeight;
