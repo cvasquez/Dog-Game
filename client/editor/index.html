@@ -289,12 +289,16 @@ decorationSelect.addEventListener('change', () => {
   rebuildUI();
 });
 
-// Shop selector
+// Shop selector — include all shop machines plus the stash/bank
 const shopSelect = document.getElementById('shopSelect');
-SHOP_LOCATIONS.forEach(s => {
+const shopEntries = [
+  ...SHOP_LOCATIONS.map(s => ({ value: s.type, label: s.name })),
+  { value: 'stash', label: 'Stash Box' },
+];
+shopEntries.forEach(s => {
   const opt = document.createElement('option');
-  opt.value = s.type;
-  opt.textContent = s.name;
+  opt.value = s.value;
+  opt.textContent = s.label;
   shopSelect.appendChild(opt);
 });
 shopSelect.addEventListener('change', () => {
