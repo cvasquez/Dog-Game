@@ -273,6 +273,8 @@ export class LocalGame {
           this.localPlayer.emoteTimer = EMOTE_DISPLAY_FRAMES;
           if (emDef && emDef.isRecall) {
             this.emoteRecallToSurface(emoteId);
+          } else if (emDef && emDef.isDig) {
+            this.emoteInstantDig(emoteId);
           } else {
             this.localPlayer.activateEmoteBuff(emoteId);
             this.localPlayer.applyUpgrades(this.decorations);
@@ -765,6 +767,110 @@ export class LocalGame {
     p.stamina = p.maxStamina;
     p.fallPeakY = p.y;
     this.notify('Scratched your way back to the surface!');
+  }
+
+  emoteInstantDig(emoteId) {
+    const p = this.localPlayer;
+    const emDef = EMOTES[emoteId];
+    const digCount = emDef.digCount || 3;
+
+    // Start cooldown
+    p.emoteCooldowns[emoteId] = Math.round(emDef.cooldown * 60);
+
+    // Determine dig direction from current input
+    const inputState = this.input.getState();
+    let dx = 0, dy = 0;
+    if (inputState.down) { dy = 1; }
+    else if (inputState.up) { dy = -1; }
+    else if (inputState.left) { dx = -1; }
+    else if (inputState.right) { dx = 1; }
+    else {
+      // Default to facing direction (horizontal)
+      dx = p.facing > 0 ? 1 : -1;
+    }
+
+    // Starting tile position
+    let tx, ty;
+    if (dy > 0) {
+      tx = Math.floor(p.x);
+      ty = Math.floor(p.y + 0.1);
+    } else if (dy < 0) {
+      tx = Math.floor(p.x);
+      ty = Math.floor(p.y - p.hitboxHeight) - 1;
+    } else {
+      tx = dx > 0
+        ? Math.floor(p.x + p.hitboxWidth / 2 + 0.1)
+        : Math.floor(p.x - p.hitboxWidth / 2 - 0.1);
+      ty = Math.floor(p.y - 0.5);
+    }
+
+    let broken = 0;
+    for (let i = 0; i < digCount; i++) {
+      const cx = tx + dx * i;
+      const cy = ty + dy * i;
+      if (cx < 0 || cx >= WORLD_WIDTH || cy < 0 || cy >= WORLD_HEIGHT) break;
+      const tileType = this.world.getTile(cx, cy);
+      if (!SOLID_TILES.has(tileType) || tileType === TILE.BEDROCK || tileType === TILE.GRANITE || tileType === TILE.SHOP_FLOOR) continue;
+
+      const resourceName = RESOURCE_NAMES[tileType];
+      const colors = TILE_COLORS[tileType];
+      this.world.setTile(cx, cy, TILE.AIR);
+
+      // Particles
+      const color = colors ? colors.main : '#795548';
+      this.particles.emitDig(
+        cx * TILE_SIZE + TILE_SIZE / 2,
+        cy * TILE_SIZE + TILE_SIZE / 2,
+        color
+      );
+
+      // Resource collection
+      if (resourceName) {
+        const gemColor = colors && colors.gem ? colors.gem : '#FFD700';
+        this.particles.emitSparkle(
+          cx * TILE_SIZE + TILE_SIZE / 2,
+          cy * TILE_SIZE + TILE_SIZE / 2,
+          gemColor
+        );
+        let amount = 1;
+        if (p.lootBonus && Math.random() < p.lootBonus) amount = 2;
+        p.resources[resourceName] = (p.resources[resourceName] || 0) + amount;
+        this.hud.updateResources(p.resources);
+
+        this.stats.tilesDigged++;
+        if (resourceName === 'bones') { this.stats.totalBones += amount; if (this.stats.totalBones >= 100) this.checkAchievement('collect_100_bones'); }
+        if (resourceName === 'gems') { this.stats.totalGems += amount; if (this.stats.totalGems >= 50) this.checkAchievement('collect_50_gems'); }
+        if (resourceName === 'gold') { this.stats.totalGold += amount; if (this.stats.totalGold >= 25) this.checkAchievement('collect_25_gold'); }
+        if (resourceName === 'diamonds') { this.stats.totalDiamonds += amount; if (this.stats.totalDiamonds >= 10) this.checkAchievement('collect_10_diamonds'); }
+        if (resourceName === 'artifacts') { this.stats.totalArtifacts += amount; if (this.stats.totalArtifacts >= 5) this.checkAchievement('collect_5_artifacts'); }
+
+        this.particles.emitText(
+          cx * TILE_SIZE + TILE_SIZE / 2,
+          cy * TILE_SIZE - 4,
+          `+${amount} ${resourceName}`,
+          gemColor
+        );
+
+        const blueprintDrop = BLUEPRINT_DROPS[tileType];
+        if (blueprintDrop && !p.discoveredBlueprints.includes(blueprintDrop.decorationId)) {
+          if (Math.random() < blueprintDrop.chance) {
+            p.discoveredBlueprints.push(blueprintDrop.decorationId);
+            const decDef = DECORATIONS.find(d => d.id === blueprintDrop.decorationId);
+            this.notify(`Blueprint discovered: ${decDef.name}!`);
+            this.checkAchievement('first_blueprint');
+            const totalBlueprints = DECORATIONS.filter(d => d.requiresBlueprint).length;
+            if (p.discoveredBlueprints.length >= totalBlueprints) this.checkAchievement('all_blueprints');
+          }
+        }
+      }
+
+      this.tileDamage.delete(cx + ',' + cy);
+      broken++;
+    }
+
+    if (broken > 0) {
+      this.notify(`Dug ${broken} block${broken > 1 ? 's' : ''}!`);
+    }
   }
 
   screenToWorld(screenX, screenY) {

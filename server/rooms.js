@@ -391,6 +391,58 @@ function handleDigging(room, player) {
   }
 }
 
+function handleInstantDig(room, player, digCount) {
+  const inp = player.input;
+  let dx = 0, dy = 0;
+  if (inp.down) { dy = 1; }
+  else if (inp.up) { dy = -1; }
+  else if (inp.left) { dx = -1; }
+  else if (inp.right) { dx = 1; }
+  else {
+    dx = player.facing > 0 ? 1 : -1;
+  }
+
+  let tx, ty;
+  if (dy > 0) {
+    tx = Math.floor(player.x);
+    ty = Math.floor(player.y + 0.1);
+  } else if (dy < 0) {
+    tx = Math.floor(player.x);
+    ty = Math.floor(player.y - player.hitboxHeight) - 1;
+  } else {
+    tx = dx > 0
+      ? Math.floor(player.x + player.hitboxWidth / 2 + 0.1)
+      : Math.floor(player.x - player.hitboxWidth / 2 - 0.1);
+    ty = Math.floor(player.y - 0.5);
+  }
+
+  for (let i = 0; i < digCount; i++) {
+    const cx = tx + dx * i;
+    const cy = ty + dy * i;
+    if (cx < 0 || cx >= WORLD_WIDTH || cy < 0 || cy >= WORLD_HEIGHT) break;
+    const tileType = getTile(room, cx, cy);
+    if (!SOLID_TILES.has(tileType) || tileType === TILE.BEDROCK || tileType === TILE.GRANITE || tileType === TILE.SHOP_FLOOR) continue;
+
+    const resourceName = RESOURCE_NAMES[tileType];
+    setTile(room, cx, cy, TILE.AIR);
+    broadcast(room, { type: MSG.TILE_UPDATE, x: cx, y: cy, tile: TILE.AIR });
+
+    if (resourceName) {
+      let amount = 1;
+      if (player.lootBonus && Math.random() < player.lootBonus) amount = 2;
+      player.resources[resourceName] = (player.resources[resourceName] || 0) + amount;
+      broadcast(room, {
+        type: MSG.RESOURCE_COLLECTED,
+        playerId: player.id,
+        resource: resourceName,
+        amount: player.resources[resourceName],
+      });
+    }
+
+    room.tileDamage.delete(cx + ',' + cy);
+  }
+}
+
 function broadcast(room, message) {
   const data = JSON.stringify(message);
   for (const [, player] of room.players) {
@@ -589,6 +641,10 @@ export function handleMessage(roomId, playerId, msg) {
         player.vy = 0;
         player.grounded = false;
         player.fallPeakY = SURFACE_Y - 1;
+      } else if (emDef.isDig) {
+        const cooldownTicks = Math.round(emDef.cooldown * (1000 / SERVER_TICK_MS));
+        player.emoteCooldowns[msg.emoteId] = cooldownTicks;
+        handleInstantDig(room, player, emDef.digCount || 3);
       } else if (emDef.effect) {
         // Activate buff
         const durationTicks = Math.round(emDef.duration * (1000 / SERVER_TICK_MS));
