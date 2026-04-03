@@ -1,6 +1,8 @@
 import {
   TILE_SIZE, TILE, SURFACE_Y, WORLD_WIDTH, WORLD_HEIGHT,
   PLAYER_WIDTH, PLAYER_HEIGHT, EMOTES, HARDNESS, SHOP_LOCATIONS,
+  DARKNESS_START_DEPTH, DARKNESS_MAX_DEPTH, DARKNESS_MAX_ALPHA,
+  DARKNESS_INNER_RADIUS, DARKNESS_OUTER_RADIUS, CRUMBLE_TILES,
 } from '../../shared/constants.js';
 import { getTileSprite, getDogSprite, getDecorationSprite, getSkyGradient, getShopMachineSprite } from './sprites.js';
 
@@ -306,7 +308,7 @@ export class Renderer {
     }
   }
 
-  drawDeathScreen(respawnTimer, maxRespawnFrames) {
+  drawDeathScreen(respawnTimer, maxRespawnFrames, damageType) {
     // Dark overlay
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     this.ctx.fillRect(0, 0, this.renderWidth, this.renderHeight);
@@ -314,12 +316,19 @@ export class Renderer {
     const cx = this.renderWidth / 2;
     const cy = this.renderHeight / 2;
 
-    // Skull / death message
+    // Death message based on cause
+    const messages = {
+      lava: 'You fell in lava!',
+      fall: 'You fell to your doom!',
+      crumble: 'The floor gave way!',
+    };
+    const message = messages[damageType] || 'You died!';
+
     this.ctx.fillStyle = '#EF5350';
     this.ctx.font = '10px "Press Start 2P", monospace';
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
-    this.ctx.fillText('You fell in lava!', cx, cy - 20);
+    this.ctx.fillText(message, cx, cy - 20);
 
     // Respawn countdown
     const secs = Math.ceil(respawnTimer / 60);
@@ -335,6 +344,66 @@ export class Renderer {
     this.ctx.fillRect(cx - barW / 2, cy + 15, barW, barH);
     this.ctx.fillStyle = '#EF5350';
     this.ctx.fillRect(cx - barW / 2, cy + 15, barW * progress, barH);
+  }
+
+  // Draw crumbling tile overlay (shaking + cracks)
+  drawCrumblingTiles(crumbleTiles, camera) {
+    for (const [key, info] of crumbleTiles) {
+      const sx = info.x * TILE_SIZE - camera.x;
+      const sy = info.y * TILE_SIZE - camera.y;
+
+      // Shake offset increases as timer runs out
+      const progress = 1 - (info.timer / info.maxTimer);
+      const shakeAmt = progress * 2;
+      const shakeX = (Math.random() - 0.5) * shakeAmt;
+      const shakeY = (Math.random() - 0.5) * shakeAmt;
+
+      // Draw crack overlay
+      this.ctx.save();
+      this.ctx.translate(shakeX, shakeY);
+
+      // Darken progressively
+      this.ctx.fillStyle = `rgba(0, 0, 0, ${progress * 0.4})`;
+      this.ctx.fillRect(Math.floor(sx), Math.floor(sy), TILE_SIZE, TILE_SIZE);
+
+      // Crack lines
+      this.ctx.strokeStyle = `rgba(40, 20, 10, ${0.5 + progress * 0.5})`;
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      // Diagonal crack
+      this.ctx.moveTo(Math.floor(sx + 3), Math.floor(sy + 2));
+      this.ctx.lineTo(Math.floor(sx + TILE_SIZE / 2), Math.floor(sy + TILE_SIZE / 2));
+      this.ctx.lineTo(Math.floor(sx + TILE_SIZE - 3), Math.floor(sy + TILE_SIZE - 2));
+      // Cross crack
+      this.ctx.moveTo(Math.floor(sx + TILE_SIZE - 4), Math.floor(sy + 3));
+      this.ctx.lineTo(Math.floor(sx + TILE_SIZE / 2), Math.floor(sy + TILE_SIZE / 2));
+      this.ctx.lineTo(Math.floor(sx + 4), Math.floor(sy + TILE_SIZE - 4));
+      this.ctx.stroke();
+
+      this.ctx.restore();
+    }
+  }
+
+  // Draw darkness vignette that intensifies with depth
+  drawDarknessVignette(depth) {
+    if (depth <= DARKNESS_START_DEPTH) return;
+
+    const t = Math.min(1, (depth - DARKNESS_START_DEPTH) / (DARKNESS_MAX_DEPTH - DARKNESS_START_DEPTH));
+    const alpha = t * DARKNESS_MAX_ALPHA;
+
+    const cx = this.renderWidth / 2;
+    const cy = this.renderHeight / 2;
+    const diag = Math.sqrt(cx * cx + cy * cy);
+
+    const innerR = diag * DARKNESS_INNER_RADIUS * (1 - t * 0.3); // inner shrinks with depth
+    const outerR = diag * DARKNESS_OUTER_RADIUS;
+
+    const grd = this.ctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
+    grd.addColorStop(0, 'rgba(0,0,0,0)');
+    grd.addColorStop(1, `rgba(0,0,0,${alpha})`);
+
+    this.ctx.fillStyle = grd;
+    this.ctx.fillRect(0, 0, this.renderWidth, this.renderHeight);
   }
 
   // Draw placement preview when in decoration placement mode

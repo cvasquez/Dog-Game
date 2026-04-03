@@ -1,4 +1,9 @@
-import { TILE_SIZE, WORLD_WIDTH, WORLD_HEIGHT, IDLE_ZOOM_SCALE, IDLE_ZOOM_IN_SPEED, IDLE_ZOOM_OUT_SPEED } from '../../shared/constants.js';
+import {
+  TILE_SIZE, WORLD_WIDTH, WORLD_HEIGHT,
+  IDLE_ZOOM_SCALE, IDLE_ZOOM_IN_SPEED, IDLE_ZOOM_OUT_SPEED,
+  DEPTH_ZOOM_START, DEPTH_ZOOM_MAX_DEPTH, DEPTH_ZOOM_MAX_SCALE, DEPTH_ZOOM_SPEED,
+  SURFACE_Y,
+} from '../../shared/constants.js';
 
 export class Camera {
   constructor(viewWidth, viewHeight) {
@@ -16,6 +21,10 @@ export class Camera {
     // Idle zoom
     this.zoom = 1.0;
     this.targetZoom = 1.0;
+
+    // Depth zoom
+    this.depthZoom = 1.0;
+    this.idleZoomActive = false;
   }
 
   shake(intensity, frames) {
@@ -100,11 +109,27 @@ export class Camera {
   }
 
   setIdleZoom(active) {
-    this.targetZoom = active ? IDLE_ZOOM_SCALE : 1.0;
+    this.idleZoomActive = active;
+  }
+
+  setDepthZoom(playerY) {
+    const depth = Math.max(0, playerY - SURFACE_Y);
+    if (depth < DEPTH_ZOOM_START) {
+      this.depthZoom = 1.0;
+    } else {
+      const t = Math.min(1, (depth - DEPTH_ZOOM_START) / (DEPTH_ZOOM_MAX_DEPTH - DEPTH_ZOOM_START));
+      // Ease-in for smooth transition
+      this.depthZoom = 1.0 + (DEPTH_ZOOM_MAX_SCALE - 1.0) * (t * t);
+    }
   }
 
   updateZoom() {
-    const speed = this.targetZoom > this.zoom ? IDLE_ZOOM_IN_SPEED : IDLE_ZOOM_OUT_SPEED;
+    // Compute target: idle zoom takes precedence (stacks with depth zoom)
+    const baseTarget = this.depthZoom;
+    const idleTarget = this.idleZoomActive ? Math.max(baseTarget, IDLE_ZOOM_SCALE) : baseTarget;
+    this.targetZoom = idleTarget;
+
+    const speed = this.targetZoom > this.zoom ? Math.max(IDLE_ZOOM_IN_SPEED, DEPTH_ZOOM_SPEED) : IDLE_ZOOM_OUT_SPEED;
     this.zoom += (this.targetZoom - this.zoom) * speed;
     // Snap when very close
     if (Math.abs(this.zoom - this.targetZoom) < 0.001) this.zoom = this.targetZoom;

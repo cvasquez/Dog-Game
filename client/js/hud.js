@@ -13,6 +13,16 @@ export class HUD {
     this.roomCodeEl = document.getElementById('roomCode');
     this.playerListEl = document.getElementById('playerList');
 
+    // Create HP bar
+    this.hpBar = document.createElement('div');
+    this.hpBar.id = 'hpBar';
+    this.hpBar.innerHTML = `
+      <div class="hp-label">HP</div>
+      <div class="hp-track"><div class="hp-fill"></div></div>
+    `;
+    document.getElementById('hud').appendChild(this.hpBar);
+    this.hpFill = this.hpBar.querySelector('.hp-fill');
+
     // Create stamina bar
     this.staminaBar = document.createElement('div');
     this.staminaBar.id = 'staminaBar';
@@ -116,6 +126,30 @@ export class HUD {
     } else {
       this.depthMeter.textContent = 'Surface';
       this.depthMeter.style.display = 'block';
+    }
+  }
+
+  updateHP(current, max) {
+    const pct = Math.max(0, Math.min(100, (current / max) * 100));
+    this.hpFill.style.width = pct + '%';
+
+    // Color: green → yellow → orange → red
+    if (pct > 60) this.hpFill.style.background = '#EF5350';
+    else if (pct > 30) this.hpFill.style.background = '#FF7043';
+    else this.hpFill.style.background = '#D32F2F';
+
+    // Always show HP bar (unlike stamina which hides when full)
+    if (pct >= 100) {
+      this.hpBar.style.opacity = '0.3';
+    } else {
+      this.hpBar.style.opacity = '1';
+    }
+
+    // Low HP pulse
+    if (pct > 0 && pct <= 25) {
+      this.hpBar.classList.add('low');
+    } else {
+      this.hpBar.classList.remove('low');
     }
   }
 

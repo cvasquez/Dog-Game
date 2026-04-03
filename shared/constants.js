@@ -37,6 +37,7 @@ export const TILE = {
   FROZEN_GEM: 35,     // frozen gem (resource)
   ANCIENT_BRICK: 36,  // ancient ruins walls
   ANCIENT_RELIC: 37,  // ancient relic (resource)
+  CRUMBLE: 40,        // crumbling tile — breaks when stood on
 };
 
 // Which tiles are solid (block movement)
@@ -48,6 +49,7 @@ export const SOLID_TILES = new Set([
   TILE.CRYSTAL_ROCK, TILE.CRYSTAL,
   TILE.FROZEN_ICE, TILE.FROZEN_GEM,
   TILE.ANCIENT_BRICK, TILE.ANCIENT_RELIC,
+  TILE.CRUMBLE,
 ]);
 
 // Hazard tiles (damage/kill the player)
@@ -77,6 +79,7 @@ export const HARDNESS = {
   [TILE.FROZEN_GEM]: 80,
   [TILE.ANCIENT_BRICK]: 180,
   [TILE.ANCIENT_RELIC]: 120,
+  [TILE.CRUMBLE]: 60,
 };
 
 // Resource values (currency)
@@ -154,6 +157,7 @@ export const DOG_BREEDS = [
       digSpeed: 0.6,     // low dig speed
       maxStamina: 1.0,   // mid stamina
       staminaRegen: 1.0,
+      maxHP: 1.2,        // 20% more HP — tanky all-rounder
     },
     freeEmote: 0, // Bark
     // Hitbox derived from opaque sprite bounds (rows 5-15, cols 2-13)
@@ -172,6 +176,7 @@ export const DOG_BREEDS = [
       digSpeed: 1.6,     // 60% faster digging
       maxStamina: 0.7,   // less stamina
       staminaRegen: 1.1,
+      maxHP: 0.8,        // fragile — low HP
     },
     freeEmote: 3, // Dig Here
     // Hitbox derived from opaque sprite bounds (rows 5-14, cols 2-12)
@@ -190,6 +195,7 @@ export const DOG_BREEDS = [
       digSpeed: 0.7,     // slow digger
       maxStamina: 1.1,
       staminaRegen: 1.3, // great stamina regen (endurance breed)
+      maxHP: 1.1,        // hardy explorer
     },
     freeEmote: 5, // Howl
     // Hitbox derived from opaque sprite bounds (rows 5-14, cols 2-13)
@@ -209,6 +215,7 @@ export const DOG_BREEDS = [
       maxStamina: 0.85,
       staminaRegen: 0.9,
       lootBonus: 0.15,   // 15% chance for double loot
+      maxHP: 0.7,        // glass cannon — lowest HP
     },
     freeEmote: 4, // Celebrate
     // Hitbox derived from opaque sprite bounds (rows 5-14, cols 2-13)
@@ -228,6 +235,7 @@ export const DOG_BREEDS = [
       maxStamina: 0.85,
       staminaRegen: 0.9,
       lootBonus: 0.15,   // 15% chance for double loot
+      maxHP: 0.7,        // glass cannon — lowest HP
     },
     freeEmote: 4, // Celebrate
     // Hitbox derived from opaque sprite bounds (rows 5-14, cols 2-13)
@@ -274,6 +282,7 @@ export const TILE_COLORS = {
   // Ancient biome
   [TILE.ANCIENT_BRICK]: { top: '#6D4C41', main: '#5D4037', accent: '#4E342E' },
   [TILE.ANCIENT_RELIC]: { top: '#5D4037', main: '#5D4037', gem: '#FFD54F' },
+  [TILE.CRUMBLE]: { top: '#A1887F', main: '#8D6E63', accent: '#6D4C41', cracked: true },
 };
 
 // Biome definitions
@@ -580,10 +589,20 @@ export function placeShopFloors(tiles) {
   }
 }
 
+// Health
+export const BASE_MAX_HP = 100;
+export const HP_REGEN_RATE = 0.05;          // HP per frame when grounded and idle (very slow)
+export const HP_REGEN_DELAY = 180;          // frames on ground before HP regen starts (~3s)
+export const LAVA_DAMAGE = 999;             // instant kill
+
 // Fall damage
 export const FALL_DAMAGE_THRESHOLD = 9;     // vy above which fall damage applies
-export const FALL_DAMAGE_MULTIPLIER = 10;   // stamina lost per unit of vy above threshold
+export const FALL_DAMAGE_MULTIPLIER = 8;    // HP lost per unit of vy above threshold
 export const FALL_DAMAGE_STUN_FRAMES = 15;  // brief stun on hard landing
+
+// Crumbling tiles
+export const CRUMBLE_DELAY_FRAMES = 40;     // frames before tile breaks after stepping on it
+export const CRUMBLE_TILES = new Set([TILE.CRUMBLE]);
 
 // Biome tile physics properties
 export const BOUNCY_TILES = new Set([TILE.MUSHROOM_DIRT, TILE.MUSHROOM]);
@@ -596,6 +615,58 @@ export const IDLE_ZOOM_SCALE = 1.3;          // how much to zoom in (1.0 = no zo
 export const IDLE_ZOOM_IN_SPEED = 0.008;     // zoom-in lerp speed per frame (slow)
 export const IDLE_ZOOM_OUT_SPEED = 0.04;     // zoom-out lerp speed per frame (faster)
 export const IDLE_SIT_DELAY = 180;           // frames before idle triggers sit (~3s at 60fps)
+
+// Depth-based camera zoom (claustrophobia effect)
+export const DEPTH_ZOOM_START = 30;          // depth (tiles below surface) where zoom starts
+export const DEPTH_ZOOM_MAX_DEPTH = 220;     // depth at which zoom reaches maximum
+export const DEPTH_ZOOM_MAX_SCALE = 1.45;    // maximum zoom scale at deepest point
+export const DEPTH_ZOOM_SPEED = 0.015;       // lerp speed for depth zoom transitions
+
+// Darkness vignette
+export const DARKNESS_START_DEPTH = 10;      // depth where vignette begins
+export const DARKNESS_MAX_DEPTH = 200;       // depth at which darkness is at maximum
+export const DARKNESS_MAX_ALPHA = 0.75;      // maximum vignette opacity
+export const DARKNESS_INNER_RADIUS = 0.25;   // inner clear zone (fraction of screen diagonal)
+export const DARKNESS_OUTER_RADIUS = 0.85;   // outer fully dark zone (fraction of screen diagonal)
+
+// Prestige system
+export const PRESTIGE_STAT_BONUS = 0.08;     // +8% all stats per prestige level
+export const PRESTIGE_HP_BONUS = 0.10;       // +10% max HP per prestige level
+
+// Achievements
+export const ACHIEVEMENTS = [
+  // Depth milestones
+  { id: 'depth_50', name: 'Shallow Digger', desc: 'Reach depth 50m', icon: '⛏️', category: 'exploration' },
+  { id: 'depth_100', name: 'Deep Explorer', desc: 'Reach depth 100m', icon: '🕳️', category: 'exploration' },
+  { id: 'depth_150', name: 'Abyssal Diver', desc: 'Reach depth 150m', icon: '🌋', category: 'exploration' },
+  { id: 'depth_200', name: 'Core Seeker', desc: 'Reach depth 200m', icon: '💀', category: 'exploration' },
+  { id: 'depth_240', name: 'Rock Bottom', desc: 'Reach the very bottom', icon: '🏆', category: 'exploration' },
+  // Biome discovery
+  { id: 'biome_mushroom', name: 'Fungal Explorer', desc: 'Discover a Mushroom Cavern', icon: '🍄', category: 'exploration' },
+  { id: 'biome_crystal', name: 'Crystal Gazer', desc: 'Discover a Crystal Cave', icon: '🔮', category: 'exploration' },
+  { id: 'biome_frozen', name: 'Ice Breaker', desc: 'Discover a Frozen Cavern', icon: '❄️', category: 'exploration' },
+  { id: 'biome_ancient', name: 'Archaeologist', desc: 'Discover Ancient Ruins', icon: '🏛️', category: 'exploration' },
+  // Resource collection
+  { id: 'collect_100_bones', name: 'Bone Collector', desc: 'Collect 100 bones total', icon: '🦴', category: 'collection' },
+  { id: 'collect_50_gems', name: 'Gem Hoarder', desc: 'Collect 50 gems total', icon: '💎', category: 'collection' },
+  { id: 'collect_25_gold', name: 'Gold Rush', desc: 'Collect 25 gold total', icon: '🥇', category: 'collection' },
+  { id: 'collect_10_diamonds', name: 'Diamond Paws', desc: 'Collect 10 diamonds total', icon: '💠', category: 'collection' },
+  { id: 'collect_5_artifacts', name: 'Relic Hunter', desc: 'Collect 5 artifacts total', icon: '🏺', category: 'collection' },
+  // Upgrades & progression
+  { id: 'first_upgrade', name: 'Geared Up', desc: 'Buy your first upgrade', icon: '🔧', category: 'progression' },
+  { id: 'all_upgrades', name: 'Fully Loaded', desc: 'Buy all upgrades', icon: '⭐', category: 'progression' },
+  { id: 'first_decoration', name: 'Interior Designer', desc: 'Place your first decoration', icon: '🎨', category: 'progression' },
+  { id: 'first_blueprint', name: 'Blueprint Found', desc: 'Discover your first blueprint', icon: '📋', category: 'progression' },
+  { id: 'all_blueprints', name: 'Master Builder', desc: 'Discover all blueprints', icon: '🏗️', category: 'progression' },
+  // Prestige
+  { id: 'prestige_1', name: 'New Game+', desc: 'Prestige for the first time', icon: '🔄', category: 'prestige' },
+  { id: 'prestige_3', name: 'Veteran Digger', desc: 'Reach prestige level 3', icon: '⚡', category: 'prestige' },
+  { id: 'prestige_5', name: 'Legendary Dog', desc: 'Reach prestige level 5', icon: '👑', category: 'prestige' },
+  // Survival
+  { id: 'survive_lava', name: 'Hot Dog', desc: 'Die from lava for the first time', icon: '🌶️', category: 'survival' },
+  { id: 'fall_damage', name: 'Bad Landing', desc: 'Take fall damage', icon: '💥', category: 'survival' },
+  { id: 'crumble_fall', name: 'Floor Is Gone', desc: 'Fall through a crumbling tile', icon: '🕳️', category: 'survival' },
+];
 
 // Server tick rate
 export const SERVER_TICK_MS = 50; // 20Hz
