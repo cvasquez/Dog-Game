@@ -10,7 +10,7 @@ import {
   COYOTE_TIME, JUMP_BUFFER_TIME, JUMP_CUT_MULTIPLIER, APEX_GRAVITY_MULT,
   calcDecorationBonuses,
   BASE_MAX_HP, HP_REGEN_RATE, HP_REGEN_DELAY, LAVA_DAMAGE,
-  FALL_DAMAGE_THRESHOLD, FALL_DAMAGE_MULTIPLIER, FALL_DAMAGE_STUN_FRAMES,
+  FALL_DAMAGE_MIN_BLOCKS, FALL_DAMAGE_SCALE, FALL_DAMAGE_STUN_FRAMES,
   BOUNCY_TILES, BOUNCY_FORCE, ICY_TILES, SLIPPERY_TILES,
   IDLE_SIT_DELAY, PRESTIGE_STAT_BONUS, PRESTIGE_HP_BONUS,
 } from '../../shared/constants.js';
@@ -131,6 +131,9 @@ export class Player {
     this.justLanded = false;
     this.landingVelocity = 0;
 
+    // Fall distance tracking (for distance-based fall damage)
+    this.fallPeakY = this.y;
+
     // Wall slide detection for particles
     this.wallSliding = false;
   }
@@ -148,6 +151,7 @@ export class Player {
         this.stamina = this.maxStamina;
         this.hp = this.maxHP;
         this.lastDamageType = null;
+        this.fallPeakY = SURFACE_Y - 1;
       }
       return;
     }
@@ -398,6 +402,8 @@ export class Player {
     if (!this.collidesAt(world, this.x, newY)) {
       this.y = newY;
       this.grounded = false;
+      // Track highest point (lowest Y) while airborne
+      if (this.y < this.fallPeakY) this.fallPeakY = this.y;
     } else {
       if (this.vy > 0) {
         // Landing
@@ -446,6 +452,7 @@ export class Player {
         this.scaleX = 0.85;
         this.scaleY = 1.2;
         this.squashTimer = 6;
+        this.fallPeakY = this.y;
       } else {
         this.justLanded = true;
         this.landingVelocity = preVy;
@@ -455,9 +462,11 @@ export class Player {
         this.scaleY = 1 - 0.25 * intensity;
         this.squashTimer = 6;
 
-        // Fall damage (HP loss + stun)
-        if (preVy > FALL_DAMAGE_THRESHOLD) {
-          const damage = (preVy - FALL_DAMAGE_THRESHOLD) * FALL_DAMAGE_MULTIPLIER;
+        // Distance-based fall damage (HP loss + stun)
+        const fallBlocks = this.y - this.fallPeakY;
+        if (fallBlocks > FALL_DAMAGE_MIN_BLOCKS) {
+          const excess = fallBlocks - FALL_DAMAGE_MIN_BLOCKS;
+          const damage = excess * excess * FALL_DAMAGE_SCALE;
           this.takeDamage(damage, 'fall');
           if (!this.dead) {
             this.triggerExhaustion();
@@ -465,6 +474,7 @@ export class Player {
           }
         }
       }
+      this.fallPeakY = this.y;
     }
 
     // Wall slide detection

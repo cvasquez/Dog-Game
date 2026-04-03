@@ -687,6 +687,7 @@ export class LocalGame {
     p.vy = 0;
     p.grounded = false;
     p.stamina = p.maxStamina;
+    p.fallPeakY = p.y;
 
     this.hud.updateResources(p.resources);
     const lostStr = Object.entries(lost).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(', ');
@@ -710,6 +711,7 @@ export class LocalGame {
     p.vy = 0;
     p.grounded = false;
     p.stamina = p.maxStamina;
+    p.fallPeakY = p.y;
     this.notify('Scratched your way back to the surface!');
   }
 
@@ -879,6 +881,7 @@ export class LocalGame {
     p.vx = 0;
     p.vy = 0;
     p.dead = false;
+    p.fallPeakY = SURFACE_Y - 1;
     p.applyUpgrades(this.decorations);
     p.hp = p.maxHP;
     p.stamina = p.maxStamina;

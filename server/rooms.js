@@ -5,7 +5,7 @@ import {
   DECORATIONS, EMOTES, PARK_TOP, PARK_BOTTOM, DOG_BREEDS, STAMINA_DIG_COST, STAMINA_RUN_COST, SPRINT_SPEED_MULT, STAMINA_SPRINT_COST,
   UPGRADES, calcDecorationBonuses, BASE_MAX_STAMINA, BASE_STAMINA_REGEN_RATE,
   STAMINA_REGEN_DELAY, STAMINA_EXHAUSTION_TIME, EMOTE_DISPLAY_TICKS, RESPAWN_TICKS, placeShopFloors,
-  FALL_DAMAGE_THRESHOLD, FALL_DAMAGE_MULTIPLIER, FALL_DAMAGE_STUN_FRAMES,
+  FALL_DAMAGE_MIN_BLOCKS, FALL_DAMAGE_SCALE, FALL_DAMAGE_STUN_FRAMES,
   BOUNCY_TILES, BOUNCY_FORCE,
   COOP_DIG_RANGE, COOP_DIG_BONUS,
 } from '../shared/constants.js';
@@ -76,6 +76,7 @@ function createPlayer(id, name, breedId) {
     exhausted: false,
     exhaustionTimer: 0,
     groundedTimer: 0,
+    fallPeakY: SURFACE_Y - 1,
     ws: null,
   };
 }
@@ -134,6 +135,7 @@ function updatePlayer(room, player, dt) {
       player.y = SURFACE_Y - 1;
       player.vx = 0;
       player.vy = 0;
+      player.fallPeakY = SURFACE_Y - 1;
     }
     return;
   }
@@ -204,6 +206,8 @@ function updatePlayer(room, player, dt) {
   if (!collidesAt(room, player.x, newY, pw, ph)) {
     player.y = newY;
     player.grounded = false;
+    // Track highest point (lowest Y) while airborne
+    if (player.y < player.fallPeakY) player.fallPeakY = player.y;
   } else {
     if (player.vy > 0) {
       const preVy = player.vy;
@@ -220,18 +224,28 @@ function updatePlayer(room, player, dt) {
         const jumpF = player.jumpForce || JUMP_FORCE;
         player.vy = jumpF * BOUNCY_FORCE;
         player.grounded = false;
+        player.fallPeakY = player.y;
       } else {
-        // Fall damage (non-lethal)
-        if (preVy > FALL_DAMAGE_THRESHOLD) {
-          const damage = (preVy - FALL_DAMAGE_THRESHOLD) * FALL_DAMAGE_MULTIPLIER;
-          player.stamina -= damage;
-          if (player.stamina <= 0) {
-            player.stamina = 0;
+        // Distance-based fall damage (HP only, no stamina loss)
+        const fallBlocks = player.y - player.fallPeakY;
+        if (fallBlocks > FALL_DAMAGE_MIN_BLOCKS) {
+          const excess = fallBlocks - FALL_DAMAGE_MIN_BLOCKS;
+          const damage = excess * excess * FALL_DAMAGE_SCALE;
+          if (player.hp != null) {
+            player.hp -= damage;
+            if (player.hp <= 0) {
+              player.hp = 0;
+              player.dead = true;
+              player.respawnTimer = RESPAWN_TICKS;
+            }
+          }
+          if (!player.dead) {
             player.exhausted = true;
             player.exhaustionTimer = FALL_DAMAGE_STUN_FRAMES;
           }
         }
       }
+      player.fallPeakY = player.y;
     } else {
       // Hit ceiling
       player.y = Math.floor(player.y - ph) + ph;
@@ -574,6 +588,7 @@ export function handleMessage(roomId, playerId, msg) {
         player.vx = 0;
         player.vy = 0;
         player.grounded = false;
+        player.fallPeakY = SURFACE_Y - 1;
       } else if (emDef.effect) {
         // Activate buff
         const durationTicks = Math.round(emDef.duration * (1000 / SERVER_TICK_MS));
