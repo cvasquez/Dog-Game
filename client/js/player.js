@@ -553,9 +553,11 @@ export class Player {
     if (!hasWallAtFeet || hasWallAtHead) return false;
 
     // The ledge top: find the topmost solid tile in the wall column near the player
+    // Limit search to 2 tiles above the head to prevent warping up tall shafts
     const wallTx = Math.floor(wx);
+    const minScanY = Math.floor(headY) - 2;
     let ledgeY = Math.floor(feetY);
-    while (ledgeY > 0 && world.isSolid(wallTx, ledgeY - 1)) ledgeY--;
+    while (ledgeY > 0 && ledgeY > minScanY && world.isSolid(wallTx, ledgeY - 1)) ledgeY--;
 
     // Can mantle if the player's head is at or above the ledge
     // and there's space on top of the ledge for the player
