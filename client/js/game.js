@@ -1,4 +1,4 @@
-import { TILE_SIZE, TILE, MSG, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, EMOTE_DISPLAY_FRAMES, RESPAWN_FRAMES, getNearbyShop } from '../../shared/constants.js';
+import { TILE_SIZE, TILE, MSG, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, EMOTE_DISPLAY_FRAMES, RESPAWN_FRAMES, getNearbyShop, SOLID_TILES, DECORATIONS, PARK_TOP, PARK_BOTTOM, EMOTES } from '../../shared/constants.js';
 import { World } from './world.js';
 import { Player } from './player.js';
 import { Camera } from './camera.js';
@@ -281,11 +281,18 @@ export class Game {
       if (this.input.justPressed('Digit' + k)) {
         const emoteId = this.actionBar.getEmoteForSlot(k);
         if (emoteId != null && !this.localPlayer.emoteCooldowns[emoteId]) {
+          const emDef = EMOTES[emoteId];
           this.network.sendEmote(emoteId);
           this.localPlayer.activeEmote = emoteId;
           this.localPlayer.emoteTimer = EMOTE_DISPLAY_FRAMES;
-          this.localPlayer.activateEmoteBuff(emoteId);
-          this.localPlayer.applyUpgrades(this.decorations);
+          if (emDef && emDef.isRecall) {
+            // Recall: server handles teleport, just start cooldown locally
+            this.localPlayer.emoteCooldowns[emoteId] = Math.round(emDef.cooldown * 60);
+            this.notify('Scratched your way back to the surface!');
+          } else {
+            this.localPlayer.activateEmoteBuff(emoteId);
+            this.localPlayer.applyUpgrades(this.decorations);
+          }
         }
       }
     }
@@ -439,7 +446,19 @@ export class Game {
       const mouseWorld = this.screenToWorld(this.input.mouseX, this.input.mouseY);
       const tx = Math.floor(mouseWorld.x);
       const ty = Math.floor(mouseWorld.y);
-      const valid = ty >= 3 && ty <= 6;
+      const placeDef = DECORATIONS.find(d => d.id === this.placingDecoration);
+      let valid = (placeDef && placeDef.canPlaceAnywhere) || (ty >= PARK_TOP && ty <= PARK_BOTTOM);
+      if (valid && placeDef && !placeDef.canPlaceAnywhere) {
+        const bottomY = ty + placeDef.h;
+        let touchesGround = false;
+        for (let dx = 0; dx < placeDef.w; dx++) {
+          if (SOLID_TILES.has(this.world.getTile(tx + dx, bottomY))) {
+            touchesGround = true;
+            break;
+          }
+        }
+        if (!touchesGround) valid = false;
+      }
       this.renderer.drawPlacementPreview(tx, ty, this.placingDecoration, valid, this.camera);
     }
 
@@ -460,11 +479,24 @@ export class Game {
     const tx = Math.floor(mouseWorld.x);
     const ty = Math.floor(mouseWorld.y);
 
-    if (ty >= 3 && ty <= 6) {
+    const decDef = DECORATIONS.find(d => d.id === this.placingDecoration);
+    let canPlaceHere = (decDef && decDef.canPlaceAnywhere) || (ty >= PARK_TOP && ty <= PARK_BOTTOM);
+    if (canPlaceHere && decDef && !decDef.canPlaceAnywhere) {
+      const bottomY = ty + decDef.h;
+      let touchesGround = false;
+      for (let dx = 0; dx < decDef.w; dx++) {
+        if (SOLID_TILES.has(this.world.getTile(tx + dx, bottomY))) {
+          touchesGround = true;
+          break;
+        }
+      }
+      canPlaceHere = touchesGround;
+    }
+    if (canPlaceHere) {
       this.network.sendPlaceDecoration(this.placingDecoration, tx, ty);
       this.placingDecoration = null;
     } else {
-      this.notify('Must place in the dog park area (above ground)');
+      this.notify('Must place on the ground in the dog park area');
     }
   }
 

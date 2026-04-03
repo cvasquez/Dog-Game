@@ -206,10 +206,15 @@ export class LocalGame {
       if (this.input.justPressed('Digit' + k)) {
         const emoteId = this.actionBar.getEmoteForSlot(k);
         if (emoteId != null && !this.localPlayer.emoteCooldowns[emoteId]) {
+          const emDef = EMOTES[emoteId];
           this.localPlayer.activeEmote = emoteId;
           this.localPlayer.emoteTimer = EMOTE_DISPLAY_FRAMES;
-          this.localPlayer.activateEmoteBuff(emoteId);
-          this.localPlayer.applyUpgrades(this.decorations);
+          if (emDef && emDef.isRecall) {
+            this.emoteRecallToSurface(emoteId);
+          } else {
+            this.localPlayer.activateEmoteBuff(emoteId);
+            this.localPlayer.applyUpgrades(this.decorations);
+          }
         }
       }
     }
@@ -463,7 +468,19 @@ export class LocalGame {
       const tx = Math.floor(mouseWorld.x);
       const ty = Math.floor(mouseWorld.y);
       const placeDef = DECORATIONS.find(d => d.id === this.placingDecoration);
-      const valid = (placeDef && placeDef.canPlaceAnywhere) || (ty >= PARK_TOP && ty <= PARK_BOTTOM);
+      let valid = (placeDef && placeDef.canPlaceAnywhere) || (ty >= PARK_TOP && ty <= PARK_BOTTOM);
+      // Must touch ground
+      if (valid && placeDef && !placeDef.canPlaceAnywhere) {
+        const bottomY = ty + placeDef.h;
+        let touchesGround = false;
+        for (let dx = 0; dx < placeDef.w; dx++) {
+          if (SOLID_TILES.has(this.world.getTile(tx + dx, bottomY))) {
+            touchesGround = true;
+            break;
+          }
+        }
+        if (!touchesGround) valid = false;
+      }
       this.renderer.drawPlacementPreview(tx, ty, this.placingDecoration, valid, this.camera);
     }
 
@@ -484,7 +501,19 @@ export class LocalGame {
     const ty = Math.floor(mouseWorld.y);
 
     const decDef = DECORATIONS.find(d => d.id === this.placingDecoration);
-    const canPlaceHere = (decDef && decDef.canPlaceAnywhere) || (ty >= PARK_TOP && ty <= PARK_BOTTOM);
+    let canPlaceHere = (decDef && decDef.canPlaceAnywhere) || (ty >= PARK_TOP && ty <= PARK_BOTTOM);
+    // Must touch ground
+    if (canPlaceHere && decDef && !decDef.canPlaceAnywhere) {
+      const bottomY = ty + decDef.h;
+      let touchesGround = false;
+      for (let dx = 0; dx < decDef.w; dx++) {
+        if (SOLID_TILES.has(this.world.getTile(tx + dx, bottomY))) {
+          touchesGround = true;
+          break;
+        }
+      }
+      canPlaceHere = touchesGround;
+    }
 
     if (canPlaceHere) {
       const decoration = {
@@ -498,7 +527,7 @@ export class LocalGame {
       this.localPlayer.applyUpgrades(this.decorations);
       this.notify('Decoration placed!');
     } else {
-      this.notify('Must place in the dog park area (above ground)');
+      this.notify('Must place on the ground in the dog park area');
     }
   }
 
@@ -548,6 +577,21 @@ export class LocalGame {
     } else {
       this.notify(`Recalled to ${dest}!`);
     }
+  }
+
+  emoteRecallToSurface(emoteId) {
+    const p = this.localPlayer;
+    const emDef = EMOTES[emoteId];
+    // Start cooldown
+    p.emoteCooldowns[emoteId] = Math.round(emDef.cooldown * 60);
+    // Teleport to surface with no penalty
+    p.x = WORLD_WIDTH / 2;
+    p.y = SURFACE_Y - 1;
+    p.vx = 0;
+    p.vy = 0;
+    p.grounded = false;
+    p.stamina = p.maxStamina;
+    this.notify('Scratched your way back to the surface!');
   }
 
   screenToWorld(screenX, screenY) {

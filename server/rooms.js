@@ -565,8 +565,17 @@ export function handleMessage(roomId, playerId, msg) {
       // Display emote bubble
       player.activeEmote = msg.emoteId;
       player.emoteTimer = EMOTE_DISPLAY_TICKS;
-      // Activate buff
-      if (emDef.effect) {
+      // Handle recall emotes (teleport to surface)
+      if (emDef.isRecall) {
+        const cooldownTicks = Math.round(emDef.cooldown * (1000 / SERVER_TICK_MS));
+        player.emoteCooldowns[msg.emoteId] = cooldownTicks;
+        player.x = WORLD_WIDTH / 2;
+        player.y = SURFACE_Y - 1;
+        player.vx = 0;
+        player.vy = 0;
+        player.grounded = false;
+      } else if (emDef.effect) {
+        // Activate buff
         const durationTicks = Math.round(emDef.duration * (1000 / SERVER_TICK_MS));
         const cooldownTicks = Math.round(emDef.cooldown * (1000 / SERVER_TICK_MS));
         player.emoteBuff = { effect: emDef.effect, timer: durationTicks, emoteId: msg.emoteId };
@@ -603,6 +612,21 @@ export function handleMessage(roomId, playerId, msg) {
       if (decY < PARK_TOP || decY + decDef.h - 1 > PARK_BOTTOM) {
         sendTo(player, { type: MSG.ERROR, message: 'Must place in the dog park area' });
         break;
+      }
+      // Check decoration touches ground (solid tile below its bottom edge)
+      if (!decDef.canPlaceAnywhere) {
+        const bottomY = decY + decDef.h;
+        let touchesGround = false;
+        for (let dx = 0; dx < decDef.w; dx++) {
+          if (isSolid(room, decX + dx, bottomY)) {
+            touchesGround = true;
+            break;
+          }
+        }
+        if (!touchesGround) {
+          sendTo(player, { type: MSG.ERROR, message: 'Decoration must be placed on the ground' });
+          break;
+        }
       }
       deductCost(player.resources, decDef.cost);
       const decoration = { id: decDef.id, x: decX, y: decY, placedBy: player.name };
