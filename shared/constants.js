@@ -595,9 +595,9 @@ export const HP_REGEN_RATE = 0.05;          // HP per frame when grounded and id
 export const HP_REGEN_DELAY = 180;          // frames on ground before HP regen starts (~3s)
 export const LAVA_DAMAGE = 999;             // instant kill
 
-// Fall damage
-export const FALL_DAMAGE_THRESHOLD = 9;     // vy above which fall damage applies
-export const FALL_DAMAGE_MULTIPLIER = 8;    // HP lost per unit of vy above threshold
+// Fall damage (distance-based)
+export const FALL_DAMAGE_MIN_BLOCKS = 2;    // no damage at this height or below
+export const FALL_DAMAGE_SCALE = 2;         // HP lost = (blocks - MIN_BLOCKS)² × SCALE
 export const FALL_DAMAGE_STUN_FRAMES = 15;  // brief stun on hard landing
 
 // Crumbling tiles
