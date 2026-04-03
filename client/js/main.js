@@ -96,6 +96,7 @@ function showWorldList(saves) {
     worldList.innerHTML = '<div style="padding:8px;color:rgba(255,255,255,0.5)">No saved worlds yet</div>';
     return;
   }
+  saves.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
   for (const s of saves) {
     const el = document.createElement('div');
     el.className = 'world-item';
