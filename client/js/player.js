@@ -40,6 +40,10 @@ export class Player {
       bones: 0, gems: 0, fossils: 0, gold: 0, diamonds: 0, artifacts: 0,
       mushrooms: 0, crystals: 0, frozen_gems: 0, relics: 0,
     };
+    this.bankedResources = {
+      bones: 0, gems: 0, fossils: 0, gold: 0, diamonds: 0, artifacts: 0,
+      mushrooms: 0, crystals: 0, frozen_gems: 0, relics: 0,
+    };
     this.unlockedEmotes = [0, 1];
     // Add breed's free emote
     if (this.breed.freeEmote != null && !this.unlockedEmotes.includes(this.breed.freeEmote)) {
@@ -469,7 +473,8 @@ export class Player {
           const damage = excess * excess * FALL_DAMAGE_SCALE;
           this.takeDamage(damage, 'fall');
           if (!this.dead) {
-            this.triggerExhaustion();
+            // Stun only — no stamina drain from landing
+            this.exhausted = true;
             this.exhaustionTimer = FALL_DAMAGE_STUN_FRAMES;
           }
         }

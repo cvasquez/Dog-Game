@@ -2,7 +2,7 @@ import {
   TILE_SIZE, TILE, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, HARDNESS,
   SOLID_TILES, WORLD_WIDTH, WORLD_HEIGHT, DECORATIONS,
   EMOTES, PARK_TOP, PARK_BOTTOM, STAMINA_DIG_COST, UPGRADES, EMOTE_DISPLAY_FRAMES,
-  RESPAWN_FRAMES, getNearbyShop, placeShopFloors, BLUEPRINT_DROPS,
+  RESPAWN_FRAMES, getNearbyShop, getNearbyBank, placeShopFloors, BLUEPRINT_DROPS,
   CRUMBLE_TILES, CRUMBLE_DELAY_FRAMES, ACHIEVEMENTS, BIOMES,
 } from '../../shared/constants.js';
 import { World } from './world.js';
@@ -13,6 +13,7 @@ import { Renderer } from './renderer.js';
 import { ParticleSystem } from './particles.js';
 import { HUD } from './hud.js';
 import { Shop } from './shop.js';
+import { Bank } from './bank.js';
 import { ActionBar } from './emotes.js';
 import { generateWorld } from './world-gen.js';
 
@@ -29,6 +30,7 @@ export class LocalGame {
     this.particles = new ParticleSystem();
     this.hud = new HUD();
     this.shop = new Shop();
+    this.bank = new Bank();
     this.actionBar = new ActionBar();
 
     this.localPlayer = null;
@@ -108,6 +110,9 @@ export class LocalGame {
       if (saveData.player.hp != null) {
         this.localPlayer.hp = saveData.player.hp;
       }
+      if (saveData.player.bankedResources) {
+        this.localPlayer.bankedResources = saveData.player.bankedResources;
+      }
       this.localPlayer.applyUpgrades(this.decorations);
       if (saveData.player.hp != null) {
         this.localPlayer.hp = saveData.player.hp; // re-set after applyUpgrades scales it
@@ -172,6 +177,24 @@ export class LocalGame {
       this.prestige();
     };
 
+    // Bank callbacks
+    this.bank.onDeposit = (key, amount) => {
+      const p = this.localPlayer;
+      const actual = Math.min(amount, p.resources[key] || 0);
+      if (actual <= 0) return;
+      p.resources[key] -= actual;
+      p.bankedResources[key] = (p.bankedResources[key] || 0) + actual;
+      this.hud.updateResources(p.resources);
+    };
+    this.bank.onWithdraw = (key, amount) => {
+      const p = this.localPlayer;
+      const actual = Math.min(amount, p.bankedResources[key] || 0);
+      if (actual <= 0) return;
+      p.bankedResources[key] -= actual;
+      p.resources[key] = (p.resources[key] || 0) + actual;
+      this.hud.updateResources(p.resources);
+    };
+
     // Show game
     this.canvas.style.display = 'block';
     document.getElementById('lobby').style.display = 'none';
@@ -184,7 +207,7 @@ export class LocalGame {
     // Controls hint
     const hint = document.createElement('div');
     hint.className = 'controls-hint';
-    hint.innerHTML = 'WASD/Arrows: Move | Shift: Sprint<br>F/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>R: Recall to surface (lose 50% loot)<br>B: Shop (at surface) | Tab: Save';
+    hint.innerHTML = 'WASD/Arrows: Move | Shift: Sprint<br>F/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>R: Recall to surface (lose 50% loot)<br>B: Shop / Stash Box (at surface) | Tab: Save';
     document.body.appendChild(hint);
 
     this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
@@ -215,13 +238,18 @@ export class LocalGame {
   }
 
   update(dt) {
-    // Track nearby shop for prompt rendering
+    // Track nearby shop and bank for prompt rendering
     this.nearbyShop = getNearbyShop(this.localPlayer.x, this.localPlayer.y);
+    this.nearbyBank = getNearbyBank(this.localPlayer.x, this.localPlayer.y);
 
-    // Shop toggle — only when near a shop machine at the surface
+    // Shop/Bank toggle — only when near a machine at the surface
     if (this.input.justPressed('KeyB')) {
       if (this.shop.visible) {
         this.shop.hide();
+      } else if (this.bank.visible) {
+        this.bank.hide();
+      } else if (this.nearbyBank) {
+        this.bank.show(this.localPlayer.resources, this.localPlayer.bankedResources);
       } else if (this.nearbyShop) {
         this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, this.nearbyShop.type, this.localPlayer.discoveredBlueprints, this.localPlayer.prestigeLevel, this.achievements, this.stats);
       } else {
@@ -261,6 +289,8 @@ export class LocalGame {
     if (this.input.justPressed('Escape')) {
       if (this.shop.visible) {
         this.shop.hide();
+      } else if (this.bank.visible) {
+        this.bank.hide();
       }
       this.placingDecoration = null;
     }
@@ -270,7 +300,8 @@ export class LocalGame {
       this.recallToSurface();
     }
 
-    if (!this.shop.visible) {
+    const wasDead = this.localPlayer.dead;
+    if (!this.shop.visible && !this.bank.visible) {
       const inputState = this.input.getState();
       this.localPlayer.predictUpdate(inputState, this.world, dt);
       this.handleDigging(inputState);
@@ -278,6 +309,21 @@ export class LocalGame {
 
     // Landing effects: particles + screen shake
     const p = this.localPlayer;
+
+    // Death penalty: lose all carried resources (banked resources are safe)
+    if (p.dead && !wasDead) {
+      const lost = {};
+      for (const [key, amount] of Object.entries(p.resources)) {
+        if (amount > 0) lost[key] = amount;
+        p.resources[key] = 0;
+      }
+      this.hud.updateResources(p.resources);
+      const lostStr = Object.entries(lost).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(', ');
+      if (lostStr) {
+        this.notify(`You died! Lost all resources: ${lostStr}`);
+      }
+      this.stats.deaths = (this.stats.deaths || 0) + 1;
+    }
     if (p.justLanded) {
       this.particles.emitLand(
         p.x * TILE_SIZE,
@@ -557,6 +603,7 @@ export class LocalGame {
     this.renderer.drawParkZone(this.camera);
     this.renderer.drawDecorations(this.decorations, this.camera);
     this.renderer.drawShopMachines(this.camera);
+    this.renderer.drawBankMachine(this.camera);
 
     // Draw crumbling tile effects
     if (this.crumblingTiles.size > 0) {
@@ -572,6 +619,11 @@ export class LocalGame {
     // Shop interaction prompt
     if (this.nearbyShop && !this.shop.visible) {
       this.renderer.drawShopPrompt(this.nearbyShop, this.camera);
+    }
+
+    // Bank interaction prompt
+    if (this.nearbyBank && !this.bank.visible) {
+      this.renderer.drawBankPrompt(this.camera);
     }
 
     if (this.placingDecoration !== null) {
@@ -760,6 +812,7 @@ export class LocalGame {
         x: this.localPlayer.x,
         y: this.localPlayer.y,
         resources: this.localPlayer.resources,
+        bankedResources: this.localPlayer.bankedResources,
         unlockedEmotes: this.localPlayer.unlockedEmotes,
         ownedUpgrades: this.localPlayer.ownedUpgrades,
         discoveredBlueprints: this.localPlayer.discoveredBlueprints,
@@ -855,9 +908,12 @@ export class LocalGame {
     const p = this.localPlayer;
     p.prestigeLevel++;
 
-    // Reset resources
+    // Reset resources (carried and banked)
     for (const key of Object.keys(p.resources)) {
       p.resources[key] = 0;
+    }
+    for (const key of Object.keys(p.bankedResources)) {
+      p.bankedResources[key] = 0;
     }
 
     // Reset upgrades (keep blueprints)

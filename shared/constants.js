@@ -574,6 +574,18 @@ export function getNearbyShop(playerX, playerY) {
   return null;
 }
 
+// Resource bank on surface — safe storage that survives death and teleport
+export const BANK_LOCATION = { x: 8, width: 2, name: 'Stash Box', symbol: '📦' };
+
+// Returns true if the player is near the bank
+export function getNearbyBank(playerX, playerY) {
+  if (playerY > SURFACE_Y + 1) return null;
+  const bankCenterX = BANK_LOCATION.x + BANK_LOCATION.width / 2;
+  const dist = Math.abs(playerX - bankCenterX);
+  if (dist < 2.5) return BANK_LOCATION;
+  return null;
+}
+
 // Places shop floor tiles in a world tile array (call after world gen or on load)
 export function placeShopFloors(tiles) {
   for (const shop of SHOP_LOCATIONS) {
@@ -585,6 +597,15 @@ export function placeShopFloors(tiles) {
         tiles[SURFACE_Y * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;
         tiles[(SURFACE_Y + 1) * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;
       }
+    }
+  }
+  // Bank floor tiles
+  const bankStart = BANK_LOCATION.x - SHOP_FLOOR_PADDING;
+  const bankEnd = BANK_LOCATION.x + BANK_LOCATION.width + SHOP_FLOOR_PADDING;
+  for (let x = bankStart; x < bankEnd; x++) {
+    if (x > 0 && x < WORLD_WIDTH - 1) {
+      tiles[SURFACE_Y * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;
+      tiles[(SURFACE_Y + 1) * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;
     }
   }
 }

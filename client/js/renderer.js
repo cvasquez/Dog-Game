@@ -1,10 +1,10 @@
 import {
   TILE_SIZE, TILE, SURFACE_Y, WORLD_WIDTH, WORLD_HEIGHT,
-  PLAYER_WIDTH, PLAYER_HEIGHT, EMOTES, HARDNESS, SHOP_LOCATIONS,
+  PLAYER_WIDTH, PLAYER_HEIGHT, EMOTES, HARDNESS, SHOP_LOCATIONS, BANK_LOCATION,
   DARKNESS_START_DEPTH, DARKNESS_MAX_DEPTH, DARKNESS_MAX_ALPHA,
   DARKNESS_INNER_RADIUS, DARKNESS_OUTER_RADIUS, CRUMBLE_TILES,
 } from '../../shared/constants.js';
-import { getTileSprite, getDogSprite, getDecorationSprite, getSkyGradient, getShopMachineSprite } from './sprites.js';
+import { getTileSprite, getDogSprite, getDecorationSprite, getSkyGradient, getShopMachineSprite, getBankSprite } from './sprites.js';
 
 // Internal render resolution
 const RENDER_WIDTH = 640;
@@ -244,6 +244,41 @@ export class Renderer {
       const sy = (SURFACE_Y - 2) * TILE_SIZE - camera.y;
       this.ctx.drawImage(sprite, Math.floor(sx), Math.floor(sy));
     }
+  }
+
+  drawBankMachine(camera) {
+    const sprite = getBankSprite();
+    if (!sprite) return;
+    const sx = BANK_LOCATION.x * TILE_SIZE - camera.x;
+    const sy = (SURFACE_Y - 2) * TILE_SIZE - camera.y;
+    this.ctx.drawImage(sprite, Math.floor(sx), Math.floor(sy));
+  }
+
+  drawBankPrompt(camera) {
+    const bankCenterX = (BANK_LOCATION.x + BANK_LOCATION.width / 2) * TILE_SIZE;
+    const sx = bankCenterX - camera.x;
+    const sy = (SURFACE_Y - 3) * TILE_SIZE - camera.y;
+
+    const text = `[B] ${BANK_LOCATION.name}`;
+    this.ctx.font = '5px "Press Start 2P", monospace';
+    const tw = this.ctx.measureText(text).width;
+    const pad = 3;
+
+    this.ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    const rx = Math.floor(sx - tw / 2 - pad);
+    const ry = Math.floor(sy - 4);
+    const rw = tw + pad * 2;
+    const rh = 10;
+    this.ctx.fillRect(rx, ry, rw, rh);
+
+    this.ctx.strokeStyle = '#D4A574';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(rx, ry, rw, rh);
+
+    this.ctx.fillStyle = '#FFF3E0';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(text, Math.floor(sx), Math.floor(sy));
   }
 
   drawShopPrompt(nearbyShop, camera) {
