@@ -2,6 +2,7 @@
 // Seed Supabase with the built-in decoration sprite data from sprite-data.js
 // Usage: node scripts/seed-decoration-sprites.js
 
+import 'dotenv/config';
 import { DECORATION_SPRITES, DECORATION_PALETTES } from '../shared/sprite-data.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;

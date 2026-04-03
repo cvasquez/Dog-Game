@@ -2,6 +2,7 @@
 // Seed Supabase with the built-in sprite data from sprite-data.js
 // Usage: node scripts/seed-sprites.js
 
+import 'dotenv/config';
 import { DOG_SPRITES, SPRITE_PALETTE, ANIM_STATES } from '../shared/sprite-data.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;

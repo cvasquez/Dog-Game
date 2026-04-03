@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Seed Supabase with the built-in shop machine sprite data from sprite-data.js
-// Usage: SUPABASE_URL=... SUPABASE_KEY=... node scripts/seed-shop-sprites.js
+// Usage: node scripts/seed-shop-sprites.js
 
+import 'dotenv/config';
 import { SHOP_SPRITES, SHOP_PALETTES } from '../shared/sprite-data.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;

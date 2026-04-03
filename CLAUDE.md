@@ -42,6 +42,7 @@ Deployed to GitHub Pages at https://cvasquez.github.io/Dog-Game (single-player o
   - **`scripts/`** — Utility scripts
   - `seed-sprites.js` — Seeds dog breed sprites to Supabase
   - `seed-decoration-sprites.js` — Seeds decoration sprites to Supabase
+  - `seed-shop-sprites.js` — Seeds shop machine sprites (stash, decorations, emotes, upgrades) to Supabase
 - **`client/`** — Vanilla JS frontend, no bundler
   - `js/main.js` — Entry point, lobby UI, breed picker
   - `js/local-game.js` — Single-player: runs physics locally, saves to localStorage
@@ -76,6 +77,7 @@ Deployed to GitHub Pages at https://cvasquez.github.io/Dog-Game (single-player o
 |-------|---------|---------|
 | `custom_sprites` | User-edited dog breed sprites from the sprite editor | `sprites.js`, `editor/index.html`, `scripts/seed-sprites.js` |
 | `decoration_sprites` | Decoration pixel art and palettes from the sprite editor | `sprites.js`, `editor/index.html`, `scripts/seed-decoration-sprites.js` |
+| `shop_sprites` | Shop machine pixel art (decorations, emotes, upgrades, stash) | `sprites.js`, `editor/index.html`, `scripts/seed-shop-sprites.js` |
 | `worlds` | Persistent world data (tiles, placed decorations) | Schema defined but currently only used via local SQLite |
 | `players` | Player progress per world (resources, upgrades) | Schema defined but currently only used via local SQLite |
 
@@ -87,9 +89,17 @@ Deployed to GitHub Pages at https://cvasquez.github.io/Dog-Game (single-player o
 5. The local SQLite schema in `server/persistence.js` is a **multiplayer-only fallback** — keep it in sync but Supabase is authoritative
 
 **Seeding data:**
+
+Seed scripts auto-load `.env` via dotenv. Create a `.env` file in the project root with:
+```
+SUPABASE_URL=<your-supabase-url>
+SUPABASE_KEY=<your-supabase-anon-key>
+```
+
 ```bash
 node scripts/seed-sprites.js              # Seed breed sprites
 node scripts/seed-decoration-sprites.js   # Seed decoration sprites
+node scripts/seed-shop-sprites.js         # Seed shop machine sprites
 ```
 
 ### Multiplayer Protocol
