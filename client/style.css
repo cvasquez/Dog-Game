@@ -1317,6 +1317,135 @@ input[type="text"]::placeholder {
   margin-top: 12px;
 }
 
+/* ========== BANK ========== */
+#bankOverlay {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.bank-box {
+  background:
+    linear-gradient(180deg,
+      rgba(70,55,40,0.97) 0%,
+      rgba(50,38,28,0.98) 40%,
+      rgba(35,24,16,0.99) 100%
+    );
+  border: 3px solid #8D6E63;
+  outline: 2px solid rgba(0,0,0,0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    0 8px 32px rgba(0,0,0,0.7);
+  padding: 20px;
+  width: 380px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.bank-box h2 {
+  margin-bottom: 4px;
+  text-align: center;
+  font-size: 12px;
+  color: #D4A574;
+  text-shadow: 1px 1px 0 #6B4226, 2px 2px 0 rgba(0,0,0,0.5);
+}
+
+.bank-desc {
+  text-align: center;
+  font-size: 7px;
+  color: #A1887F;
+  margin-bottom: 12px;
+}
+
+.bank-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(141,110,99,0.3);
+}
+
+.bank-row-label {
+  font-size: 8px;
+  color: #BCAAA4;
+  min-width: 80px;
+}
+
+.bank-row-carried {
+  font-size: 8px;
+  color: #FFF3E0;
+  min-width: 50px;
+  text-align: right;
+}
+
+.bank-row-banked {
+  font-size: 8px;
+  color: #D4A574;
+  min-width: 50px;
+  text-align: right;
+}
+
+.bank-row-buttons {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.bank-row-buttons button {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  padding: 3px 6px;
+  cursor: pointer;
+  border: 1px solid #8D6E63;
+  background: rgba(93,64,55,0.8);
+  color: #FFF3E0;
+}
+
+.bank-row-buttons button:hover {
+  background: rgba(141,110,99,0.8);
+}
+
+.bank-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.btn-deposit, .btn-withdraw {
+  flex: 1;
+  font-size: 7px !important;
+  padding: 6px 8px !important;
+}
+
+.btn-deposit {
+  background: rgba(56,142,60,0.4) !important;
+  border-color: #4CAF50 !important;
+}
+
+.btn-deposit:hover {
+  background: rgba(56,142,60,0.7) !important;
+}
+
+.btn-withdraw {
+  background: rgba(183,28,28,0.3) !important;
+  border-color: #C62828 !important;
+}
+
+.btn-withdraw:hover {
+  background: rgba(183,28,28,0.5) !important;
+}
+
+#bankClose {
+  width: 100%;
+  margin-top: 12px;
+}
+
 /* ========== ACTION BAR ========== */
 #actionBar {
   position: fixed;
