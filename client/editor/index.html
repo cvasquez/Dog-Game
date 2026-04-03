@@ -86,6 +86,12 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
   <div id="breedSection">
     <h3>Breed</h3>
     <select id="breedSelect"></select>
+    <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+      <button id="cloudLoadBtn">Load from DB</button>
+      <button id="cloudSaveBtn">Save to DB</button>
+      <button id="cloudSaveAllBtn">Save All to DB</button>
+    </div>
+    <div id="cloudStatus" class="cloud-status"></div>
 
     <h3>Animation</h3>
     <div class="anim-tabs" id="animTabs"></div>
@@ -147,12 +153,6 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
   <button id="shiftDown">Shift Down</button>
   <button id="shiftLeft">Shift Left</button>
   <button id="shiftRight">Shift Right</button>
-
-  <h3>Cloud</h3>
-  <button id="cloudSaveBtn">Save Breed</button>
-  <button id="cloudSaveAllBtn">Save All</button>
-  <button id="cloudLoadBtn">Browse Sprites</button>
-  <div id="cloudStatus" class="cloud-status"></div>
 
   <h3>Import / Export</h3>
   <button id="exportBtn">Copy All to Clipboard</button>
