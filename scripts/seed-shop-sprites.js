@@ -31,10 +31,13 @@ async function supabaseRequest(path, method, body) {
   return text ? JSON.parse(text) : null;
 }
 
+const force = process.argv.includes('--force');
+
 async function main() {
   console.log('Seeding shop sprites to Supabase...');
   console.log(`URL: ${SUPABASE_URL}`);
   console.log(`Shop types: ${Object.keys(SHOP_SPRITES).join(', ')}`);
+  if (force) console.log('⚠ --force: existing rows WILL be overwritten');
   console.log();
 
   for (const [shopType, pixels] of Object.entries(SHOP_SPRITES)) {
@@ -47,7 +50,11 @@ async function main() {
     );
 
     if (existing && existing.length > 0) {
-      console.log(`  Updating ${shopType}...`);
+      if (!force) {
+        console.log(`  Skipping ${shopType} (already exists, use --force to overwrite)`);
+        continue;
+      }
+      console.log(`  Overwriting ${shopType}...`);
       await supabaseRequest(
         `/shop_sprites?shop_type=eq.${shopType}`,
         'PATCH',

@@ -31,11 +31,14 @@ async function supabaseRequest(path, method, body) {
   return text ? JSON.parse(text) : null;
 }
 
+const force = process.argv.includes('--force');
+
 async function main() {
   console.log('Seeding sprites to Supabase...');
   console.log(`URL: ${SUPABASE_URL}`);
   console.log(`Breeds: ${Object.keys(DOG_SPRITES).join(', ')}`);
   console.log(`Palette: ${SPRITE_PALETTE.length} entries`);
+  if (force) console.log('⚠ --force: existing rows WILL be overwritten');
   console.log();
 
   for (const breedKey of Object.keys(DOG_SPRITES)) {
@@ -48,9 +51,12 @@ async function main() {
     );
 
     if (existing && existing.length > 0) {
-      // Update existing row
+      if (!force) {
+        console.log(`  Skipping ${breedKey} (already exists, use --force to overwrite)`);
+        continue;
+      }
       const id = existing[0].id;
-      console.log(`  Updating ${breedKey} (id: ${id})...`);
+      console.log(`  Overwriting ${breedKey} (id: ${id})...`);
       await supabaseRequest(
         `/custom_sprites?id=eq.${id}`,
         'PATCH',
@@ -61,7 +67,6 @@ async function main() {
         }
       );
     } else {
-      // Insert new row
       console.log(`  Inserting ${breedKey}...`);
       await supabaseRequest('/custom_sprites', 'POST', {
         name: `${breedKey} (default)`,

@@ -97,9 +97,10 @@ SUPABASE_KEY=<your-supabase-anon-key>
 ```
 
 ```bash
-node scripts/seed-sprites.js              # Seed breed sprites
-node scripts/seed-decoration-sprites.js   # Seed decoration sprites
-node scripts/seed-shop-sprites.js         # Seed shop machine sprites
+node scripts/seed-sprites.js              # Seed breed sprites (inserts new only, skips existing)
+node scripts/seed-decoration-sprites.js   # Seed decoration sprites (inserts new only, skips existing)
+node scripts/seed-shop-sprites.js         # Seed shop sprites (inserts new only, skips existing)
+# Pass --force to overwrite existing rows (DESTRUCTIVE — will replace DB edits with local files)
 ```
 
 ### Multiplayer Protocol
