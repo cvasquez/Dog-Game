@@ -105,7 +105,7 @@ export class ParticleSystem {
       const alpha = Math.min(1, p.life / (p.maxLife * 0.3));
       ctx.globalAlpha = alpha;
       ctx.fillStyle = p.color;
-      ctx.fillRect(sx - p.size / 2, sy - p.size / 2, p.size, p.size);
+      ctx.fillRect(Math.floor(sx - p.size / 2), Math.floor(sy - p.size / 2), Math.ceil(p.size), Math.ceil(p.size));
     }
     // Floating text
     for (const ft of this.floatingTexts) {
@@ -116,9 +116,9 @@ export class ParticleSystem {
       ctx.font = '6px "Press Start 2P", monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#000';
-      ctx.fillText(ft.text, sx + 1, sy + 1);
+      ctx.fillText(ft.text, Math.floor(sx) + 1, Math.floor(sy) + 1);
       ctx.fillStyle = ft.color;
-      ctx.fillText(ft.text, sx, sy);
+      ctx.fillText(ft.text, Math.floor(sx), Math.floor(sy));
     }
     ctx.globalAlpha = 1;
   }
