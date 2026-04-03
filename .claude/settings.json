@@ -1,4 +1,11 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(timeout 3 node server/index.js)",
+      "Bash(node -e \"import\\(''./shared/constants.js''\\).then\\(\\(\\) => console.log\\(''constants OK''\\)\\)\")",
+      "Bash(node -e \":*)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
