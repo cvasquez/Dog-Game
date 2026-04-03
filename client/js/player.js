@@ -409,16 +409,22 @@ export class Player {
         this.vy = 0;
         if (this.clinging) this.releaseCling();
       } else {
-        // Hitting ceiling — try corner correction first
+        // Hitting ceiling — try corner correction (nudge horizontally to slip past)
         let corrected = false;
-        const nudgeAmount = 0.25;
-        for (const nudge of [nudgeAmount, -nudgeAmount]) {
-          if (!this.collidesAt(world, this.x + nudge, newY)) {
-            this.x += nudge;
-            this.y = newY;
-            corrected = true;
-            break;
+        // Prefer the direction the player is moving; fall back to the other side
+        const primaryDir = this.vx >= 0 ? 1 : -1;
+        const dirs = [primaryDir, -primaryDir];
+        for (const dir of dirs) {
+          // Try progressively larger nudges up to just under half the hitbox width
+          for (let n = 0.1; n <= 0.45; n += 0.1) {
+            if (!this.collidesAt(world, this.x + dir * n, newY)) {
+              this.x += dir * n;
+              this.y = newY;
+              corrected = true;
+              break;
+            }
           }
+          if (corrected) break;
         }
         if (!corrected) {
           this.y = Math.floor(this.y - this.hitboxHeight) + this.hitboxHeight;
@@ -582,9 +588,11 @@ export class Player {
     if (!hasWallAtFeet || hasWallAtHead) return false;
 
     // The ledge top: find the topmost solid tile in the wall column near the player
+    // Limit search to 2 tiles above the head to prevent warping up tall shafts
     const wallTx = Math.floor(wx);
+    const minScanY = Math.floor(headY) - 2;
     let ledgeY = Math.floor(feetY);
-    while (ledgeY > 0 && world.isSolid(wallTx, ledgeY - 1)) ledgeY--;
+    while (ledgeY > 0 && ledgeY > minScanY && world.isSolid(wallTx, ledgeY - 1)) ledgeY--;
 
     // Can mantle if the player's head is at or above the ledge
     // and there's space on top of the ledge for the player

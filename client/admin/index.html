@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dog Game - Balance Admin</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Mono:wght@400;600&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-deep: #1a1410;
+  --bg-mid: #2a2118;
+  --bg-surface: #362b22;
+  --bg-raised: #44382d;
+  --border: #5a4a3a;
+  --border-light: #7a6a5a;
+  --text: #e8d5c0;
+  --text-dim: #a0907a;
+  --text-bright: #fff5e8;
+  --accent-bone: #e8d5a3;
+  --accent-gem: #e040fb;
+  --accent-gold: #ffd700;
+  --accent-diamond: #00e5ff;
+  --accent-ruby: #f44336;
+  --accent-emerald: #4caf50;
+  --accent-blue: #42a5f5;
+  --stat-speed: #42a5f5;
+  --stat-jump: #66bb6a;
+  --stat-dig: #ffa726;
+  --stat-stamina: #ef5350;
+  --stat-regen: #ab47bc;
+  --stat-climb: #26c6da;
+  --stat-loot: #ffd700;
+}
+
+body {
+  background: var(--bg-deep);
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* Header */
+.header {
+  background: var(--bg-mid);
+  border-bottom: 2px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.header h1 {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  color: var(--accent-bone);
+  letter-spacing: 1px;
+}
+.header .subtitle {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  background: var(--bg-mid);
+  border-bottom: 2px solid var(--border);
+  padding: 0 16px;
+}
+.tab {
+  padding: 10px 20px;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  border-bottom: 3px solid transparent;
+  transition: all 0.15s;
+  user-select: none;
+}
+.tab:hover { color: var(--text); background: var(--bg-surface); }
+.tab.active {
+  color: var(--accent-bone);
+  border-bottom-color: var(--accent-bone);
+  background: var(--bg-surface);
+}
+
+/* Tab content */
+.tab-content { display: none; padding: 16px 20px; }
+.tab-content.active { display: flex; gap: 20px; }
+
+/* Panels */
+.panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px;
+}
+.panel-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: var(--accent-bone);
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.5px;
+}
+
+/* Build Configurator layout */
+#tab-build { flex-wrap: nowrap; }
+.build-picker { width: 340px; min-width: 340px; display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 120px); overflow-y: auto; }
+.stat-dashboard { flex: 1; min-width: 0; }
+
+/* Breed selector */
+.breed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.breed-btn {
+  background: var(--bg-raised);
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.12s;
+  text-align: left;
+}
+.breed-btn:hover { border-color: var(--border-light); }
+.breed-btn.selected { border-color: var(--accent-bone); background: #4a3e30; }
+.breed-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: var(--text-bright);
+  margin-bottom: 4px;
+}
+.breed-desc { font-size: 10px; color: var(--text-dim); }
+.breed-swatch {
+  display: inline-block;
+  width: 12px; height: 12px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+  border: 1px solid var(--border);
+}
+
+/* Upgrade/decoration/emote lists */
+.category-group { margin-bottom: 10px; }
+.category-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.item-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.item-row:hover { background: var(--bg-raised); }
+.item-row.disabled { opacity: 0.35; cursor: not-allowed; }
+.item-row input[type="checkbox"] {
+  accent-color: var(--accent-bone);
+  cursor: pointer;
+}
+.item-row.disabled input[type="checkbox"] { cursor: not-allowed; }
+.item-name { font-size: 12px; color: var(--text); flex: 1; }
+.item-effect { font-size: 10px; color: var(--text-dim); }
+.item-cost { font-size: 10px; color: var(--accent-gold); }
+.prereq-arrow { color: var(--text-dim); font-size: 10px; margin-left: 16px; }
+.synergy-badge {
+  font-size: 9px;
+  background: var(--accent-gem);
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+/* Emote selector */
+.emote-select {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 8px;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 12px;
+  width: 100%;
+}
+.emote-select option { background: var(--bg-mid); }
+
+/* Stat bars */
+.stat-row { margin-bottom: 14px; }
+.stat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+.stat-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  letter-spacing: 0.5px;
+}
+.stat-value { font-size: 13px; font-weight: 600; }
+.stat-change { font-size: 11px; margin-left: 6px; }
+.stat-change.positive { color: var(--accent-emerald); }
+.stat-change.negative { color: var(--accent-ruby); }
+.stat-bar-track {
+  height: 20px;
+  background: var(--bg-deep);
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.stat-bar-segment {
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transition: width 0.2s ease;
+}
+.stat-bar-segment.base { opacity: 0.4; }
+.stat-bar-segment.breed { opacity: 0.6; }
+.stat-bar-segment.upgrades { opacity: 0.75; }
+.stat-bar-segment.decorations { opacity: 0.85; }
+.stat-bar-segment.emote { opacity: 1.0; }
+
+/* Compare overlay */
+.stat-bar-compare {
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-right: 2px dashed rgba(255,255,255,0.6);
+  pointer-events: none;
+}
+
+.compare-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  background: var(--bg-raised);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.compare-controls label {
+  font-size: 11px;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.compare-controls input[type="checkbox"] { accent-color: var(--accent-gem); }
+.compare-badge {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px dashed;
+}
+.compare-badge.snapshot { border-color: var(--accent-gem); color: var(--accent-gem); }
+.compare-badge.current { border-color: var(--accent-bone); color: var(--accent-bone); }
+
+/* Stat legend */
+.stat-legend {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.legend-swatch {
+  width: 12px; height: 12px;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+}
+
+/* Economy tab */
+#tab-economy { flex-direction: column; gap: 16px; }
+#tab-economy.active { display: flex; }
+.economy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.economy-grid .panel { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+th {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+td {
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(90,74,58,0.3);
+  white-space: nowrap;
+}
+tr:hover td { background: rgba(90,74,58,0.15); }
+.val-good { color: var(--accent-emerald); }
+.val-warn { color: var(--accent-gold); }
+.val-bad { color: var(--accent-ruby); }
+
+/* Constants editor tab */
+#tab-constants { flex-direction: column; gap: 16px; }
+#tab-constants.active { display: flex; }
+
+.const-section { margin-bottom: 8px; }
+.const-section-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: var(--accent-bone);
+  margin-bottom: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.const-section-title:hover { color: var(--text-bright); }
+.const-section-title::before { content: '\25BC '; font-size: 8px; }
+.const-section-title.collapsed::before { content: '\25B6 '; }
+
+.const-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
+}
+.const-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--bg-raised);
+  border-radius: 3px;
+  border: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+.const-field.modified { border-color: var(--accent-gold); }
+.const-field-name {
+  font-size: 11px;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.const-field input {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  color: var(--text-bright);
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 12px;
+  width: 80px;
+  text-align: right;
+}
+.const-field input:focus {
+  outline: none;
+  border-color: var(--accent-bone);
+}
+
+/* Export button */
+.export-bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg-mid);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  padding: 8px 16px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s;
+  background: var(--bg-raised);
+  color: var(--text);
+}
+.btn:hover { border-color: var(--accent-bone); color: var(--text-bright); }
+.btn-primary { background: #5a4020; border-color: var(--accent-gold); color: var(--accent-gold); }
+.btn-primary:hover { background: #6a4d28; }
+.btn-danger { border-color: var(--accent-ruby); color: var(--accent-ruby); }
+.btn-danger:hover { background: #4a2020; }
+.export-status { font-size: 11px; color: var(--accent-emerald); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+
+/* Responsive */
+@media (max-width: 900px) {
+  #tab-build.active { flex-direction: column; }
+  .build-picker { width: 100%; min-width: 0; max-height: none; }
+  .economy-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>BALANCE ADMIN</h1>
+  <span class="subtitle">Dog Game Constants Tuner</span>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="build">BUILD CALC</div>
+  <div class="tab" data-tab="economy">ECONOMY</div>
+  <div class="tab" data-tab="constants">CONSTANTS</div>
+</div>
+
+<div id="tab-build" class="tab-content active">
+  <div class="build-picker">
+    <div class="panel">
+      <div class="panel-title">BREED</div>
+      <div class="breed-grid" id="breed-grid"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">UPGRADES</div>
+      <div id="upgrades-list"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">DECORATIONS</div>
+      <div id="decorations-list"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">EMOTE BUFF</div>
+      <select class="emote-select" id="emote-select">
+        <option value="-1">None</option>
+      </select>
+      <div id="emote-desc" style="margin-top:6px;font-size:11px;color:var(--text-dim);"></div>
+    </div>
+  </div>
+  <div class="stat-dashboard panel" style="align-self:flex-start;">
+    <div class="panel-title">COMPUTED STATS</div>
+    <div class="compare-controls">
+      <label><input type="checkbox" id="compare-toggle"> Compare mode</label>
+      <button class="btn" id="snapshot-btn" style="display:none;">Snapshot current</button>
+      <span class="compare-badge snapshot" id="snapshot-label" style="display:none;">Snapshot</span>
+      <span class="compare-badge current" id="current-label" style="display:none;">Current</span>
+    </div>
+    <div class="stat-legend" id="stat-legend"></div>
+    <div id="stat-bars"></div>
+    <div class="panel" style="margin-top:16px;background:var(--bg-raised);">
+      <div class="panel-title">DERIVED VALUES</div>
+      <div id="derived-stats" style="font-size:12px;"></div>
+    </div>
+  </div>
+</div>
+
+<div id="tab-economy" class="tab-content">
+  <div class="panel" style="padding:10px 14px;">
+    <span style="font-size:11px;color:var(--text-dim);">Economy calculations use the current build from the Build Calc tab.</span>
+  </div>
+  <div class="economy-grid">
+    <div class="panel">
+      <div class="panel-title">DIG TIME PER TILE</div>
+      <table id="dig-time-table">
+        <thead><tr><th>Tile</th><th>Hardness</th><th>Frames</th><th>Seconds</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="panel-title">RESOURCE VALUE</div>
+      <table id="resource-table">
+        <thead><tr><th>Resource</th><th>Value</th><th>Dig Time</th><th>Value/sec</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="panel-title">TIME TO AFFORD UPGRADES</div>
+      <table id="upgrade-cost-table">
+        <thead><tr><th>Upgrade</th><th>Cost</th><th>Est. Time</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="panel-title">TIME TO AFFORD DECORATIONS</div>
+      <table id="decoration-cost-table">
+        <thead><tr><th>Decoration</th><th>Cost</th><th>Est. Time</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="tab-constants" class="tab-content">
+  <div class="export-bar">
+    <button class="btn btn-primary" id="export-btn">EXPORT CONSTANTS.JS</button>
+    <button class="btn btn-danger" id="reset-btn">RESET ALL</button>
+    <span class="export-status" id="export-status"></span>
+  </div>
+  <div id="constants-editor"></div>
+</div>
+
+<script type="module">
+import {
+  WORLD_WIDTH, WORLD_HEIGHT, TILE_SIZE, SURFACE_Y, PARK_TOP, PARK_BOTTOM,
+  TILE, SOLID_TILES, HAZARD_TILES, HARDNESS, RESOURCE_VALUE, RESOURCE_NAMES,
+  GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION, MAX_FALL_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT,
+  BASE_MAX_STAMINA, BASE_STAMINA_REGEN_RATE, STAMINA_REGEN_DELAY, STAMINA_EXHAUSTION_TIME,
+  STAMINA_CLING_COST, STAMINA_CLIMB_COST, STAMINA_CLIMB_JUMP, CLIMB_SPEED, CLING_SLIDE_SPEED, CLIMB_JUMP_FORCE,
+  ACCEL_GROUND, ACCEL_AIR, DECEL_GROUND, DECEL_AIR, COYOTE_TIME, JUMP_BUFFER_TIME,
+  JUMP_CUT_MULTIPLIER, APEX_GRAVITY_MULT,
+  DOG_BREEDS, TILE_COLORS, BIOMES, DECORATIONS, BLUEPRINT_DROPS, EMOTES,
+  STAMINA_DIG_COST, STAMINA_RUN_COST, SPRINT_SPEED_MULT, STAMINA_SPRINT_COST,
+  MANTLE_FRAMES, EMOTE_DISPLAY_TICKS, EMOTE_DISPLAY_FRAMES, RESPAWN_TICKS, RESPAWN_FRAMES,
+  UPGRADES, COOP_DIG_RANGE, COOP_DIG_BONUS, DECORATION_SYNERGIES,
+  SHOP_LOCATIONS, SHOP_FLOOR_PADDING,
+  FALL_DAMAGE_THRESHOLD, FALL_DAMAGE_MULTIPLIER, FALL_DAMAGE_STUN_FRAMES,
+  BOUNCY_FORCE, SERVER_TICK_MS,
+} from '/shared/constants.js';
+
+// ---- Deep-clone mutable copies of all data for the constants editor ----
+const C = {
+  WORLD_WIDTH, WORLD_HEIGHT, TILE_SIZE, SURFACE_Y, PARK_TOP, PARK_BOTTOM,
+  GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION, MAX_FALL_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT,
+  BASE_MAX_STAMINA, BASE_STAMINA_REGEN_RATE, STAMINA_REGEN_DELAY, STAMINA_EXHAUSTION_TIME,
+  STAMINA_CLING_COST, STAMINA_CLIMB_COST, STAMINA_CLIMB_JUMP, CLIMB_SPEED, CLING_SLIDE_SPEED, CLIMB_JUMP_FORCE,
+  ACCEL_GROUND, ACCEL_AIR, DECEL_GROUND, DECEL_AIR, COYOTE_TIME, JUMP_BUFFER_TIME,
+  JUMP_CUT_MULTIPLIER, APEX_GRAVITY_MULT,
+  STAMINA_DIG_COST, STAMINA_RUN_COST, SPRINT_SPEED_MULT, STAMINA_SPRINT_COST,
+  MANTLE_FRAMES, EMOTE_DISPLAY_TICKS, EMOTE_DISPLAY_FRAMES, RESPAWN_TICKS, RESPAWN_FRAMES,
+  COOP_DIG_RANGE, COOP_DIG_BONUS, SHOP_FLOOR_PADDING,
+  FALL_DAMAGE_THRESHOLD, FALL_DAMAGE_MULTIPLIER, FALL_DAMAGE_STUN_FRAMES,
+  BOUNCY_FORCE, SERVER_TICK_MS,
+};
+
+// Deep-clone arrays/objects so edits don't touch imports
+let breeds = JSON.parse(JSON.stringify(DOG_BREEDS));
+let upgrades = JSON.parse(JSON.stringify(UPGRADES));
+let decorations = JSON.parse(JSON.stringify(DECORATIONS));
+let emotes = JSON.parse(JSON.stringify(EMOTES));
+let biomes = JSON.parse(JSON.stringify(BIOMES));
+let hardness = JSON.parse(JSON.stringify(HARDNESS));
+let resourceValue = JSON.parse(JSON.stringify(RESOURCE_VALUE));
+let resourceNames = JSON.parse(JSON.stringify(RESOURCE_NAMES));
+let synergies = JSON.parse(JSON.stringify(DECORATION_SYNERGIES));
+let blueprintDrops = JSON.parse(JSON.stringify(BLUEPRINT_DROPS));
+let tileColors = JSON.parse(JSON.stringify(TILE_COLORS));
+let shopLocations = JSON.parse(JSON.stringify(SHOP_LOCATIONS));
+
+// Original values for reset/diff
+const origC = JSON.parse(JSON.stringify(C));
+const origBreeds = JSON.parse(JSON.stringify(DOG_BREEDS));
+const origUpgrades = JSON.parse(JSON.stringify(UPGRADES));
+const origDecorations = JSON.parse(JSON.stringify(DECORATIONS));
+const origEmotes = JSON.parse(JSON.stringify(EMOTES));
+const origHardness = JSON.parse(JSON.stringify(HARDNESS));
+const origResourceValue = JSON.parse(JSON.stringify(RESOURCE_VALUE));
+
+// ---- State ----
+let selectedBreed = 0;
+let selectedUpgrades = new Set();
+let selectedDecorations = new Set();
+let selectedEmote = -1;
+let compareSnapshot = null;
+let compareMode = false;
+
+// TILE reverse map for display
+const TILE_NAMES = {};
+for (const [k, v] of Object.entries(TILE)) TILE_NAMES[v] = k;
+
+// ---- Stat colors ----
+const STAT_COLORS = {
+  moveSpeed: 'var(--stat-speed)',
+  jumpForce: 'var(--stat-jump)',
+  digSpeed: 'var(--stat-dig)',
+  maxStamina: 'var(--stat-stamina)',
+  staminaRegen: 'var(--stat-regen)',
+  climbEfficiency: 'var(--stat-climb)',
+  lootBonus: 'var(--stat-loot)',
+};
+
+const STAT_LABELS = {
+  moveSpeed: 'Move Speed',
+  jumpForce: 'Jump Force',
+  digSpeed: 'Dig Speed',
+  maxStamina: 'Max Stamina',
+  staminaRegen: 'Stamina Regen',
+  climbEfficiency: 'Climb Efficiency',
+  lootBonus: 'Loot Bonus',
+};
+
+const STAT_UNITS = {
+  moveSpeed: ' tiles/s',
+  jumpForce: '',
+  digSpeed: 'x',
+  maxStamina: '',
+  staminaRegen: '/frame',
+  climbEfficiency: 'x',
+  lootBonus: '%',
+};
+
+// ---- Compute stats (mirrors game formulas) ----
+function computeStats(breedIdx, upgradeIds, decorationIds, emoteIdx) {
+  const breed = breeds[breedIdx];
+  if (!breed) return null;
+
+  // Base values from breed
+  const base = {
+    moveSpeed: C.MOVE_SPEED * breed.stats.moveSpeed,
+    jumpForce: Math.abs(C.JUMP_FORCE) * breed.stats.jumpForce,
+    digSpeed: breed.stats.digSpeed,
+    maxStamina: C.BASE_MAX_STAMINA * breed.stats.maxStamina,
+    staminaRegen: C.BASE_STAMINA_REGEN_RATE * breed.stats.staminaRegen,
+    climbEfficiency: 1.0,
+    lootBonus: breed.stats.lootBonus || 0,
+  };
+
+  // Sum upgrade effects
+  const upgradeBonus = {};
+  for (const uid of upgradeIds) {
+    const u = upgrades.find(u => u.id === uid);
+    if (!u || !u.effect) continue;
+    for (const [stat, val] of Object.entries(u.effect)) {
+      upgradeBonus[stat] = (upgradeBonus[stat] || 0) + val;
+    }
+  }
+
+  // Sum decoration effects
+  const decoBonus = {};
+  for (const did of decorationIds) {
+    const d = decorations.find(d => d.id === did);
+    if (!d || !d.effect) continue;
+    for (const [stat, val] of Object.entries(d.effect)) {
+      decoBonus[stat] = (decoBonus[stat] || 0) + val;
+    }
+  }
+
+  // Check synergy bonuses (simplified: assume adjacent if both present)
+  for (const syn of synergies) {
+    if (decorationIds.has(syn.ids[0]) && decorationIds.has(syn.ids[1])) {
+      for (const [stat, val] of Object.entries(syn.bonus)) {
+        decoBonus[stat] = (decoBonus[stat] || 0) + val;
+      }
+    }
+  }
+
+  // Emote effect
+  const emoteBonus = {};
+  if (emoteIdx >= 0) {
+    const em = emotes[emoteIdx];
+    if (em && em.effect) {
+      for (const [stat, val] of Object.entries(em.effect)) {
+        emoteBonus[stat] = (emoteBonus[stat] || 0) + val;
+      }
+    }
+  }
+
+  // Compute final stats per layer
+  const layers = { base: {}, breed: {}, upgrades: {}, decorations: {}, emote: {}, final: {} };
+  const allStats = ['moveSpeed', 'jumpForce', 'digSpeed', 'maxStamina', 'staminaRegen', 'climbEfficiency', 'lootBonus'];
+
+  for (const stat of allStats) {
+    const b = base[stat];
+    let uAdd, dAdd, eAdd;
+
+    if (stat === 'climbEfficiency' || stat === 'lootBonus') {
+      // Additive raw (no breed multiplier for these boosts)
+      uAdd = upgradeBonus[stat] || 0;
+      dAdd = decoBonus[stat] || 0;
+      eAdd = emoteBonus[stat] || 0;
+    } else {
+      // Percentage of breed-adjusted base
+      uAdd = b * (upgradeBonus[stat] || 0);
+      dAdd = b * (decoBonus[stat] || 0);
+      eAdd = b * (emoteBonus[stat] || 0);
+    }
+
+    layers.base[stat] = getBaseStat(stat);
+    layers.breed[stat] = b;
+    layers.upgrades[stat] = b + uAdd;
+    layers.decorations[stat] = b + uAdd + dAdd;
+    layers.emote[stat] = b + uAdd + dAdd + eAdd;
+    layers.final[stat] = b + uAdd + dAdd + eAdd;
+  }
+
+  return layers;
+}
+
+function getBaseStat(stat) {
+  switch (stat) {
+    case 'moveSpeed': return C.MOVE_SPEED;
+    case 'jumpForce': return Math.abs(C.JUMP_FORCE);
+    case 'digSpeed': return 1.0;
+    case 'maxStamina': return C.BASE_MAX_STAMINA;
+    case 'staminaRegen': return C.BASE_STAMINA_REGEN_RATE;
+    case 'climbEfficiency': return 1.0;
+    case 'lootBonus': return 0;
+    default: return 0;
+  }
+}
+
+// ---- Max possible value for bar scaling ----
+function getMaxStat(stat) {
+  // Compute the highest possible value: best breed * all upgrades * all decorations * best emote
+  let maxBreedVal = 0;
+  for (const b of breeds) {
+    const val = stat === 'moveSpeed' ? C.MOVE_SPEED * b.stats.moveSpeed :
+                stat === 'jumpForce' ? Math.abs(C.JUMP_FORCE) * b.stats.jumpForce :
+                stat === 'digSpeed' ? b.stats.digSpeed :
+                stat === 'maxStamina' ? C.BASE_MAX_STAMINA * b.stats.maxStamina :
+                stat === 'staminaRegen' ? C.BASE_STAMINA_REGEN_RATE * b.stats.staminaRegen :
+                stat === 'climbEfficiency' ? 1.0 :
+                (b.stats.lootBonus || 0);
+    if (val > maxBreedVal) maxBreedVal = val;
+  }
+  // Sum all upgrade effects for this stat
+  let totalUpgrade = 0;
+  for (const u of upgrades) if (u.effect && u.effect[stat]) totalUpgrade += u.effect[stat];
+  let totalDeco = 0;
+  for (const d of decorations) if (d.effect && d.effect[stat]) totalDeco += d.effect[stat];
+  // Synergies
+  for (const s of synergies) if (s.bonus[stat]) totalDeco += s.bonus[stat];
+  let maxEmote = 0;
+  for (const e of emotes) if (e.effect && e.effect[stat] && e.effect[stat] > maxEmote) maxEmote = e.effect[stat];
+
+  if (stat === 'climbEfficiency' || stat === 'lootBonus') {
+    return maxBreedVal + totalUpgrade + totalDeco + maxEmote;
+  }
+  return maxBreedVal * (1 + totalUpgrade + totalDeco + maxEmote);
+}
+
+// ---- TAB SWITCHING ----
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+    if (tab.dataset.tab === 'economy') renderEconomy();
+    if (tab.dataset.tab === 'constants') renderConstants();
+  });
+});
+
+// ---- BUILD CONFIGURATOR ----
+
+// Breed buttons
+function renderBreeds() {
+  const grid = document.getElementById('breed-grid');
+  grid.innerHTML = '';
+  breeds.forEach((breed, i) => {
+    const btn = document.createElement('div');
+    btn.className = `breed-btn ${i === selectedBreed ? 'selected' : ''}`;
+    btn.innerHTML = `
+      <div class="breed-name">
+        <span class="breed-swatch" style="background:${breed.colors.body}"></span>
+        ${breed.name}
+      </div>
+      <div class="breed-desc">${breed.desc}</div>
+    `;
+    btn.onclick = () => { selectedBreed = i; renderBreeds(); renderStats(); };
+    grid.appendChild(btn);
+  });
+}
+
+// Upgrades list
+function renderUpgradesList() {
+  const container = document.getElementById('upgrades-list');
+  container.innerHTML = '';
+  const categories = {};
+  upgrades.forEach(u => {
+    if (!categories[u.category]) categories[u.category] = [];
+    categories[u.category].push(u);
+  });
+  for (const [cat, items] of Object.entries(categories)) {
+    const group = document.createElement('div');
+    group.className = 'category-group';
+    group.innerHTML = `<div class="category-label">${cat}</div>`;
+    items.forEach(u => {
+      const prereqMet = u.requires == null || selectedUpgrades.has(u.requires);
+      const row = document.createElement('div');
+      row.className = `item-row ${prereqMet ? '' : 'disabled'}`;
+      const checked = selectedUpgrades.has(u.id);
+      row.innerHTML = `
+        <input type="checkbox" ${checked ? 'checked' : ''} ${prereqMet ? '' : 'disabled'}>
+        <span class="item-name">${u.icon} ${u.name}</span>
+        <span class="item-effect">${u.desc}</span>
+      `;
+      row.onclick = (e) => {
+        if (!prereqMet) return;
+        if (checked) {
+          selectedUpgrades.delete(u.id);
+          // Remove dependents
+          upgrades.filter(up => up.requires === u.id).forEach(dep => selectedUpgrades.delete(dep.id));
+        } else {
+          selectedUpgrades.add(u.id);
+        }
+        renderUpgradesList();
+        renderStats();
+      };
+      group.appendChild(row);
+    });
+    container.appendChild(group);
+  }
+}
+
+// Decorations list
+function renderDecorationsList() {
+  const container = document.getElementById('decorations-list');
+  container.innerHTML = '';
+  // Find active synergies
+  const activeSyns = new Set();
+  for (const syn of synergies) {
+    if (selectedDecorations.has(syn.ids[0]) && selectedDecorations.has(syn.ids[1])) {
+      activeSyns.add(syn.name);
+      syn.ids.forEach(id => activeSyns.add(`dec-${id}`));
+    }
+  }
+
+  decorations.forEach(d => {
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    const checked = selectedDecorations.has(d.id);
+    const synTag = activeSyns.has(`dec-${d.id}`) ? `<span class="synergy-badge">SYN</span>` : '';
+    const costStr = Object.entries(d.cost).map(([k,v]) => `${v} ${k}`).join(', ');
+    row.innerHTML = `
+      <input type="checkbox" ${checked ? 'checked' : ''}>
+      <span class="item-name">${d.name} ${synTag}</span>
+      <span class="item-effect">${d.desc}</span>
+    `;
+    row.onclick = () => {
+      if (checked) selectedDecorations.delete(d.id);
+      else selectedDecorations.add(d.id);
+      renderDecorationsList();
+      renderStats();
+    };
+    container.appendChild(row);
+  });
+
+  // Show active synergies
+  const activeSynList = synergies.filter(s => selectedDecorations.has(s.ids[0]) && selectedDecorations.has(s.ids[1]));
+  if (activeSynList.length) {
+    const synDiv = document.createElement('div');
+    synDiv.style.cssText = 'margin-top:8px;padding:6px 8px;background:var(--bg-raised);border-radius:3px;border:1px solid var(--accent-gem);';
+    synDiv.innerHTML = activeSynList.map(s =>
+      `<div style="font-size:10px;color:var(--accent-gem);">${s.name}: ${Object.entries(s.bonus).map(([k,v]) => `+${(v*100).toFixed(0)}% ${k}`).join(', ')}</div>`
+    ).join('');
+    container.appendChild(synDiv);
+  }
+}
+
+// Emote selector
+function renderEmoteSelect() {
+  const sel = document.getElementById('emote-select');
+  sel.innerHTML = '<option value="-1">None (no active buff)</option>';
+  emotes.forEach((e, i) => {
+    sel.innerHTML += `<option value="${i}">${e.symbol} ${e.name} - ${e.buffDesc}</option>`;
+  });
+  sel.value = selectedEmote;
+  sel.onchange = () => {
+    selectedEmote = parseInt(sel.value);
+    const desc = document.getElementById('emote-desc');
+    if (selectedEmote >= 0) {
+      const em = emotes[selectedEmote];
+      desc.textContent = `${em.buffDesc} (${em.duration}s duration, ${em.cooldown}s cooldown)`;
+    } else {
+      desc.textContent = '';
+    }
+    renderStats();
+  };
+}
+
+// Stat bars
+function renderStats() {
+  const layers = computeStats(selectedBreed, selectedUpgrades, selectedDecorations, selectedEmote);
+  if (!layers) return;
+
+  const container = document.getElementById('stat-bars');
+  container.innerHTML = '';
+
+  const allStats = ['moveSpeed', 'jumpForce', 'digSpeed', 'maxStamina', 'staminaRegen', 'climbEfficiency', 'lootBonus'];
+  const layerNames = ['base', 'breed', 'upgrades', 'decorations', 'emote'];
+  const layerLabels = ['Base', 'Breed', 'Upgrades', 'Decorations', 'Emote'];
+  const layerOpacities = [0.25, 0.45, 0.65, 0.8, 1.0];
+
+  // Legend
+  const legend = document.getElementById('stat-legend');
+  legend.innerHTML = '';
+  layerLabels.forEach((label, i) => {
+    legend.innerHTML += `<div class="legend-item"><div class="legend-swatch" style="background:var(--accent-bone);opacity:${layerOpacities[i]}"></div>${label}</div>`;
+  });
+  if (compareMode && compareSnapshot) {
+    legend.innerHTML += `<div class="legend-item"><div class="legend-swatch" style="background:var(--accent-gem);opacity:0.5;border-style:dashed;"></div>Snapshot</div>`;
+  }
+
+  for (const stat of allStats) {
+    const maxVal = getMaxStat(stat) * 1.1 || 1;
+    const finalVal = layers.final[stat];
+    const baseVal = getBaseStat(stat);
+    const pctChange = baseVal ? ((finalVal - baseVal) / baseVal * 100) : (finalVal * 100);
+
+    const row = document.createElement('div');
+    row.className = 'stat-row';
+
+    let displayVal = finalVal;
+    let unitStr = STAT_UNITS[stat];
+    if (stat === 'lootBonus') { displayVal = finalVal * 100; }
+    if (stat === 'jumpForce') { displayVal = finalVal; }
+
+    const changeClass = pctChange > 0 ? 'positive' : pctChange < 0 ? 'negative' : '';
+    const changeStr = pctChange !== 0 ? `<span class="stat-change ${changeClass}">${pctChange > 0 ? '+' : ''}${pctChange.toFixed(1)}%</span>` : '';
+
+    row.innerHTML = `
+      <div class="stat-header">
+        <span class="stat-label" style="color:${STAT_COLORS[stat]}">${STAT_LABELS[stat]}</span>
+        <span><span class="stat-value" style="color:${STAT_COLORS[stat]}">${displayVal.toFixed(2)}${unitStr}</span>${changeStr}</span>
+      </div>
+      <div class="stat-bar-track"></div>
+    `;
+
+    const track = row.querySelector('.stat-bar-track');
+
+    // Render layers from base to emote
+    layerNames.forEach((layerName, i) => {
+      const val = layers[layerName][stat];
+      const pct = Math.min((val / maxVal) * 100, 100);
+      const seg = document.createElement('div');
+      seg.className = `stat-bar-segment ${layerName}`;
+      seg.style.cssText = `width:${pct}%;background:${STAT_COLORS[stat]};opacity:${layerOpacities[i]};`;
+      track.appendChild(seg);
+    });
+
+    // Compare snapshot overlay
+    if (compareMode && compareSnapshot) {
+      const snapVal = compareSnapshot.final[stat];
+      const pct = Math.min((snapVal / maxVal) * 100, 100);
+      const cmp = document.createElement('div');
+      cmp.className = 'stat-bar-compare';
+      cmp.style.width = `${pct}%`;
+      track.appendChild(cmp);
+    }
+
+    container.appendChild(row);
+  }
+
+  // Derived values
+  renderDerived(layers);
+  // Update economy if visible
+  if (document.getElementById('tab-economy').classList.contains('active')) renderEconomy();
+}
+
+function renderDerived(layers) {
+  const div = document.getElementById('derived-stats');
+  const f = layers.final;
+
+  // Effective dig frames for each tile
+  const staminaPerDig = C.STAMINA_DIG_COST; // per frame cost
+  const maxDigFrames = f.maxStamina / staminaPerDig;
+
+  const climbCostPerFrame = C.STAMINA_CLIMB_COST / f.climbEfficiency;
+  const maxClimbFrames = f.maxStamina / climbCostPerFrame;
+  const maxClimbDist = (maxClimbFrames / 60) * C.CLIMB_SPEED;
+
+  const sprintSpeed = f.moveSpeed * C.SPRINT_SPEED_MULT;
+  const sprintCost = C.STAMINA_SPRINT_COST;
+  const maxSprintFrames = f.maxStamina / sprintCost;
+  const maxSprintDist = (maxSprintFrames / 60) * sprintSpeed;
+
+  const regenTime = f.staminaRegen > 0 ? (f.maxStamina / f.staminaRegen / 60) : Infinity;
+
+  div.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div><span style="color:var(--text-dim)">Sprint Speed:</span> ${sprintSpeed.toFixed(2)} tiles/s</div>
+      <div><span style="color:var(--text-dim)">Max Sprint Dist:</span> ${maxSprintDist.toFixed(1)} tiles</div>
+      <div><span style="color:var(--text-dim)">Max Climb Dist:</span> ${maxClimbDist.toFixed(1)} tiles</div>
+      <div><span style="color:var(--text-dim)">Max Dig Frames:</span> ${maxDigFrames.toFixed(0)} frames</div>
+      <div><span style="color:var(--text-dim)">Full Regen Time:</span> ${regenTime.toFixed(1)}s</div>
+      <div><span style="color:var(--text-dim)">Loot Double Chance:</span> ${(f.lootBonus * 100).toFixed(1)}%</div>
+    </div>
+  `;
+}
+
+// Compare mode
+document.getElementById('compare-toggle').onchange = (e) => {
+  compareMode = e.target.checked;
+  document.getElementById('snapshot-btn').style.display = compareMode ? '' : 'none';
+  document.getElementById('snapshot-label').style.display = (compareMode && compareSnapshot) ? '' : 'none';
+  document.getElementById('current-label').style.display = (compareMode && compareSnapshot) ? '' : 'none';
+  if (!compareMode) compareSnapshot = null;
+  renderStats();
+};
+
+document.getElementById('snapshot-btn').onclick = () => {
+  compareSnapshot = computeStats(selectedBreed, selectedUpgrades, selectedDecorations, selectedEmote);
+  document.getElementById('snapshot-label').style.display = '';
+  document.getElementById('current-label').style.display = '';
+  renderStats();
+};
+
+// ---- ECONOMY SIMULATOR ----
+function renderEconomy() {
+  const layers = computeStats(selectedBreed, selectedUpgrades, selectedDecorations, selectedEmote);
+  if (!layers) return;
+  const digSpeed = layers.final.digSpeed;
+  const lootBonus = layers.final.lootBonus;
+
+  // Dig time table
+  const digBody = document.querySelector('#dig-time-table tbody');
+  digBody.innerHTML = '';
+  const diggableTiles = Object.entries(hardness)
+    .filter(([, h]) => h !== Infinity)
+    .sort((a, b) => a[1] - b[1]);
+
+  for (const [tileId, hard] of diggableTiles) {
+    const name = TILE_NAMES[tileId] || `Tile ${tileId}`;
+    const effectiveFrames = hard / digSpeed;
+    const seconds = effectiveFrames / 20; // server ticks at 20Hz
+    const cls = seconds < 2 ? 'val-good' : seconds < 5 ? 'val-warn' : 'val-bad';
+    digBody.innerHTML += `<tr>
+      <td>${name}</td>
+      <td>${hard}</td>
+      <td class="${cls}">${effectiveFrames.toFixed(0)}</td>
+      <td class="${cls}">${seconds.toFixed(1)}s</td>
+    </tr>`;
+  }
+
+  // Resource value table
+  const resBody = document.querySelector('#resource-table tbody');
+  resBody.innerHTML = '';
+  const resources = Object.entries(resourceValue).sort((a, b) => b[1] - a[1]);
+  for (const [tileId, value] of resources) {
+    const name = TILE_NAMES[tileId] || `Tile ${tileId}`;
+    const hard = hardness[tileId] || 1;
+    const effectiveFrames = hard / digSpeed;
+    const seconds = effectiveFrames / 20;
+    const effectiveValue = value * (1 + lootBonus); // average with loot bonus
+    const valuePerSec = seconds > 0 ? (effectiveValue / seconds) : 0;
+    const cls = valuePerSec > 5 ? 'val-good' : valuePerSec > 1 ? 'val-warn' : 'val-bad';
+    resBody.innerHTML += `<tr>
+      <td>${name}</td>
+      <td>${value} (avg ${effectiveValue.toFixed(1)})</td>
+      <td>${seconds.toFixed(1)}s</td>
+      <td class="${cls}">${valuePerSec.toFixed(2)}/s</td>
+    </tr>`;
+  }
+
+  // Time to afford upgrades
+  // Estimate: assume player farms the best value/sec resource for each cost type
+  const bestRatePerResource = computeBestRates(digSpeed, lootBonus);
+  renderCostTable('#upgrade-cost-table tbody', upgrades, bestRatePerResource);
+  renderCostTable('#decoration-cost-table tbody', decorations, bestRatePerResource);
+}
+
+function computeBestRates(digSpeed, lootBonus) {
+  // Map resource names to their best farming rate (value per second)
+  // Resource names map tile IDs to names like 'bones', 'gems', etc.
+  const rates = {};
+  for (const [tileId, name] of Object.entries(resourceNames)) {
+    const hard = hardness[tileId] || Infinity;
+    if (hard === Infinity) continue;
+    const frames = hard / digSpeed;
+    const seconds = frames / 20;
+    const value = resourceValue[tileId] || 0;
+    const effectiveValue = value * (1 + lootBonus);
+    const rate = seconds > 0 ? effectiveValue / seconds : 0;
+    // For bones, we track the raw count rate (1 bone per dig, not currency value)
+    if (!rates[name] || rate > rates[name]) {
+      rates[name] = 1 / seconds; // items per second (each dig yields 1 item)
+    }
+  }
+  return rates;
+}
+
+function renderCostTable(selector, items, rates) {
+  const body = document.querySelector(selector);
+  body.innerHTML = '';
+  for (const item of items) {
+    const costStr = Object.entries(item.cost).map(([k, v]) => `${v} ${k}`).join(', ');
+    // Estimate time: sum(cost_amount / rate) for each resource
+    let maxTime = 0;
+    let impossible = false;
+    for (const [resource, amount] of Object.entries(item.cost)) {
+      const rate = rates[resource];
+      if (!rate || rate <= 0) { impossible = true; break; }
+      const time = amount / rate;
+      if (time > maxTime) maxTime = time;
+    }
+    const timeStr = impossible ? '???' : formatTime(maxTime);
+    const cls = impossible ? '' : maxTime < 60 ? 'val-good' : maxTime < 300 ? 'val-warn' : 'val-bad';
+    body.innerHTML += `<tr>
+      <td>${item.icon || ''} ${item.name}</td>
+      <td>${costStr}</td>
+      <td class="${cls}">${timeStr}</td>
+    </tr>`;
+  }
+}
+
+function formatTime(seconds) {
+  if (seconds < 60) return `${seconds.toFixed(0)}s`;
+  if (seconds < 3600) return `${(seconds / 60).toFixed(1)}m`;
+  return `${(seconds / 3600).toFixed(1)}h`;
+}
+
+// ---- CONSTANTS EDITOR ----
+const CONST_SECTIONS = [
+  {
+    title: 'Physics',
+    fields: ['GRAVITY', 'MOVE_SPEED', 'JUMP_FORCE', 'FRICTION', 'MAX_FALL_SPEED',
+             'PLAYER_WIDTH', 'PLAYER_HEIGHT', 'ACCEL_GROUND', 'ACCEL_AIR',
+             'DECEL_GROUND', 'DECEL_AIR', 'COYOTE_TIME', 'JUMP_BUFFER_TIME',
+             'JUMP_CUT_MULTIPLIER', 'APEX_GRAVITY_MULT']
+  },
+  {
+    title: 'Stamina',
+    fields: ['BASE_MAX_STAMINA', 'BASE_STAMINA_REGEN_RATE', 'STAMINA_REGEN_DELAY',
+             'STAMINA_EXHAUSTION_TIME', 'STAMINA_DIG_COST', 'STAMINA_RUN_COST',
+             'SPRINT_SPEED_MULT', 'STAMINA_SPRINT_COST']
+  },
+  {
+    title: 'Climbing',
+    fields: ['STAMINA_CLING_COST', 'STAMINA_CLIMB_COST', 'STAMINA_CLIMB_JUMP',
+             'CLIMB_SPEED', 'CLING_SLIDE_SPEED', 'CLIMB_JUMP_FORCE']
+  },
+  {
+    title: 'Combat & Hazards',
+    fields: ['FALL_DAMAGE_THRESHOLD', 'FALL_DAMAGE_MULTIPLIER', 'FALL_DAMAGE_STUN_FRAMES',
+             'BOUNCY_FORCE', 'RESPAWN_TICKS', 'RESPAWN_FRAMES']
+  },
+  {
+    title: 'Misc',
+    fields: ['MANTLE_FRAMES', 'EMOTE_DISPLAY_TICKS', 'EMOTE_DISPLAY_FRAMES',
+             'COOP_DIG_RANGE', 'COOP_DIG_BONUS', 'SHOP_FLOOR_PADDING', 'SERVER_TICK_MS']
+  },
+];
+
+function renderConstants() {
+  const container = document.getElementById('constants-editor');
+  container.innerHTML = '';
+
+  // Scalar constants
+  for (const section of CONST_SECTIONS) {
+    const sec = document.createElement('div');
+    sec.className = 'panel const-section';
+    const title = document.createElement('div');
+    title.className = 'panel-title const-section-title';
+    title.textContent = section.title;
+    title.onclick = () => {
+      title.classList.toggle('collapsed');
+      grid.style.display = title.classList.contains('collapsed') ? 'none' : '';
+    };
+    sec.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.className = 'const-grid';
+    for (const field of section.fields) {
+      const modified = C[field] !== origC[field];
+      const div = document.createElement('div');
+      div.className = `const-field ${modified ? 'modified' : ''}`;
+      div.innerHTML = `<span class="const-field-name">${field}</span>`;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.step = 'any';
+      input.value = C[field];
+      input.onchange = () => {
+        C[field] = parseFloat(input.value);
+        div.classList.toggle('modified', C[field] !== origC[field]);
+        renderStats();
+      };
+      div.appendChild(input);
+      grid.appendChild(div);
+    }
+    sec.appendChild(grid);
+    container.appendChild(sec);
+  }
+
+  // Tile hardness
+  renderTileSection(container, 'Tile Hardness', hardness, origHardness);
+
+  // Resource values
+  renderTileSection(container, 'Resource Values', resourceValue, origResourceValue);
+
+  // Breed stats editor
+  renderBreedEditor(container);
+
+  // Upgrade editor
+  renderUpgradeEditor(container);
+
+  // Decoration editor
+  renderDecorationEditor(container);
+
+  // Emote editor
+  renderEmoteEditor(container);
+}
+
+function renderTileSection(container, title, data, origData) {
+  const sec = document.createElement('div');
+  sec.className = 'panel const-section';
+  const titleEl = document.createElement('div');
+  titleEl.className = 'panel-title const-section-title';
+  titleEl.textContent = title;
+  const grid = document.createElement('div');
+  grid.className = 'const-grid';
+  titleEl.onclick = () => {
+    titleEl.classList.toggle('collapsed');
+    grid.style.display = titleEl.classList.contains('collapsed') ? 'none' : '';
+  };
+  sec.appendChild(titleEl);
+
+  for (const [tileId, value] of Object.entries(data)) {
+    const name = TILE_NAMES[tileId] || `Tile ${tileId}`;
+    const modified = data[tileId] !== origData[tileId];
+    const div = document.createElement('div');
+    div.className = `const-field ${modified ? 'modified' : ''}`;
+    div.innerHTML = `<span class="const-field-name">${name}</span>`;
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.step = 'any';
+    input.value = value === Infinity ? 'Infinity' : value;
+    input.onchange = () => {
+      const v = input.value.trim();
+      data[tileId] = v === 'Infinity' ? Infinity : parseFloat(v);
+      div.classList.toggle('modified', data[tileId] !== origData[tileId]);
+      renderStats();
+    };
+    div.appendChild(input);
+    grid.appendChild(div);
+  }
+  sec.appendChild(grid);
+  container.appendChild(sec);
+}
+
+function renderBreedEditor(container) {
+  const sec = document.createElement('div');
+  sec.className = 'panel const-section';
+  const title = document.createElement('div');
+  title.className = 'panel-title const-section-title';
+  title.textContent = 'Breed Stats';
+  const content = document.createElement('div');
+  title.onclick = () => {
+    title.classList.toggle('collapsed');
+    content.style.display = title.classList.contains('collapsed') ? 'none' : '';
+  };
+  sec.appendChild(title);
+
+  for (const breed of breeds) {
+    const orig = origBreeds.find(b => b.id === breed.id);
+    const group = document.createElement('div');
+    group.style.cssText = 'margin-bottom:12px;';
+    group.innerHTML = `<div class="category-label" style="color:${breed.colors.body}">${breed.name}</div>`;
+    const grid = document.createElement('div');
+    grid.className = 'const-grid';
+    for (const [stat, val] of Object.entries(breed.stats)) {
+      const modified = orig && val !== orig.stats[stat];
+      const div = document.createElement('div');
+      div.className = `const-field ${modified ? 'modified' : ''}`;
+      div.innerHTML = `<span class="const-field-name">${stat}</span>`;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.step = 'any';
+      input.value = val;
+      input.onchange = () => {
+        breed.stats[stat] = parseFloat(input.value);
+        div.classList.toggle('modified', orig && breed.stats[stat] !== orig.stats[stat]);
+        renderStats();
+      };
+      div.appendChild(input);
+      grid.appendChild(div);
+    }
+    group.appendChild(grid);
+    content.appendChild(group);
+  }
+  sec.appendChild(content);
+  container.appendChild(sec);
+}
+
+function renderEffectEditor(parent, item, origItem) {
+  const grid = document.createElement('div');
+  grid.className = 'const-grid';
+  if (!item.effect) return grid;
+  for (const [stat, val] of Object.entries(item.effect)) {
+    const modified = origItem && origItem.effect && val !== origItem.effect[stat];
+    const div = document.createElement('div');
+    div.className = `const-field ${modified ? 'modified' : ''}`;
+    div.innerHTML = `<span class="const-field-name">${stat}</span>`;
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.step = 'any';
+    input.value = val;
+    input.onchange = () => {
+      item.effect[stat] = parseFloat(input.value);
+      div.classList.toggle('modified', origItem && origItem.effect && item.effect[stat] !== origItem.effect[stat]);
+      renderStats();
+    };
+    div.appendChild(input);
+    grid.appendChild(div);
+  }
+  return grid;
+}
+
+function renderUpgradeEditor(container) {
+  const sec = document.createElement('div');
+  sec.className = 'panel const-section';
+  const title = document.createElement('div');
+  title.className = 'panel-title const-section-title';
+  title.textContent = 'Upgrade Effects';
+  const content = document.createElement('div');
+  title.onclick = () => {
+    title.classList.toggle('collapsed');
+    content.style.display = title.classList.contains('collapsed') ? 'none' : '';
+  };
+  sec.appendChild(title);
+
+  for (const u of upgrades) {
+    const orig = origUpgrades.find(ou => ou.id === u.id);
+    const group = document.createElement('div');
+    group.style.cssText = 'margin-bottom:8px;';
+    group.innerHTML = `<div class="category-label">${u.icon} ${u.name} (${u.category})</div>`;
+    group.appendChild(renderEffectEditor(group, u, orig));
+    content.appendChild(group);
+  }
+  sec.appendChild(content);
+  container.appendChild(sec);
+}
+
+function renderDecorationEditor(container) {
+  const sec = document.createElement('div');
+  sec.className = 'panel const-section';
+  const title = document.createElement('div');
+  title.className = 'panel-title const-section-title';
+  title.textContent = 'Decoration Effects';
+  const content = document.createElement('div');
+  title.onclick = () => {
+    title.classList.toggle('collapsed');
+    content.style.display = title.classList.contains('collapsed') ? 'none' : '';
+  };
+  sec.appendChild(title);
+
+  for (const d of decorations) {
+    const orig = origDecorations.find(od => od.id === d.id);
+    const group = document.createElement('div');
+    group.style.cssText = 'margin-bottom:8px;';
+    group.innerHTML = `<div class="category-label">${d.name}</div>`;
+    group.appendChild(renderEffectEditor(group, d, orig));
+    content.appendChild(group);
+  }
+  sec.appendChild(content);
+  container.appendChild(sec);
+}
+
+function renderEmoteEditor(container) {
+  const sec = document.createElement('div');
+  sec.className = 'panel const-section';
+  const title = document.createElement('div');
+  title.className = 'panel-title const-section-title';
+  title.textContent = 'Emote Buffs';
+  const content = document.createElement('div');
+  title.onclick = () => {
+    title.classList.toggle('collapsed');
+    content.style.display = title.classList.contains('collapsed') ? 'none' : '';
+  };
+  sec.appendChild(title);
+
+  for (const e of emotes) {
+    const orig = origEmotes.find(oe => oe.id === e.id);
+    const group = document.createElement('div');
+    group.style.cssText = 'margin-bottom:8px;';
+    group.innerHTML = `<div class="category-label">${e.symbol} ${e.name} (${e.duration}s / ${e.cooldown}s cd)</div>`;
+
+    // Duration and cooldown fields
+    const metaGrid = document.createElement('div');
+    metaGrid.className = 'const-grid';
+    for (const field of ['duration', 'cooldown']) {
+      const modified = orig && e[field] !== orig[field];
+      const div = document.createElement('div');
+      div.className = `const-field ${modified ? 'modified' : ''}`;
+      div.innerHTML = `<span class="const-field-name">${field}</span>`;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.step = 'any';
+      input.value = e[field];
+      input.onchange = () => {
+        e[field] = parseFloat(input.value);
+        div.classList.toggle('modified', orig && e[field] !== orig[field]);
+      };
+      div.appendChild(input);
+      metaGrid.appendChild(div);
+    }
+    group.appendChild(metaGrid);
+    group.appendChild(renderEffectEditor(group, e, orig));
+    content.appendChild(group);
+  }
+  sec.appendChild(content);
+  container.appendChild(sec);
+}
+
+// ---- EXPORT ----
+document.getElementById('export-btn').onclick = () => {
+  const code = generateConstantsJS();
+  const blob = new Blob([code], { type: 'text/javascript' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'constants.js';
+  a.click();
+  URL.revokeObjectURL(url);
+  document.getElementById('export-status').textContent = 'Downloaded constants.js';
+  setTimeout(() => document.getElementById('export-status').textContent = '', 3000);
+};
+
+document.getElementById('reset-btn').onclick = () => {
+  if (!confirm('Reset all values to original?')) return;
+  Object.assign(C, JSON.parse(JSON.stringify(origC)));
+  breeds = JSON.parse(JSON.stringify(origBreeds));
+  upgrades = JSON.parse(JSON.stringify(origUpgrades));
+  decorations = JSON.parse(JSON.stringify(origDecorations));
+  emotes = JSON.parse(JSON.stringify(origEmotes));
+  hardness = JSON.parse(JSON.stringify(origHardness));
+  resourceValue = JSON.parse(JSON.stringify(origResourceValue));
+  renderConstants();
+  renderStats();
+  document.getElementById('export-status').textContent = 'Reset to original values';
+  setTimeout(() => document.getElementById('export-status').textContent = '', 3000);
+};
+
+function generateConstantsJS() {
+  let out = '';
+  out += `// World dimensions\n`;
+  out += `export const WORLD_WIDTH = ${C.WORLD_WIDTH};\n`;
+  out += `export const WORLD_HEIGHT = ${C.WORLD_HEIGHT};\n`;
+  out += `export const TILE_SIZE = ${C.TILE_SIZE};\n\n`;
+  out += `// Surface level (where players spawn)\n`;
+  out += `export const SURFACE_Y = ${C.SURFACE_Y};\n`;
+  out += `// Dog park zone\n`;
+  out += `export const PARK_TOP = ${C.PARK_TOP};\n`;
+  out += `export const PARK_BOTTOM = ${C.PARK_BOTTOM};\n\n`;
+
+  // TILE enum (static - not editable)
+  out += `// Tile types\n`;
+  out += `export const TILE = {\n`;
+  for (const [name, val] of Object.entries(TILE)) {
+    out += `  ${name}: ${val},\n`;
+  }
+  out += `};\n\n`;
+
+  // SOLID_TILES
+  out += `// Which tiles are solid (block movement)\n`;
+  out += `export const SOLID_TILES = new Set([\n`;
+  out += `  ${[...SOLID_TILES].map(t => `TILE.${TILE_NAMES[t]}`).join(', ')},\n`;
+  out += `]);\n\n`;
+
+  // HAZARD_TILES
+  out += `// Hazard tiles (damage/kill the player)\n`;
+  out += `export const HAZARD_TILES = new Set([${[...HAZARD_TILES].map(t => `TILE.${TILE_NAMES[t]}`).join(', ')}]);\n\n`;
+
+  // Hardness
+  out += `// Tile hardness (frames to dig, Infinity = undiggable)\n`;
+  out += `export const HARDNESS = {\n`;
+  for (const [tileId, val] of Object.entries(hardness)) {
+    const name = TILE_NAMES[tileId];
+    out += `  [TILE.${name}]: ${val === Infinity ? 'Infinity' : val},\n`;
+  }
+  out += `};\n\n`;
+
+  // Resource values
+  out += `// Resource values (currency)\n`;
+  out += `export const RESOURCE_VALUE = {\n`;
+  for (const [tileId, val] of Object.entries(resourceValue)) {
+    out += `  [TILE.${TILE_NAMES[tileId]}]: ${val},\n`;
+  }
+  out += `};\n\n`;
+
+  // Resource names (static)
+  out += `// Resource names\n`;
+  out += `export const RESOURCE_NAMES = {\n`;
+  for (const [tileId, name] of Object.entries(resourceNames)) {
+    out += `  [TILE.${TILE_NAMES[tileId]}]: '${name}',\n`;
+  }
+  out += `};\n\n`;
+
+  // Physics
+  out += `// Base physics constants (modified by breed)\n`;
+  out += `export const GRAVITY = ${C.GRAVITY};\n`;
+  out += `export const MOVE_SPEED = ${C.MOVE_SPEED};\n`;
+  out += `export const JUMP_FORCE = ${C.JUMP_FORCE};\n`;
+  out += `export const FRICTION = ${C.FRICTION};\n`;
+  out += `export const MAX_FALL_SPEED = ${C.MAX_FALL_SPEED};\n`;
+  out += `export const PLAYER_WIDTH = ${C.PLAYER_WIDTH};\n`;
+  out += `export const PLAYER_HEIGHT = ${C.PLAYER_HEIGHT};\n\n`;
+
+  // Stamina
+  out += `// Stamina\n`;
+  out += `export const BASE_MAX_STAMINA = ${C.BASE_MAX_STAMINA};\n`;
+  out += `export const BASE_STAMINA_REGEN_RATE = ${C.BASE_STAMINA_REGEN_RATE};\n`;
+  out += `export const STAMINA_REGEN_DELAY = ${C.STAMINA_REGEN_DELAY};\n`;
+  out += `export const STAMINA_EXHAUSTION_TIME = ${C.STAMINA_EXHAUSTION_TIME};\n\n`;
+
+  // Climbing
+  out += `// Climbing\n`;
+  out += `export const STAMINA_CLING_COST = ${C.STAMINA_CLING_COST};\n`;
+  out += `export const STAMINA_CLIMB_COST = ${C.STAMINA_CLIMB_COST};\n`;
+  out += `export const STAMINA_CLIMB_JUMP = ${C.STAMINA_CLIMB_JUMP};\n`;
+  out += `export const CLIMB_SPEED = ${C.CLIMB_SPEED};\n`;
+  out += `export const CLING_SLIDE_SPEED = ${C.CLING_SLIDE_SPEED};\n`;
+  out += `export const CLIMB_JUMP_FORCE = ${C.CLIMB_JUMP_FORCE};\n\n`;
+
+  // Movement feel
+  out += `// Movement feel\n`;
+  out += `export const ACCEL_GROUND = ${C.ACCEL_GROUND};\n`;
+  out += `export const ACCEL_AIR = ${C.ACCEL_AIR};\n`;
+  out += `export const DECEL_GROUND = ${C.DECEL_GROUND};\n`;
+  out += `export const DECEL_AIR = ${C.DECEL_AIR};\n`;
+  out += `export const COYOTE_TIME = ${C.COYOTE_TIME};\n`;
+  out += `export const JUMP_BUFFER_TIME = ${C.JUMP_BUFFER_TIME};\n`;
+  out += `export const JUMP_CUT_MULTIPLIER = ${C.JUMP_CUT_MULTIPLIER};\n`;
+  out += `export const APEX_GRAVITY_MULT = ${C.APEX_GRAVITY_MULT};\n\n`;
+
+  // Dog breeds
+  out += `// Dog breeds with stats\n`;
+  out += `export const DOG_BREEDS = [\n`;
+  for (const b of breeds) {
+    out += `  {\n`;
+    out += `    id: ${b.id},\n`;
+    out += `    name: '${b.name}',\n`;
+    out += `    desc: '${b.desc.replace(/'/g, "\\'")}',\n`;
+    out += `    colors: { body: '${b.colors.body}', dark: '${b.colors.dark}', light: '${b.colors.light}' },\n`;
+    out += `    stats: {\n`;
+    for (const [k, v] of Object.entries(b.stats)) {
+      out += `      ${k}: ${v},\n`;
+    }
+    out += `    },\n`;
+    if (b.freeEmote != null) out += `    freeEmote: ${b.freeEmote},\n`;
+    if (b.hitboxWidth != null) out += `    hitboxWidth: ${b.hitboxWidth},\n`;
+    if (b.hitboxHeight != null) out += `    hitboxHeight: ${b.hitboxHeight},\n`;
+    out += `  },\n`;
+  }
+  out += `];\n\n`;
+
+  // DOG_COLORS compat
+  out += `// Keep DOG_COLORS for backward compat (maps to breed colors)\n`;
+  out += `export const DOG_COLORS = DOG_BREEDS.map(b => ({\n`;
+  out += `  name: b.name,\n  body: b.colors.body,\n  dark: b.colors.dark,\n  light: b.colors.light,\n}));\n\n`;
+
+  // Tile colors (static)
+  out += `// Tile colors for rendering\n`;
+  out += `export const TILE_COLORS = {\n`;
+  for (const [tileId, colors] of Object.entries(tileColors)) {
+    const name = TILE_NAMES[tileId];
+    if (!colors) { out += `  [TILE.${name}]: null,\n`; continue; }
+    const props = Object.entries(colors).map(([k, v]) => {
+      if (typeof v === 'boolean') return `${k}: ${v}`;
+      return `${k}: '${v}'`;
+    }).join(', ');
+    out += `  [TILE.${name}]: { ${props} },\n`;
+  }
+  out += `};\n\n`;
+
+  // Biomes (static for now)
+  out += `// Biome definitions\n`;
+  out += `export const BIOMES = ${JSON.stringify(biomes, null, 2).replace(/"(\w+)":/g, '$1:')};\n\n`;
+
+  // Decorations
+  out += `// Decoration definitions\n`;
+  out += `export const DECORATIONS = [\n`;
+  for (const d of decorations) {
+    const costStr = JSON.stringify(d.cost).replace(/"(\w+)":/g, '$1: ');
+    const effectStr = JSON.stringify(d.effect).replace(/"(\w+)":/g, '$1: ');
+    let line = `  { id: ${d.id}, name: '${d.name}', cost: ${costStr}, w: ${d.w}, h: ${d.h}, color: '${d.color}',\n`;
+    line += `    desc: '${d.desc.replace(/'/g, "\\'")}', effect: ${effectStr}`;
+    if (d.requiresBlueprint) line += `, requiresBlueprint: true`;
+    if (d.generates) line += `, generates: ${JSON.stringify(d.generates).replace(/"(\w+)":/g, '$1: ')}`;
+    if (d.isRecallBeacon) line += `, isRecallBeacon: true`;
+    if (d.canPlaceAnywhere) line += `, canPlaceAnywhere: true`;
+    line += ` },\n`;
+    out += line;
+  }
+  out += `];\n\n`;
+
+  // Blueprint drops (static)
+  out += `// Blueprint drop mapping\n`;
+  out += `export const BLUEPRINT_DROPS = {\n`;
+  for (const [tileId, drop] of Object.entries(blueprintDrops)) {
+    out += `  [TILE.${TILE_NAMES[tileId]}]: { decorationId: ${drop.decorationId}, chance: ${drop.chance} },\n`;
+  }
+  out += `};\n\n`;
+
+  // Emotes
+  out += `// Emote definitions\n`;
+  out += `export const EMOTES = [\n`;
+  for (const e of emotes) {
+    const costStr = e.cost ? JSON.stringify(e.cost).replace(/"(\w+)":/g, '$1: ') : 'null';
+    const effectStr = JSON.stringify(e.effect).replace(/"(\w+)":/g, '$1: ');
+    out += `  { id: ${e.id}, name: '${e.name}', symbol: '${e.symbol}', cost: ${costStr},\n`;
+    out += `    buffDesc: '${e.buffDesc.replace(/'/g, "\\'")}', duration: ${e.duration}, cooldown: ${e.cooldown}, effect: ${effectStr} },\n`;
+  }
+  out += `];\n\n`;
+
+  // Dig/sprint/misc
+  out += `// Digging stamina cost per frame\n`;
+  out += `export const STAMINA_DIG_COST = ${C.STAMINA_DIG_COST};\n\n`;
+  out += `// Running & Sprint\n`;
+  out += `export const STAMINA_RUN_COST = ${C.STAMINA_RUN_COST};\n`;
+  out += `export const SPRINT_SPEED_MULT = ${C.SPRINT_SPEED_MULT};\n`;
+  out += `export const STAMINA_SPRINT_COST = ${C.STAMINA_SPRINT_COST};\n\n`;
+  out += `// Mantling\n`;
+  out += `export const MANTLE_FRAMES = ${C.MANTLE_FRAMES};\n\n`;
+  out += `// Emote bubble display duration\n`;
+  out += `export const EMOTE_DISPLAY_TICKS = ${C.EMOTE_DISPLAY_TICKS};\n`;
+  out += `export const EMOTE_DISPLAY_FRAMES = ${C.EMOTE_DISPLAY_FRAMES};\n\n`;
+  out += `// Respawn delay after death\n`;
+  out += `export const RESPAWN_TICKS = ${C.RESPAWN_TICKS};\n`;
+  out += `export const RESPAWN_FRAMES = ${C.RESPAWN_FRAMES};\n\n`;
+
+  // Upgrades
+  out += `// Upgrades (collars, hats, etc.)\n`;
+  out += `export const UPGRADES = [\n`;
+  for (const u of upgrades) {
+    const costStr = JSON.stringify(u.cost).replace(/"(\w+)":/g, '$1: ');
+    const effectStr = JSON.stringify(u.effect).replace(/"(\w+)":/g, '$1: ');
+    let line = `  { id: ${u.id}, name: '${u.name}', icon: '${u.icon}', desc: '${u.desc.replace(/'/g, "\\'")}', category: '${u.category}',\n`;
+    line += `    cost: ${costStr}, effect: ${effectStr}`;
+    if (u.requires != null) line += `, requires: ${u.requires}`;
+    line += ` },\n`;
+    out += line;
+  }
+  out += `];\n\n`;
+
+  // Cooperative digging
+  out += `// Cooperative digging\n`;
+  out += `export const COOP_DIG_RANGE = ${C.COOP_DIG_RANGE};\n`;
+  out += `export const COOP_DIG_BONUS = ${C.COOP_DIG_BONUS};\n\n`;
+
+  // MSG (static)
+  out += `// Network message types\n`;
+  out += `export const MSG = ${JSON.stringify(MSG, null, 2).replace(/"(\w+)":/g, '$1:')};\n\n`;
+
+  // Synergies
+  out += `// Decoration synergy pairs\n`;
+  out += `export const DECORATION_SYNERGIES = [\n`;
+  for (const s of synergies) {
+    const bonusStr = JSON.stringify(s.bonus).replace(/"(\w+)":/g, '$1: ');
+    out += `  { ids: [${s.ids.join(', ')}], bonus: ${bonusStr}, name: '${s.name}' },\n`;
+  }
+  out += `];\n\n`;
+
+  // Functions (static - copy from original)
+  out += `// Check if two placed decorations are adjacent (within 3 tiles of each other)\n`;
+  out += `function areAdjacent(dec1, dec2) {\n`;
+  out += `  const d1 = DECORATIONS.find(d => d.id === dec1.id);\n`;
+  out += `  const d2 = DECORATIONS.find(d => d.id === dec2.id);\n`;
+  out += `  if (!d1 || !d2) return false;\n`;
+  out += `  const cx1 = dec1.x + (d1.w || 1) / 2;\n`;
+  out += `  const cy1 = dec1.y + (d1.h || 1) / 2;\n`;
+  out += `  const cx2 = dec2.x + (d2.w || 1) / 2;\n`;
+  out += `  const cy2 = dec2.y + (d2.h || 1) / 2;\n`;
+  out += `  return Math.abs(cx1 - cx2) <= 3 && Math.abs(cy1 - cy2) <= 3;\n`;
+  out += `}\n\n`;
+
+  out += `// Sums up stat bonuses from all placed decorations\n`;
+  out += `export function calcDecorationBonuses(decorations) {\n`;
+  out += `  const bonuses = {};\n`;
+  out += `  for (const dec of decorations) {\n`;
+  out += `    const def = DECORATIONS.find(d => d.id === dec.id);\n`;
+  out += `    if (!def || !def.effect) continue;\n`;
+  out += `    for (const [stat, val] of Object.entries(def.effect)) {\n`;
+  out += `      bonuses[stat] = (bonuses[stat] || 0) + val;\n`;
+  out += `    }\n`;
+  out += `  }\n`;
+  out += `  for (const synergy of DECORATION_SYNERGIES) {\n`;
+  out += `    const decs0 = decorations.filter(d => d.id === synergy.ids[0]);\n`;
+  out += `    const decs1 = decorations.filter(d => d.id === synergy.ids[1]);\n`;
+  out += `    let synergyApplied = false;\n`;
+  out += `    for (const d0 of decs0) {\n`;
+  out += `      for (const d1 of decs1) {\n`;
+  out += `        if (areAdjacent(d0, d1)) { synergyApplied = true; break; }\n`;
+  out += `      }\n`;
+  out += `      if (synergyApplied) break;\n`;
+  out += `    }\n`;
+  out += `    if (synergyApplied) {\n`;
+  out += `      for (const [stat, val] of Object.entries(synergy.bonus)) {\n`;
+  out += `        bonuses[stat] = (bonuses[stat] || 0) + val;\n`;
+  out += `      }\n`;
+  out += `    }\n`;
+  out += `  }\n`;
+  out += `  return bonuses;\n`;
+  out += `}\n\n`;
+
+  // Shop locations
+  out += `// Surface shop locations\n`;
+  out += `export const SHOP_LOCATIONS = [\n`;
+  for (const s of shopLocations) {
+    out += `  { x: ${s.x}, width: ${s.width}, type: '${s.type}', name: '${s.name}', symbol: '${s.symbol}' },\n`;
+  }
+  out += `];\n\n`;
+
+  out += `export const SHOP_FLOOR_PADDING = ${C.SHOP_FLOOR_PADDING};\n\n`;
+
+  // getNearbyShop function (static)
+  out += `export function getNearbyShop(playerX, playerY) {\n`;
+  out += `  if (playerY > SURFACE_Y + 1) return null;\n`;
+  out += `  for (const shop of SHOP_LOCATIONS) {\n`;
+  out += `    const shopCenterX = shop.x + shop.width / 2;\n`;
+  out += `    const dist = Math.abs(playerX - shopCenterX);\n`;
+  out += `    if (dist < 2.5) return shop;\n`;
+  out += `  }\n`;
+  out += `  return null;\n`;
+  out += `}\n\n`;
+
+  // placeShopFloors function (static)
+  out += `export function placeShopFloors(tiles) {\n`;
+  out += `  for (const shop of SHOP_LOCATIONS) {\n`;
+  out += `    const startX = shop.x - SHOP_FLOOR_PADDING;\n`;
+  out += `    const endX = shop.x + shop.width + SHOP_FLOOR_PADDING;\n`;
+  out += `    for (let x = startX; x < endX; x++) {\n`;
+  out += `      if (x > 0 && x < WORLD_WIDTH - 1) {\n`;
+  out += `        tiles[SURFACE_Y * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;\n`;
+  out += `        tiles[(SURFACE_Y + 1) * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;\n`;
+  out += `      }\n`;
+  out += `    }\n`;
+  out += `  }\n`;
+  out += `}\n\n`;
+
+  // Fall damage
+  out += `// Fall damage\n`;
+  out += `export const FALL_DAMAGE_THRESHOLD = ${C.FALL_DAMAGE_THRESHOLD};\n`;
+  out += `export const FALL_DAMAGE_MULTIPLIER = ${C.FALL_DAMAGE_MULTIPLIER};\n`;
+  out += `export const FALL_DAMAGE_STUN_FRAMES = ${C.FALL_DAMAGE_STUN_FRAMES};\n\n`;
+
+  // Biome tile physics
+  out += `// Biome tile physics properties\n`;
+  out += `export const BOUNCY_TILES = new Set([TILE.MUSHROOM_DIRT, TILE.MUSHROOM]);\n`;
+  out += `export const BOUNCY_FORCE = ${C.BOUNCY_FORCE};\n`;
+  out += `export const ICY_TILES = new Set([TILE.FROZEN_ICE, TILE.FROZEN_GEM]);\n`;
+  out += `export const SLIPPERY_TILES = new Set([TILE.CRYSTAL_ROCK, TILE.CRYSTAL]);\n\n`;
+
+  out += `// Server tick rate\n`;
+  out += `export const SERVER_TICK_MS = ${C.SERVER_TICK_MS};\n`;
+
+  return out;
+}
+
+// Need MSG for export
+const MSG = {
+  JOIN: 'join', INPUT: 'input', PLACE_DECORATION: 'place_decoration', EMOTE: 'emote',
+  SAVE: 'save', BUY_EMOTE: 'buy_emote', BUY_DECORATION: 'buy_decoration', BUY_UPGRADE: 'buy_upgrade',
+  LOAD_WORLD: 'load_world', ROOM_JOINED: 'room_joined', STATE: 'state', TILE_UPDATE: 'tile_update',
+  RESOURCE_COLLECTED: 'resource_collected', PLAYER_JOINED: 'player_joined', PLAYER_LEFT: 'player_left',
+  DECORATION_PLACED: 'decoration_placed', EMOTE_TRIGGERED: 'emote_triggered',
+  PURCHASE_RESULT: 'purchase_result', SAVED: 'saved', ERROR: 'error', WORLD_LIST: 'world_list',
+  PING: 'ping', PING_PLACED: 'ping_placed',
+};
+
+// ---- INIT ----
+renderBreeds();
+renderUpgradesList();
+renderDecorationsList();
+renderEmoteSelect();
+renderStats();
+
+</script>
+</body>
+</html>
