@@ -898,12 +898,26 @@ const terrier = {
   ]],
 };
 
+// Shorkie — identical sprites to terrier
+// ============================================================
+const shorkie = {
+  idle: terrier.idle.map(f => [...f]),
+  walk: terrier.walk.map(f => [...f]),
+  dig: terrier.dig.map(f => [...f]),
+  climb: terrier.climb.map(f => [...f]),
+  jump: terrier.jump.map(f => [...f]),
+  mantle: terrier.mantle.map(f => [...f]),
+  sit: terrier.sit.map(f => [...f]),
+};
+
 // Export by breed name (lowercase)
 export const DOG_SPRITES = {
   labrador,
+  pitty: labrador,
   dachshund,
   husky,
   terrier,
+  shorkie,
 };
 
 // Animation state names for iteration

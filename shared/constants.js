@@ -144,14 +144,15 @@ export const APEX_GRAVITY_MULT = 0.5;  // reduced gravity near jump apex for flo
 export const DOG_BREEDS = [
   {
     id: 0,
-    name: 'Labrador',
-    desc: 'All-rounder. High stamina, reliable digger.',
+    name: 'Pitty',
+    defaultName: 'Scrappy',
+    desc: 'Speed demon. Lightning fast, sky-high jumps, weak digger.',
     colors: { body: '#C49A6C', dark: '#8B6914', light: '#E8D5A3' },
     stats: {
-      moveSpeed: 1.0,    // multiplier on base
-      jumpForce: 1.0,
-      digSpeed: 1.0,
-      maxStamina: 1.2,   // 20% more stamina
+      moveSpeed: 1.4,    // very fast
+      jumpForce: 1.35,   // sky-high jumps
+      digSpeed: 0.6,     // low dig speed
+      maxStamina: 1.0,   // mid stamina
       staminaRegen: 1.0,
     },
     freeEmote: 0, // Bark
@@ -162,6 +163,7 @@ export const DOG_BREEDS = [
   {
     id: 1,
     name: 'Dachshund',
+    defaultName: 'Diglet',
     desc: 'Born to dig. Fastest digger, tires quickly.',
     colors: { body: '#8B4513', dark: '#5C2E0A', light: '#C47D3E' },
     stats: {
@@ -179,6 +181,7 @@ export const DOG_BREEDS = [
   {
     id: 2,
     name: 'Husky',
+    defaultName: 'Tank',
     desc: 'Explorer. Fast runner, great climber, slow digger.',
     colors: { body: '#B0B0B0', dark: '#606060', light: '#FFFFFF' },
     stats: {
@@ -196,6 +199,26 @@ export const DOG_BREEDS = [
   {
     id: 3,
     name: 'Terrier',
+    defaultName: 'Diglet',
+    desc: 'Treasure hunter. Finds extra loot, fragile.',
+    colors: { body: '#D2B48C', dark: '#A0785A', light: '#F5E6D0' },
+    stats: {
+      moveSpeed: 1.1,
+      jumpForce: 1.15,   // springy
+      digSpeed: 1.3,     // good digger
+      maxStamina: 0.85,
+      staminaRegen: 0.9,
+      lootBonus: 0.15,   // 15% chance for double loot
+    },
+    freeEmote: 4, // Celebrate
+    // Hitbox derived from opaque sprite bounds (rows 5-14, cols 2-13)
+    hitboxWidth: 0.75,     // 12px
+    hitboxHeight: 0.625,   // 10px
+  },
+  {
+    id: 4,
+    name: 'Shorkie',
+    defaultName: 'Munchie',
     desc: 'Treasure hunter. Finds extra loot, fragile.',
     colors: { body: '#D2B48C', dark: '#A0785A', light: '#F5E6D0' },
     stats: {
