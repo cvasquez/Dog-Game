@@ -1088,6 +1088,30 @@ function drawSelectionOverlay() {
   selectionOverlay.appendChild(r2);
 }
 
+function cutSelection() {
+  if (!selection) return;
+  const { w: gridW, h: gridH } = getGridDims();
+  const pixels = getCurrentPixels();
+  if (!pixels) return;
+
+  // Clear selected pixels
+  for (let r = 0; r < selection.h; r++) {
+    for (let c = 0; c < selection.w; c++) {
+      const gx = selection.x + c;
+      const gy = selection.y + r;
+      if (gx >= 0 && gx < gridW && gy >= 0 && gy < gridH) {
+        setPixel(gx, gy, 0);
+      }
+    }
+  }
+
+  clearSelection();
+  drawGrid();
+  drawPreviews();
+  statusText.textContent = 'Selection cut';
+  setTimeout(() => { statusText.textContent = ''; }, 2000);
+}
+
 function shiftSelection(dx, dy) {
   if (!selection) return;
   const { w: gridW, h: gridH } = getGridDims();
@@ -1152,6 +1176,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'f') { currentTool = 'fill'; clearSelection(); updateToolButtons(); }
   if (e.key === 's' && !e.ctrlKey && !e.metaKey) { currentTool = 'select'; updateToolButtons(); e.preventDefault(); }
   if (e.key === 'Escape') { clearSelection(); }
+  if (e.key === 'x' && (e.ctrlKey || e.metaKey) && selection) { cutSelection(); e.preventDefault(); return; }
   // Arrow keys shift selection (no modifier needed)
   if (selection && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key) && !e.ctrlKey) {
     const dx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
