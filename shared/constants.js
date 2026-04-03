@@ -580,7 +580,7 @@ export function getNearbyShop(playerX, playerY) {
 }
 
 // Resource bank on surface — safe storage that survives death and teleport
-export const BANK_LOCATION = { x: 28, width: 2, name: 'Stash Box', symbol: '📦' };
+export const BANK_LOCATION = { x: 25, width: 2, name: 'Stash Box', symbol: '📦' };
 
 // Returns true if the player is near the bank
 export function getNearbyBank(playerX, playerY) {
