@@ -308,10 +308,12 @@ function genDogSprite(breedId, animState, frameIndex) {
   for (let y = 0; y < 16; y++) {
     const row = pixelData[y];
     for (let x = 0; x < 16; x++) {
-      const idx = row.charCodeAt(x) - 48; // '0' = 48
+      const idx = parseInt(row[x], 16);
       if (idx === 0) continue;
-      ctx.fillStyle = resolved[idx];
-      ctx.fillRect(x, y, 1, 1);
+      if (resolved[idx]) {
+        ctx.fillStyle = resolved[idx];
+        ctx.fillRect(x, y, 1, 1);
+      }
     }
   }
   return c;
@@ -330,8 +332,10 @@ function genDecorationSprite(decId) {
     for (let x = 0; x < w; x++) {
       const idx = parseInt(pixels[y][x], 16);
       if (idx === 0) continue;
-      ctx.fillStyle = palette[idx];
-      ctx.fillRect(x, y, 1, 1);
+      if (palette[idx]) {
+        ctx.fillStyle = palette[idx];
+        ctx.fillRect(x, y, 1, 1);
+      }
     }
   }
   return c;

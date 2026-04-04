@@ -158,6 +158,7 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
   <button id="exportBtn">Copy All to Clipboard</button>
   <button id="exportBreedBtn">Copy Breed</button>
   <button id="importBtn">Import from Clipboard</button>
+  <button id="downloadAllBtn" style="margin-top:4px;background:#2e7d32">Download All from DB</button>
 </div>
 
 <div class="main">
@@ -1759,6 +1760,47 @@ document.getElementById('shopSaveAllBtn').addEventListener('click', async () => 
   if (saved > 0) {
     const synced = await syncToFile();
     showShopStatus(`Saved ${saved} shop sprites` + (synced ? ' (DB + file)' : ' (DB only)'), false);
+  }
+});
+
+// Download all sprites from all DB categories into a single JSON file
+document.getElementById('downloadAllBtn').addEventListener('click', async () => {
+  if (!isSupabaseConfigured()) {
+    statusText.textContent = 'Supabase not configured';
+    return;
+  }
+  const sb = getSupabaseClient();
+  if (!sb) return;
+
+  statusText.textContent = 'Fetching all sprites from DB...';
+
+  try {
+    const [breeds, decorations, shops] = await Promise.all([
+      sb.from('custom_sprites').select('breed_key, sprite_data, palette, name, author, updated_at').eq('is_public', true),
+      sb.from('decoration_sprites').select('decoration_id, pixels, palette, updated_at'),
+      sb.from('shop_sprites').select('shop_type, pixels, palette, updated_at'),
+    ]);
+
+    const result = {
+      exported_at: new Date().toISOString(),
+      breeds: breeds.data || [],
+      decorations: decorations.data || [],
+      shops: shops.data || [],
+    };
+
+    const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dog-game-sprites-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    const counts = `${result.breeds.length} breeds, ${result.decorations.length} decorations, ${result.shops.length} shops`;
+    statusText.textContent = `Downloaded ${counts}`;
+    setTimeout(() => { statusText.textContent = ''; }, 5000);
+  } catch (e) {
+    statusText.textContent = 'Download failed: ' + e.message;
   }
 });
 
