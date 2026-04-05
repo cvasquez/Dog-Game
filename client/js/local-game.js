@@ -15,6 +15,7 @@ import { HUD } from './hud.js';
 import { Shop } from './shop.js';
 import { Bank } from './bank.js';
 import { ActionBar } from './emotes.js';
+import { CharacterSheet } from './character-sheet.js';
 import { generateWorld } from './world-gen.js';
 
 const SAVE_KEY = 'doggame_worlds';
@@ -33,6 +34,7 @@ export class LocalGame {
     this.shop = new Shop();
     this.bank = new Bank();
     this.actionBar = new ActionBar(this.hud);
+    this.charSheet = new CharacterSheet(this.actionBar);
 
     this.localPlayer = null;
     this.players = new Map();
@@ -254,6 +256,15 @@ export class LocalGame {
     this.nearbyShop = getNearbyShop(this.localPlayer.x, this.localPlayer.y);
     this.nearbyBank = getNearbyBank(this.localPlayer.x, this.localPlayer.y);
 
+    // Character sheet toggle (C key — works anywhere)
+    if (this.input.justPressed('KeyC')) {
+      if (this.shop.visible || this.bank.visible) {
+        // Don't open while other overlays are up
+      } else {
+        this.charSheet.toggle(this.localPlayer, this.decorations);
+      }
+    }
+
     // Shop/Bank toggle — only when near a machine at the surface
     if (this.input.justPressed('KeyB')) {
       if (this.shop.visible) {
@@ -278,7 +289,7 @@ export class LocalGame {
     }
 
     // Toggle key legend
-    if (this.input.justPressed('KeyH') && !this.shop.visible && !this.bank.visible) {
+    if (this.input.justPressed('KeyH') && !this.shop.visible && !this.bank.visible && !this.charSheet.visible) {
       const legend = document.getElementById('keyLegend');
       const legendHint = document.getElementById('keyLegendHint');
       if (legend) {
@@ -326,7 +337,9 @@ export class LocalGame {
     this.localPlayer.updateEmoteTimers(this.decorations);
 
     if (this.input.justPressed('Escape')) {
-      if (this.shop.visible) {
+      if (this.charSheet.visible) {
+        this.charSheet.hide();
+      } else if (this.shop.visible) {
         this.shop.hide();
       } else if (this.bank.visible) {
         this.bank.hide();
@@ -340,7 +353,7 @@ export class LocalGame {
     }
 
     const wasDead = this.localPlayer.dead;
-    if (!this.shop.visible && !this.bank.visible) {
+    if (!this.shop.visible && !this.bank.visible && !this.charSheet.visible) {
       const inputState = this.input.getState();
       this.localPlayer.predictUpdate(inputState, this.world, dt);
       this.handleDigging(inputState);
