@@ -51,6 +51,16 @@ const worldList = document.getElementById('worldList');
 
 let selectedBreed = 0;
 
+// Generate breed buttons from DOG_BREEDS constants
+for (const breed of DOG_BREEDS) {
+  const btn = document.createElement('button');
+  btn.className = 'breed-btn' + (breed.id === 0 ? ' selected' : '');
+  btn.dataset.breed = breed.id;
+  btn.innerHTML = `<span class="breed-icon" id="breedIcon${breed.id}"></span>` +
+    `<span class="breed-info"><strong>${breed.defaultName} the ${breed.name}</strong><br><small>${breed.desc}</small></span>`;
+  breedPicker.appendChild(btn);
+}
+
 // Breed picker
 breedPicker.addEventListener('click', (e) => {
   const btn = e.target.closest('.breed-btn');
