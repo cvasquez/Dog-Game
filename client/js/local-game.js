@@ -289,7 +289,7 @@ export class LocalGame {
     }
 
     // Toggle key legend
-    if (this.input.justPressed('KeyH') && !this.shop.visible && !this.bank.visible) {
+    if (this.input.justPressed('KeyH') && !this.shop.visible && !this.bank.visible && !this.charSheet.visible) {
       const legend = document.getElementById('keyLegend');
       const legendHint = document.getElementById('keyLegendHint');
       if (legend) {

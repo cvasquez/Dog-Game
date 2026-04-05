@@ -45,7 +45,6 @@ const createBtn = document.getElementById('createBtn');
 const joinBtn = document.getElementById('joinBtn');
 const loadBtn = document.getElementById('loadBtn');
 const roomInput = document.getElementById('roomInput');
-const nameInput = document.getElementById('playerName');
 const breedPicker = document.getElementById('breedPicker');
 const lobbyError = document.getElementById('lobbyError');
 const worldList = document.getElementById('worldList');
@@ -115,7 +114,7 @@ function showWorldList(saves) {
 
 function startSoloGame(saveData) {
   lobbyError.textContent = '';
-  const playerName = nameInput.value.trim() || DOG_BREEDS[selectedBreed]?.defaultName || 'Dog';
+  const playerName = DOG_BREEDS[selectedBreed]?.defaultName || 'Dog';
 
   game = new LocalGame();
   game.start(playerName, selectedBreed, saveData);
@@ -123,7 +122,7 @@ function startSoloGame(saveData) {
 
 async function startMultiplayerGame(roomId) {
   lobbyError.textContent = '';
-  const playerName = nameInput.value.trim() || DOG_BREEDS[selectedBreed]?.defaultName || 'Dog';
+  const playerName = DOG_BREEDS[selectedBreed]?.defaultName || 'Dog';
 
   try {
     createBtn.disabled = true;
