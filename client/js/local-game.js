@@ -18,7 +18,8 @@ import { ActionBar } from './emotes.js';
 import { generateWorld } from './world-gen.js';
 
 const SAVE_KEY = 'doggame_worlds';
-const AUTO_SAVE_MS = 60_000; // auto-save every minute
+const SAVE_REMINDER_DELAY = 5 * 60_000;  // 5 minutes before first reminder
+const SAVE_REMINDER_COOLDOWN = 60_000;   // don't repeat reminder more than once per minute
 
 export class LocalGame {
   constructor() {
@@ -63,6 +64,11 @@ export class LocalGame {
       deaths: 0, fallDamagesTaken: 0,
     };
     this.achievementQueue = []; // pending popups
+
+    // Save reminder state (no auto-save — player saves manually with Tab)
+    this.lastSaveTime = Date.now();
+    this.unsavedChanges = false;
+    this.lastSaveReminderTime = 0;
   }
 
   start(playerName, breedId, saveData) {
@@ -140,6 +146,7 @@ export class LocalGame {
       this.placingDecoration = decId;
       this.shop.hide();
       this.notify('Click in the dog park to place your decoration!');
+      this.unsavedChanges = true;
     };
     this.shop.onBuyEmote = (emoteId) => {
       const emoteDef = EMOTES.find(e => e.id === emoteId);
@@ -154,6 +161,7 @@ export class LocalGame {
       this.hud.updateResources(this.localPlayer.resources);
       this.refreshShop();
       this.notify('Emote unlocked!');
+      this.unsavedChanges = true;
     };
     this.shop.onBuyUpgrade = (upgradeId) => {
       const upgrade = UPGRADES.find(u => u.id === upgradeId);
@@ -170,6 +178,7 @@ export class LocalGame {
       this.hud.updateResources(this.localPlayer.resources);
       this.refreshShop();
       this.notify(`${upgrade.name} equipped!`);
+      this.unsavedChanges = true;
       this.checkAchievement('first_upgrade');
       if (this.localPlayer.ownedUpgrades.length >= UPGRADES.length) this.checkAchievement('all_upgrades');
     };
@@ -204,11 +213,17 @@ export class LocalGame {
     this.hud.setRoomCode(this.worldId, true);
     this.hud.updateResources(this.localPlayer.resources);
 
-    // Controls hint
-    const hint = document.createElement('div');
-    hint.className = 'controls-hint';
-    hint.innerHTML = 'WASD/Arrows: Move | Shift: Sprint<br>F/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>R: Recall to surface (lose 50% loot)<br>B: Shop / Stash Box (at surface) | Tab: Save';
-    document.body.appendChild(hint);
+    // Show key legend (replaces old controls-hint)
+    const legend = document.getElementById('keyLegend');
+    const legendHint = document.getElementById('keyLegendHint');
+    const keysHidden = localStorage.getItem('doggame_keysVisible') === 'false';
+    if (legend) {
+      legend.classList.toggle('hidden', keysHidden);
+      legend.style.display = '';
+    }
+    if (legendHint) {
+      legendHint.style.display = keysHidden ? '' : 'none';
+    }
 
     this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
     window.addEventListener('resize', () => {
@@ -218,9 +233,6 @@ export class LocalGame {
         this.camera.resize(vs.width, vs.height);
       }
     });
-
-    // Auto-save interval
-    this.autoSaveInterval = setInterval(() => this.save(), AUTO_SAVE_MS);
 
     // Start loop
     this.running = true;
@@ -260,7 +272,32 @@ export class LocalGame {
     // Save
     if (this.input.justPressed('Tab')) {
       this.save();
+      this.lastSaveTime = Date.now();
+      this.unsavedChanges = false;
       this.notify('World saved!');
+    }
+
+    // Toggle key legend
+    if (this.input.justPressed('KeyH') && !this.shop.visible && !this.bank.visible) {
+      const legend = document.getElementById('keyLegend');
+      const legendHint = document.getElementById('keyLegendHint');
+      if (legend) {
+        const nowHidden = !legend.classList.contains('hidden');
+        legend.classList.toggle('hidden', nowHidden);
+        if (legendHint) legendHint.style.display = nowHidden ? '' : 'none';
+        localStorage.setItem('doggame_keysVisible', String(!nowHidden));
+      }
+    }
+
+    // Save reminder — nudge player when they have unsaved progress
+    if (this.unsavedChanges) {
+      const now = Date.now();
+      const timeSinceSave = now - this.lastSaveTime;
+      const timeSinceReminder = now - this.lastSaveReminderTime;
+      if (timeSinceSave >= SAVE_REMINDER_DELAY && timeSinceReminder >= SAVE_REMINDER_COOLDOWN) {
+        this.notify('Unsaved progress \u2014 press Tab to save');
+        this.lastSaveReminderTime = now;
+      }
     }
 
     // Action bar — number keys 1-8 trigger emotes
@@ -546,6 +583,7 @@ export class LocalGame {
         if (p.lootBonus && Math.random() < p.lootBonus) amount = 2;
         p.resources[resourceName] = (p.resources[resourceName] || 0) + amount;
         this.hud.updateResources(p.resources);
+        this.unsavedChanges = true;
 
         // Track stats for achievements
         this.stats.tilesDigged++;
@@ -569,6 +607,7 @@ export class LocalGame {
             p.discoveredBlueprints.push(blueprintDrop.decorationId);
             const decDef = DECORATIONS.find(d => d.id === blueprintDrop.decorationId);
             this.notify(`Blueprint discovered: ${decDef.name}!`);
+            this.unsavedChanges = true;
             this.checkAchievement('first_blueprint');
             // Check if all blueprints discovered
             const totalBlueprints = DECORATIONS.filter(d => d.requiresBlueprint).length;
@@ -698,6 +737,7 @@ export class LocalGame {
       // Recalculate stats (decoration buffs affect all players)
       this.localPlayer.applyUpgrades(this.decorations);
       this.notify('Decoration placed!');
+      this.unsavedChanges = true;
       this.checkAchievement('first_decoration');
     } else {
       this.notify('Must place on the ground in the dog park area');
@@ -836,6 +876,7 @@ export class LocalGame {
         if (p.lootBonus && Math.random() < p.lootBonus) amount = 2;
         p.resources[resourceName] = (p.resources[resourceName] || 0) + amount;
         this.hud.updateResources(p.resources);
+        this.unsavedChanges = true;
 
         this.stats.tilesDigged++;
         if (resourceName === 'bones') { this.stats.totalBones += amount; if (this.stats.totalBones >= 100) this.checkAchievement('collect_100_bones'); }
@@ -857,6 +898,7 @@ export class LocalGame {
             p.discoveredBlueprints.push(blueprintDrop.decorationId);
             const decDef = DECORATIONS.find(d => d.id === blueprintDrop.decorationId);
             this.notify(`Blueprint discovered: ${decDef.name}!`);
+            this.unsavedChanges = true;
             this.checkAchievement('first_blueprint');
             const totalBlueprints = DECORATIONS.filter(d => d.requiresBlueprint).length;
             if (p.discoveredBlueprints.length >= totalBlueprints) this.checkAchievement('all_blueprints');
@@ -1057,6 +1099,8 @@ export class LocalGame {
     if (p.prestigeLevel >= 5) this.checkAchievement('prestige_5');
 
     this.save();
+    this.lastSaveTime = Date.now();
+    this.unsavedChanges = false;
     this.notify(`Prestige ${p.prestigeLevel}! +${p.prestigeLevel * 8}% all stats`);
   }
 
