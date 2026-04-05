@@ -1605,7 +1605,7 @@ input[type="text"]::placeholder {
 .key-row {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   flex-wrap: wrap;
 }
 .key-row-toggle {
@@ -1615,10 +1615,10 @@ input[type="text"]::placeholder {
 
 #keyLegend kbd, #keyLegendHint kbd {
   font-family: 'Press Start 2P', monospace;
-  font-size: 6px;
+  font-size: 8px;
   display: inline-block;
-  min-width: 14px;
-  padding: 2px 4px;
+  min-width: 16px;
+  padding: 3px 5px;
   text-align: center;
   color: var(--text-primary);
   background: linear-gradient(180deg, #4E342E 0%, #3A2518 100%);
@@ -1631,7 +1631,7 @@ input[type="text"]::placeholder {
 
 .key-label {
   font-family: 'Press Start 2P', monospace;
-  font-size: 5px;
+  font-size: 7px;
   color: var(--text-dim);
   margin-right: 6px;
 }

@@ -1305,6 +1305,46 @@ function renderBreedEditor(container) {
     const group = document.createElement('div');
     group.style.cssText = 'margin-bottom:12px;';
     group.innerHTML = `<div class="category-label" style="color:${breed.colors.body}">${breed.name}</div>`;
+
+    // Editable defaultName and desc fields
+    const textFields = document.createElement('div');
+    textFields.className = 'const-grid';
+
+    // Default Name
+    const nameDiv = document.createElement('div');
+    nameDiv.className = `const-field ${orig && breed.defaultName !== orig.defaultName ? 'modified' : ''}`;
+    nameDiv.innerHTML = `<span class="const-field-name">defaultName</span>`;
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.value = breed.defaultName || '';
+    nameInput.style.cssText = 'width:100px;';
+    nameInput.onchange = () => {
+      breed.defaultName = nameInput.value;
+      nameDiv.classList.toggle('modified', orig && breed.defaultName !== orig.defaultName);
+      renderBreeds();
+    };
+    nameDiv.appendChild(nameInput);
+    textFields.appendChild(nameDiv);
+
+    // Description
+    const descDiv = document.createElement('div');
+    descDiv.className = `const-field ${orig && breed.desc !== orig.desc ? 'modified' : ''}`;
+    descDiv.style.cssText = 'grid-column: 1 / -1;';
+    descDiv.innerHTML = `<span class="const-field-name">desc</span>`;
+    const descInput = document.createElement('input');
+    descInput.type = 'text';
+    descInput.value = breed.desc || '';
+    descInput.style.cssText = 'width:100%;flex:1;';
+    descInput.onchange = () => {
+      breed.desc = descInput.value;
+      descDiv.classList.toggle('modified', orig && breed.desc !== orig.desc);
+      renderBreeds();
+    };
+    descDiv.appendChild(descInput);
+    textFields.appendChild(descDiv);
+
+    group.appendChild(textFields);
+
     const grid = document.createElement('div');
     grid.className = 'const-grid';
 
