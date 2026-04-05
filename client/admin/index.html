@@ -531,9 +531,16 @@ import {
   STAMINA_DIG_COST, STAMINA_RUN_COST, SPRINT_SPEED_MULT, STAMINA_SPRINT_COST,
   MANTLE_FRAMES, EMOTE_DISPLAY_TICKS, EMOTE_DISPLAY_FRAMES, RESPAWN_TICKS, RESPAWN_FRAMES,
   UPGRADES, COOP_DIG_RANGE, COOP_DIG_BONUS, DECORATION_SYNERGIES,
-  SHOP_LOCATIONS, SHOP_FLOOR_PADDING,
+  SHOP_LOCATIONS, SHOP_FLOOR_PADDING, BANK_LOCATION,
   FALL_DAMAGE_MIN_BLOCKS, FALL_DAMAGE_SCALE, FALL_DAMAGE_STUN_FRAMES,
   BOUNCY_FORCE, SERVER_TICK_MS,
+  BASE_MAX_HP, HP_REGEN_RATE, HP_REGEN_DELAY, LAVA_DAMAGE,
+  CRUMBLE_DELAY_FRAMES,
+  IDLE_ZOOM_SCALE, IDLE_ZOOM_IN_SPEED, IDLE_ZOOM_OUT_SPEED, IDLE_SIT_DELAY,
+  DEPTH_ZOOM_START, DEPTH_ZOOM_MAX_DEPTH, DEPTH_ZOOM_MAX_SCALE, DEPTH_ZOOM_SPEED,
+  DARKNESS_START_DEPTH, DARKNESS_MAX_DEPTH, DARKNESS_MAX_ALPHA, DARKNESS_INNER_RADIUS, DARKNESS_OUTER_RADIUS,
+  PRESTIGE_STAT_BONUS, PRESTIGE_HP_BONUS,
+  ACHIEVEMENTS,
 } from '/shared/constants.js';
 
 // ---- Deep-clone mutable copies of all data for the constants editor ----
@@ -549,6 +556,12 @@ const C = {
   COOP_DIG_RANGE, COOP_DIG_BONUS, SHOP_FLOOR_PADDING,
   FALL_DAMAGE_MIN_BLOCKS, FALL_DAMAGE_SCALE, FALL_DAMAGE_STUN_FRAMES,
   BOUNCY_FORCE, SERVER_TICK_MS,
+  BASE_MAX_HP, HP_REGEN_RATE, HP_REGEN_DELAY, LAVA_DAMAGE,
+  CRUMBLE_DELAY_FRAMES,
+  IDLE_ZOOM_SCALE, IDLE_ZOOM_IN_SPEED, IDLE_ZOOM_OUT_SPEED, IDLE_SIT_DELAY,
+  DEPTH_ZOOM_START, DEPTH_ZOOM_MAX_DEPTH, DEPTH_ZOOM_MAX_SCALE, DEPTH_ZOOM_SPEED,
+  DARKNESS_START_DEPTH, DARKNESS_MAX_DEPTH, DARKNESS_MAX_ALPHA, DARKNESS_INNER_RADIUS, DARKNESS_OUTER_RADIUS,
+  PRESTIGE_STAT_BONUS, PRESTIGE_HP_BONUS,
 };
 
 // Deep-clone arrays/objects so edits don't touch imports
@@ -564,6 +577,8 @@ let synergies = JSON.parse(JSON.stringify(DECORATION_SYNERGIES));
 let blueprintDrops = JSON.parse(JSON.stringify(BLUEPRINT_DROPS));
 let tileColors = JSON.parse(JSON.stringify(TILE_COLORS));
 let shopLocations = JSON.parse(JSON.stringify(SHOP_LOCATIONS));
+let bankLocation = JSON.parse(JSON.stringify(BANK_LOCATION));
+let achievements = JSON.parse(JSON.stringify(ACHIEVEMENTS));
 
 // Original values for reset/diff
 const origC = JSON.parse(JSON.stringify(C));
@@ -1139,9 +1154,27 @@ const CONST_SECTIONS = [
              'CLIMB_SPEED', 'CLING_SLIDE_SPEED', 'CLIMB_JUMP_FORCE']
   },
   {
+    title: 'Health',
+    fields: ['BASE_MAX_HP', 'HP_REGEN_RATE', 'HP_REGEN_DELAY', 'LAVA_DAMAGE']
+  },
+  {
     title: 'Combat & Hazards',
     fields: ['FALL_DAMAGE_MIN_BLOCKS', 'FALL_DAMAGE_SCALE', 'FALL_DAMAGE_STUN_FRAMES',
-             'BOUNCY_FORCE', 'RESPAWN_TICKS', 'RESPAWN_FRAMES']
+             'BOUNCY_FORCE', 'RESPAWN_TICKS', 'RESPAWN_FRAMES', 'CRUMBLE_DELAY_FRAMES']
+  },
+  {
+    title: 'Camera & Zoom',
+    fields: ['IDLE_SIT_DELAY', 'IDLE_ZOOM_SCALE', 'IDLE_ZOOM_IN_SPEED', 'IDLE_ZOOM_OUT_SPEED',
+             'DEPTH_ZOOM_START', 'DEPTH_ZOOM_MAX_DEPTH', 'DEPTH_ZOOM_MAX_SCALE', 'DEPTH_ZOOM_SPEED']
+  },
+  {
+    title: 'Darkness',
+    fields: ['DARKNESS_START_DEPTH', 'DARKNESS_MAX_DEPTH', 'DARKNESS_MAX_ALPHA',
+             'DARKNESS_INNER_RADIUS', 'DARKNESS_OUTER_RADIUS']
+  },
+  {
+    title: 'Prestige',
+    fields: ['PRESTIGE_STAT_BONUS', 'PRESTIGE_HP_BONUS']
   },
   {
     title: 'Misc',
@@ -1259,6 +1292,14 @@ function renderBreedEditor(container) {
   };
   sec.appendChild(title);
 
+  // Core stats every breed has; optional stats can be toggled on/off per breed
+  const CORE_STATS = ['moveSpeed', 'jumpForce', 'digSpeed', 'maxStamina', 'staminaRegen'];
+  // Optional stats — add new breed-specific abilities here
+  const OPTIONAL_STATS = [
+    { key: 'lootBonus', label: 'Loot Bonus', default: 0.1 },
+    { key: 'maxHP', label: 'Max HP', default: 1.0 },
+  ];
+
   for (const breed of breeds) {
     const orig = origBreeds.find(b => b.id === breed.id);
     const group = document.createElement('div');
@@ -1266,7 +1307,11 @@ function renderBreedEditor(container) {
     group.innerHTML = `<div class="category-label" style="color:${breed.colors.body}">${breed.name}</div>`;
     const grid = document.createElement('div');
     grid.className = 'const-grid';
-    for (const [stat, val] of Object.entries(breed.stats)) {
+
+    // Render core stats (always present)
+    for (const stat of CORE_STATS) {
+      const val = breed.stats[stat];
+      if (val == null) continue;
       const modified = orig && val !== orig.stats[stat];
       const div = document.createElement('div');
       div.className = `const-field ${modified ? 'modified' : ''}`;
@@ -1283,6 +1328,62 @@ function renderBreedEditor(container) {
       div.appendChild(input);
       grid.appendChild(div);
     }
+
+    // Render optional stats with enable/disable checkboxes
+    for (const opt of OPTIONAL_STATS) {
+      const has = opt.key in breed.stats;
+      const origHas = orig && opt.key in orig.stats;
+      const modified = has !== origHas || (has && origHas && breed.stats[opt.key] !== orig.stats[opt.key]);
+      const div = document.createElement('div');
+      div.className = `const-field ${modified ? 'modified' : ''}`;
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = has;
+      cb.style.cssText = 'accent-color:var(--accent-bone);cursor:pointer;margin-right:4px;';
+
+      const label = document.createElement('span');
+      label.className = 'const-field-name';
+      label.textContent = opt.label;
+
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.step = 'any';
+      input.value = has ? breed.stats[opt.key] : opt.default;
+      input.disabled = !has;
+      input.style.opacity = has ? '1' : '0.35';
+
+      cb.onchange = () => {
+        if (cb.checked) {
+          breed.stats[opt.key] = parseFloat(input.value);
+          input.disabled = false;
+          input.style.opacity = '1';
+        } else {
+          delete breed.stats[opt.key];
+          input.disabled = true;
+          input.style.opacity = '0.35';
+        }
+        const nowModified = (opt.key in breed.stats) !== origHas ||
+          ((opt.key in breed.stats) && origHas && breed.stats[opt.key] !== orig.stats[opt.key]);
+        div.classList.toggle('modified', nowModified);
+        renderStats();
+      };
+
+      input.onchange = () => {
+        if (cb.checked) {
+          breed.stats[opt.key] = parseFloat(input.value);
+          const nowModified = origHas ? breed.stats[opt.key] !== orig.stats[opt.key] : true;
+          div.classList.toggle('modified', nowModified);
+          renderStats();
+        }
+      };
+
+      div.appendChild(cb);
+      div.appendChild(label);
+      div.appendChild(input);
+      grid.appendChild(div);
+    }
+
     group.appendChild(grid);
     content.appendChild(group);
   }
@@ -1538,6 +1639,7 @@ function generateConstantsJS() {
     out += `  {\n`;
     out += `    id: ${b.id},\n`;
     out += `    name: '${b.name}',\n`;
+    if (b.defaultName) out += `    defaultName: '${b.defaultName}',\n`;
     out += `    desc: '${b.desc.replace(/'/g, "\\'")}',\n`;
     out += `    colors: { body: '${b.colors.body}', dark: '${b.colors.dark}', light: '${b.colors.light}' },\n`;
     out += `    stats: {\n`;
@@ -1606,8 +1708,12 @@ function generateConstantsJS() {
   for (const e of emotes) {
     const costStr = e.cost ? JSON.stringify(e.cost).replace(/"(\w+)":/g, '$1: ') : 'null';
     const effectStr = JSON.stringify(e.effect).replace(/"(\w+)":/g, '$1: ');
-    out += `  { id: ${e.id}, name: '${e.name}', symbol: '${e.symbol}', cost: ${costStr},\n`;
-    out += `    buffDesc: '${e.buffDesc.replace(/'/g, "\\'")}', duration: ${e.duration}, cooldown: ${e.cooldown}, effect: ${effectStr} },\n`;
+    let line = `  { id: ${e.id}, name: '${e.name}', symbol: '${e.symbol}', cost: ${costStr},\n`;
+    line += `    buffDesc: '${e.buffDesc.replace(/'/g, "\\'")}', duration: ${e.duration}, cooldown: ${e.cooldown}, effect: ${effectStr}`;
+    if (e.isDig) line += `, isDig: true, digCount: ${e.digCount || 3}`;
+    if (e.isRecall) line += `, isRecall: true, recallPenalty: ${e.recallPenalty || 0}`;
+    line += ` },\n`;
+    out += line;
   }
   out += `];\n\n`;
 
@@ -1714,27 +1820,52 @@ function generateConstantsJS() {
   // getNearbyShop function (static)
   out += `export function getNearbyShop(playerX, playerY) {\n`;
   out += `  if (playerY > SURFACE_Y + 1) return null;\n`;
+  out += `  let closest = null;\n`;
+  out += `  let minDist = 2.5;\n`;
   out += `  for (const shop of SHOP_LOCATIONS) {\n`;
   out += `    const shopCenterX = shop.x + shop.width / 2;\n`;
   out += `    const dist = Math.abs(playerX - shopCenterX);\n`;
-  out += `    if (dist < 2.5) return shop;\n`;
+  out += `    if (dist < minDist) {\n`;
+  out += `      minDist = dist;\n`;
+  out += `      closest = shop;\n`;
+  out += `    }\n`;
   out += `  }\n`;
+  out += `  return closest;\n`;
+  out += `}\n\n`;
+
+  // Bank location
+  out += `// Resource bank on surface\n`;
+  out += `export const BANK_LOCATION = { x: ${bankLocation.x}, width: ${bankLocation.width}, name: '${bankLocation.name}', symbol: '${bankLocation.symbol}' };\n\n`;
+
+  // getNearbyBank function
+  out += `export function getNearbyBank(playerX, playerY) {\n`;
+  out += `  if (playerY > SURFACE_Y + 1) return null;\n`;
+  out += `  const bankCenterX = BANK_LOCATION.x + BANK_LOCATION.width / 2;\n`;
+  out += `  const dist = Math.abs(playerX - bankCenterX);\n`;
+  out += `  if (dist < 2.5) return BANK_LOCATION;\n`;
   out += `  return null;\n`;
   out += `}\n\n`;
 
-  // placeShopFloors function (static)
+  // placeShopFloors function (includes bank)
   out += `export function placeShopFloors(tiles) {\n`;
-  out += `  for (const shop of SHOP_LOCATIONS) {\n`;
-  out += `    const startX = shop.x - SHOP_FLOOR_PADDING;\n`;
-  out += `    const endX = shop.x + shop.width + SHOP_FLOOR_PADDING;\n`;
-  out += `    for (let x = startX; x < endX; x++) {\n`;
-  out += `      if (x > 0 && x < WORLD_WIDTH - 1) {\n`;
-  out += `        tiles[SURFACE_Y * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;\n`;
-  out += `        tiles[(SURFACE_Y + 1) * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;\n`;
-  out += `      }\n`;
+  out += `  const allX = [...SHOP_LOCATIONS.map(s => s.x), BANK_LOCATION.x];\n`;
+  out += `  const allEndX = [...SHOP_LOCATIONS.map(s => s.x + s.width), BANK_LOCATION.x + BANK_LOCATION.width];\n`;
+  out += `  const startX = Math.min(...allX) - SHOP_FLOOR_PADDING;\n`;
+  out += `  const endX = Math.max(...allEndX) + SHOP_FLOOR_PADDING;\n`;
+  out += `  for (let x = startX; x < endX; x++) {\n`;
+  out += `    if (x > 0 && x < WORLD_WIDTH - 1) {\n`;
+  out += `      tiles[SURFACE_Y * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;\n`;
+  out += `      tiles[(SURFACE_Y + 1) * WORLD_WIDTH + x] = TILE.SHOP_FLOOR;\n`;
   out += `    }\n`;
   out += `  }\n`;
   out += `}\n\n`;
+
+  // Health
+  out += `// Health\n`;
+  out += `export const BASE_MAX_HP = ${C.BASE_MAX_HP};\n`;
+  out += `export const HP_REGEN_RATE = ${C.HP_REGEN_RATE};\n`;
+  out += `export const HP_REGEN_DELAY = ${C.HP_REGEN_DELAY};\n`;
+  out += `export const LAVA_DAMAGE = ${C.LAVA_DAMAGE};\n\n`;
 
   // Fall damage
   out += `// Fall damage (distance-based)\n`;
@@ -1742,12 +1873,47 @@ function generateConstantsJS() {
   out += `export const FALL_DAMAGE_SCALE = ${C.FALL_DAMAGE_SCALE};\n`;
   out += `export const FALL_DAMAGE_STUN_FRAMES = ${C.FALL_DAMAGE_STUN_FRAMES};\n\n`;
 
+  // Crumbling tiles
+  out += `// Crumbling tiles\n`;
+  out += `export const CRUMBLE_DELAY_FRAMES = ${C.CRUMBLE_DELAY_FRAMES};\n`;
+  out += `export const CRUMBLE_TILES = new Set([TILE.CRUMBLE]);\n\n`;
+
   // Biome tile physics
   out += `// Biome tile physics properties\n`;
   out += `export const BOUNCY_TILES = new Set([TILE.MUSHROOM_DIRT, TILE.MUSHROOM]);\n`;
   out += `export const BOUNCY_FORCE = ${C.BOUNCY_FORCE};\n`;
   out += `export const ICY_TILES = new Set([TILE.FROZEN_ICE, TILE.FROZEN_GEM]);\n`;
   out += `export const SLIPPERY_TILES = new Set([TILE.CRYSTAL_ROCK, TILE.CRYSTAL]);\n\n`;
+
+  // Camera
+  out += `// Idle camera zoom\n`;
+  out += `export const IDLE_ZOOM_SCALE = ${C.IDLE_ZOOM_SCALE};\n`;
+  out += `export const IDLE_ZOOM_IN_SPEED = ${C.IDLE_ZOOM_IN_SPEED};\n`;
+  out += `export const IDLE_ZOOM_OUT_SPEED = ${C.IDLE_ZOOM_OUT_SPEED};\n`;
+  out += `export const IDLE_SIT_DELAY = ${C.IDLE_SIT_DELAY};\n\n`;
+
+  out += `// Depth-based camera zoom\n`;
+  out += `export const DEPTH_ZOOM_START = ${C.DEPTH_ZOOM_START};\n`;
+  out += `export const DEPTH_ZOOM_MAX_DEPTH = ${C.DEPTH_ZOOM_MAX_DEPTH};\n`;
+  out += `export const DEPTH_ZOOM_MAX_SCALE = ${C.DEPTH_ZOOM_MAX_SCALE};\n`;
+  out += `export const DEPTH_ZOOM_SPEED = ${C.DEPTH_ZOOM_SPEED};\n\n`;
+
+  // Darkness
+  out += `// Darkness vignette\n`;
+  out += `export const DARKNESS_START_DEPTH = ${C.DARKNESS_START_DEPTH};\n`;
+  out += `export const DARKNESS_MAX_DEPTH = ${C.DARKNESS_MAX_DEPTH};\n`;
+  out += `export const DARKNESS_MAX_ALPHA = ${C.DARKNESS_MAX_ALPHA};\n`;
+  out += `export const DARKNESS_INNER_RADIUS = ${C.DARKNESS_INNER_RADIUS};\n`;
+  out += `export const DARKNESS_OUTER_RADIUS = ${C.DARKNESS_OUTER_RADIUS};\n\n`;
+
+  // Prestige
+  out += `// Prestige system\n`;
+  out += `export const PRESTIGE_STAT_BONUS = ${C.PRESTIGE_STAT_BONUS};\n`;
+  out += `export const PRESTIGE_HP_BONUS = ${C.PRESTIGE_HP_BONUS};\n\n`;
+
+  // Achievements
+  out += `// Achievements\n`;
+  out += `export const ACHIEVEMENTS = ${JSON.stringify(achievements, null, 2).replace(/"(\w+)":/g, '$1:')};\n\n`;
 
   out += `// Server tick rate\n`;
   out += `export const SERVER_TICK_MS = ${C.SERVER_TICK_MS};\n`;

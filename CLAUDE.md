@@ -157,6 +157,44 @@ Client sends `INPUT` messages with `{left, right, up, down, jump, dig}` booleans
 
 Available category labels: `added` (green), `changed` (gold), `fixed` (red), `balance` (purple).
 
+## Pre-Commit Consistency Checks
+
+Before committing changes, verify the following. These checks apply to **every commit** that touches game content.
+
+### 1. Sprites — Editor & Database Sync
+
+If new sprites were added (breed, decoration, or shop/machine sprites):
+- **Sprite data** must exist in `shared/sprite-data.js` (as default fallback)
+- **Editor support**: the sprite must be selectable in `client/editor/index.html`
+  - Breeds: auto-populated from `DOG_BREEDS` — no changes needed
+  - Decorations: auto-populated from `DECORATIONS` — no changes needed
+  - Shops: check the `shopEntries` array includes the new type (stash, etc.)
+- **Seed script**: ensure the relevant seed script in `scripts/` can insert the new sprite
+- **Database seeding** (how to add to DB without overwriting existing edits):
+  ```bash
+  node scripts/seed-sprites.js              # inserts new only, skips existing
+  node scripts/seed-decoration-sprites.js   # inserts new only, skips existing
+  node scripts/seed-shop-sprites.js         # inserts new only, skips existing
+  # NEVER use --force unless you intentionally want to overwrite DB edits
+  ```
+
+### 2. Constants — File Completeness
+
+If `shared/constants.js` was modified (new exports, new constants, changed signatures):
+- Verify the new constant is **imported** in `client/admin/index.html`
+- If it's a numeric tuning value, add it to the **C object** and appropriate **CONST_SECTIONS** entry
+- If it's a complex structure (array, object, Set), add it to the **deep-clone block** and the **export function**
+
+### 3. Constants Editor — Export Parity
+
+The admin editor's `generateConstantsJS()` function must produce a **valid drop-in replacement** for `shared/constants.js`. When any of the following change, update the export function:
+- New exported constants or functions
+- New properties on existing structures (breed fields, emote flags, decoration flags)
+- New helper functions (like `getNearbyBank`)
+- Static data structures (Sets, arrays) that aren't editable but must be present
+
+**Quick check**: diff `shared/constants.js` exports against the export function's output. Every `export const` and `export function` in the source must appear in the generated output.
+
 ## Frontend Design Guidelines
 
 When building or modifying UI for this game, follow these principles to create distinctive, polished interfaces that avoid generic "AI slop" aesthetics.
