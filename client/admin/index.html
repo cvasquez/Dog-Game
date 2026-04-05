@@ -570,7 +570,7 @@ let upgrades = JSON.parse(JSON.stringify(UPGRADES));
 let decorations = JSON.parse(JSON.stringify(DECORATIONS));
 let emotes = JSON.parse(JSON.stringify(EMOTES));
 let biomes = JSON.parse(JSON.stringify(BIOMES));
-let hardness = JSON.parse(JSON.stringify(HARDNESS));
+let hardness = Object.fromEntries(Object.entries(HARDNESS).map(([k, v]) => [k, v]));
 let resourceValue = JSON.parse(JSON.stringify(RESOURCE_VALUE));
 let resourceNames = JSON.parse(JSON.stringify(RESOURCE_NAMES));
 let synergies = JSON.parse(JSON.stringify(DECORATION_SYNERGIES));
@@ -586,7 +586,7 @@ const origBreeds = JSON.parse(JSON.stringify(DOG_BREEDS));
 const origUpgrades = JSON.parse(JSON.stringify(UPGRADES));
 const origDecorations = JSON.parse(JSON.stringify(DECORATIONS));
 const origEmotes = JSON.parse(JSON.stringify(EMOTES));
-const origHardness = JSON.parse(JSON.stringify(HARDNESS));
+const origHardness = Object.fromEntries(Object.entries(HARDNESS).map(([k, v]) => [k, v]));
 const origResourceValue = JSON.parse(JSON.stringify(RESOURCE_VALUE));
 
 // ---- State ----
@@ -1572,13 +1572,23 @@ document.getElementById('reset-btn').onclick = () => {
   upgrades = JSON.parse(JSON.stringify(origUpgrades));
   decorations = JSON.parse(JSON.stringify(origDecorations));
   emotes = JSON.parse(JSON.stringify(origEmotes));
-  hardness = JSON.parse(JSON.stringify(origHardness));
+  hardness = Object.fromEntries(Object.entries(origHardness).map(([k, v]) => [k, v]));
   resourceValue = JSON.parse(JSON.stringify(origResourceValue));
   renderConstants();
   renderStats();
   document.getElementById('export-status').textContent = 'Reset to original values';
   setTimeout(() => document.getElementById('export-status').textContent = '', 3000);
 };
+
+// Format a simple object as { key: val, key2: val2 } with spaces inside braces
+// and single-quoted string values, matching the source constants.js style
+function fmtObj(obj) {
+  const entries = Object.entries(obj).map(([k, v]) => {
+    if (typeof v === 'string') return `${k}: '${v}'`;
+    return `${k}: ${v}`;
+  });
+  return `{ ${entries.join(', ')} }`;
+}
 
 function generateConstantsJS() {
   let out = '';
@@ -1592,18 +1602,42 @@ function generateConstantsJS() {
   out += `export const PARK_TOP = ${C.PARK_TOP};\n`;
   out += `export const PARK_BOTTOM = ${C.PARK_BOTTOM};\n\n`;
 
-  // TILE enum (static - not editable)
+  // TILE enum (static - not editable, preserves section/inline comments)
+  const tileSectionHeaders = { BONE: '// Resources', LAVA: '// Obstacles', MUSHROOM_DIRT: '// Biome tiles' };
+  const tileInlineComments = {
+    GRANITE: 'undiggable rock formations', SHOP_FLOOR: 'undiggable shop platform',
+    MUSHROOM_DIRT: 'mushroom cavern soil', MUSHROOM: 'glowing mushroom (resource)',
+    CRYSTAL_ROCK: 'crystal cavern walls', CRYSTAL: 'harvestable crystal (resource)',
+    FROZEN_ICE: 'frozen cavern walls (slippery)', FROZEN_GEM: 'frozen gem (resource)',
+    ANCIENT_BRICK: 'ancient ruins walls', ANCIENT_RELIC: 'ancient relic (resource)',
+    CRUMBLE: 'crumbling tile \u2014 breaks when stood on',
+  };
+
   out += `// Tile types\n`;
   out += `export const TILE = {\n`;
   for (const [name, val] of Object.entries(TILE)) {
-    out += `  ${name}: ${val},\n`;
+    if (tileSectionHeaders[name]) out += `  ${tileSectionHeaders[name]}\n`;
+    const valStr = `${name}: ${val},`;
+    const comment = tileInlineComments[name];
+    if (comment) {
+      out += `  ${valStr.padEnd(18)}// ${comment}\n`;
+    } else {
+      out += `  ${valStr}\n`;
+    }
   }
   out += `};\n\n`;
 
-  // SOLID_TILES
+  // SOLID_TILES (grouped by category for readability)
   out += `// Which tiles are solid (block movement)\n`;
   out += `export const SOLID_TILES = new Set([\n`;
-  out += `  ${[...SOLID_TILES].map(t => `TILE.${TILE_NAMES[t]}`).join(', ')},\n`;
+  out += `  TILE.GRASS, TILE.DIRT, TILE.CLAY, TILE.STONE, TILE.BEDROCK,\n`;
+  out += `  TILE.BONE, TILE.GEM, TILE.FOSSIL, TILE.GOLD, TILE.DIAMOND, TILE.ARTIFACT,\n`;
+  out += `  TILE.GRANITE, TILE.SHOP_FLOOR,\n`;
+  out += `  TILE.MUSHROOM_DIRT, TILE.MUSHROOM,\n`;
+  out += `  TILE.CRYSTAL_ROCK, TILE.CRYSTAL,\n`;
+  out += `  TILE.FROZEN_ICE, TILE.FROZEN_GEM,\n`;
+  out += `  TILE.ANCIENT_BRICK, TILE.ANCIENT_RELIC,\n`;
+  out += `  TILE.CRUMBLE,\n`;
   out += `]);\n\n`;
 
   // HAZARD_TILES
@@ -1713,20 +1747,35 @@ function generateConstantsJS() {
   }
   out += `};\n\n`;
 
-  // Biomes (static for now)
+  // Biomes
   out += `// Biome definitions\n`;
-  out += `export const BIOMES = ${JSON.stringify(biomes, null, 2).replace(/"(\w+)":/g, '$1:')};\n\n`;
+  out += `export const BIOMES = [\n`;
+  for (const b of biomes) {
+    out += `  {\n`;
+    out += `    id: '${b.id}',\n`;
+    out += `    name: '${b.name}',\n`;
+    out += `    minDepth: ${b.minDepth},\n`;
+    out += `    maxDepth: ${b.maxDepth},\n`;
+    out += `    baseTile: TILE.${TILE_NAMES[b.baseTile]},\n`;
+    out += `    resourceTile: TILE.${TILE_NAMES[b.resourceTile]},\n`;
+    out += `    resourceChance: ${b.resourceChance},\n`;
+    out += `    minSize: { w: ${b.minSize.w}, h: ${b.minSize.h} },\n`;
+    out += `    maxSize: { w: ${b.maxSize.w}, h: ${b.maxSize.h} },\n`;
+    out += `    rarity: ${b.rarity},\n`;
+    out += `  },\n`;
+  }
+  out += `];\n\n`;
 
   // Decorations
   out += `// Decoration definitions\n`;
   out += `export const DECORATIONS = [\n`;
   for (const d of decorations) {
-    const costStr = JSON.stringify(d.cost).replace(/"(\w+)":/g, '$1: ');
-    const effectStr = JSON.stringify(d.effect).replace(/"(\w+)":/g, '$1: ');
+    const costStr = fmtObj(d.cost);
+    const effectStr = fmtObj(d.effect);
     let line = `  { id: ${d.id}, name: '${d.name}', cost: ${costStr}, w: ${d.w}, h: ${d.h}, color: '${d.color}',\n`;
     line += `    desc: '${d.desc.replace(/'/g, "\\'")}', effect: ${effectStr}`;
     if (d.requiresBlueprint) line += `, requiresBlueprint: true`;
-    if (d.generates) line += `, generates: ${JSON.stringify(d.generates).replace(/"(\w+)":/g, '$1: ')}`;
+    if (d.generates) line += `, generates: ${fmtObj(d.generates)}`;
     if (d.isRecallBeacon) line += `, isRecallBeacon: true`;
     if (d.canPlaceAnywhere) line += `, canPlaceAnywhere: true`;
     line += ` },\n`;
@@ -1746,8 +1795,8 @@ function generateConstantsJS() {
   out += `// Emote definitions\n`;
   out += `export const EMOTES = [\n`;
   for (const e of emotes) {
-    const costStr = e.cost ? JSON.stringify(e.cost).replace(/"(\w+)":/g, '$1: ') : 'null';
-    const effectStr = JSON.stringify(e.effect).replace(/"(\w+)":/g, '$1: ');
+    const costStr = e.cost ? fmtObj(e.cost) : 'null';
+    const effectStr = fmtObj(e.effect);
     let line = `  { id: ${e.id}, name: '${e.name}', symbol: '${e.symbol}', cost: ${costStr},\n`;
     line += `    buffDesc: '${e.buffDesc.replace(/'/g, "\\'")}', duration: ${e.duration}, cooldown: ${e.cooldown}, effect: ${effectStr}`;
     if (e.isDig) line += `, isDig: true, digCount: ${e.digCount || 3}`;
@@ -1777,8 +1826,8 @@ function generateConstantsJS() {
   out += `// Upgrades (collars, hats, etc.)\n`;
   out += `export const UPGRADES = [\n`;
   for (const u of upgrades) {
-    const costStr = JSON.stringify(u.cost).replace(/"(\w+)":/g, '$1: ');
-    const effectStr = JSON.stringify(u.effect).replace(/"(\w+)":/g, '$1: ');
+    const costStr = fmtObj(u.cost);
+    const effectStr = fmtObj(u.effect);
     let line = `  { id: ${u.id}, name: '${u.name}', icon: '${u.icon}', desc: '${u.desc.replace(/'/g, "\\'")}', category: '${u.category}',\n`;
     line += `    cost: ${costStr}, effect: ${effectStr}`;
     if (u.requires != null) line += `, requires: ${u.requires}`;
@@ -1794,13 +1843,17 @@ function generateConstantsJS() {
 
   // MSG (static)
   out += `// Network message types\n`;
-  out += `export const MSG = ${JSON.stringify(MSG, null, 2).replace(/"(\w+)":/g, '$1:')};\n\n`;
+  out += `export const MSG = {\n`;
+  for (const [k, v] of Object.entries(MSG)) {
+    out += `  ${k}: '${v}',\n`;
+  }
+  out += `};\n\n`;
 
   // Synergies
   out += `// Decoration synergy pairs\n`;
   out += `export const DECORATION_SYNERGIES = [\n`;
   for (const s of synergies) {
-    const bonusStr = JSON.stringify(s.bonus).replace(/"(\w+)":/g, '$1: ');
+    const bonusStr = fmtObj(s.bonus);
     out += `  { ids: [${s.ids.join(', ')}], bonus: ${bonusStr}, name: '${s.name}' },\n`;
   }
   out += `];\n\n`;
@@ -1953,7 +2006,11 @@ function generateConstantsJS() {
 
   // Achievements
   out += `// Achievements\n`;
-  out += `export const ACHIEVEMENTS = ${JSON.stringify(achievements, null, 2).replace(/"(\w+)":/g, '$1:')};\n\n`;
+  out += `export const ACHIEVEMENTS = [\n`;
+  for (const a of achievements) {
+    out += `  { id: '${a.id}', name: '${a.name}', desc: '${a.desc.replace(/'/g, "\\'")}', icon: '${a.icon}', category: '${a.category}' },\n`;
+  }
+  out += `];\n\n`;
 
   out += `// Server tick rate\n`;
   out += `export const SERVER_TICK_MS = ${C.SERVER_TICK_MS};\n`;

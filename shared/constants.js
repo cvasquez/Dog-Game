@@ -167,7 +167,7 @@ export const DOG_BREEDS = [
   {
     id: 1,
     name: 'Dachshund',
-    defaultName: 'Diglet',
+    defaultName: 'Hotdog',
     desc: 'Born to dig. Fastest digger, tires quickly.',
     colors: { body: '#8B4513', dark: '#5C2E0A', light: '#C47D3E' },
     stats: {
@@ -206,16 +206,15 @@ export const DOG_BREEDS = [
     id: 3,
     name: 'Terrier',
     defaultName: 'Diglet',
-    desc: 'Treasure hunter. Finds extra loot, fragile.',
+    desc: 'Hearty and full of energy.',
     colors: { body: '#D2B48C', dark: '#A0785A', light: '#F5E6D0' },
     stats: {
-      moveSpeed: 1.1,
+      moveSpeed: 1.15,
       jumpForce: 1.15,   // springy
-      digSpeed: 1.3,     // good digger
-      maxStamina: 0.85,
-      staminaRegen: 0.9,
-      lootBonus: 0.15,   // 15% chance for double loot
-      maxHP: 0.7,        // glass cannon — lowest HP
+      digSpeed: 1,
+      maxStamina: 1.2,
+      staminaRegen: 1.2,
+      maxHP: 1,
     },
     freeEmote: 4, // Celebrate
     // Hitbox derived from opaque sprite bounds (rows 5-14, cols 2-13)
@@ -229,12 +228,12 @@ export const DOG_BREEDS = [
     desc: 'Treasure hunter. Finds extra loot, fragile.',
     colors: { body: '#D2B48C', dark: '#A0785A', light: '#F5E6D0' },
     stats: {
-      moveSpeed: 1.1,
-      jumpForce: 1.15,   // springy
-      digSpeed: 1.3,     // good digger
+      moveSpeed: 1,
+      jumpForce: 1,
+      digSpeed: 1.5,     // good digger
       maxStamina: 0.85,
-      staminaRegen: 0.9,
-      lootBonus: 0.15,   // 15% chance for double loot
+      staminaRegen: 1,
+      lootBonus: 0.25,   // 15% chance for double loot
       maxHP: 0.7,        // glass cannon — lowest HP
     },
     freeEmote: 4, // Celebrate
