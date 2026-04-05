@@ -280,6 +280,31 @@
 
       <div class="version-entry">
         <div class="version-heading">
+          <span class="version-tag">v0.5.10</span>
+          <span class="version-date">2026-04-04</span>
+        </div>
+        <div class="version-title">Balance Admin Overhaul & Seed Script Safety</div>
+        <div class="change-category">
+          <div class="category-label added">Added</div>
+          <ul class="change-list">
+            <li>Balance Admin: Health, Camera & Zoom, Darkness, and Prestige constant sections</li>
+            <li>Balance Admin: Toggleable breed-specific abilities (loot bonus, max HP) with checkboxes</li>
+            <li>Stash Box sprite now appears in sprite editor shop dropdown</li>
+          </ul>
+        </div>
+        <div class="change-category">
+          <div class="category-label fixed">Fixed</div>
+          <ul class="change-list">
+            <li>Balance Admin export now produces a complete constants file (was missing 21+ constants, bank location, helper functions)</li>
+            <li>Breed save controls moved into breed section for consistent editor layout</li>
+            <li>Stash Box sprite now loads from database instead of hardcoded file</li>
+            <li>Seed scripts no longer overwrite existing database sprites — use <code>--force</code> to override</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="version-entry">
+        <div class="version-heading">
           <span class="version-tag">v0.5.9</span>
           <span class="version-date">2026-04-04</span>
         </div>
