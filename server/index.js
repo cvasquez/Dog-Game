@@ -10,7 +10,7 @@ import {
   createRoom, joinRoom, leaveRoom, getRoom, tryLoadRoom,
   handleMessage, createPlayer, sendTo,
 } from './rooms.js';
-import { MSG, DECORATIONS } from '../shared/constants.js';
+import { MSG, DECORATIONS, DOG_BREEDS } from '../shared/constants.js';
 import { requireAdmin } from './auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -221,7 +221,7 @@ wss.on('connection', (ws) => {
       // Sanitize player name: strip control chars and limit length
       const rawName = String(msg.name || 'Dog').slice(0, 20).replace(/[\x00-\x1F\x7F]/g, '').trim();
       const playerName = rawName || 'Dog';
-      const breedId = Number.isInteger(msg.breedId) && msg.breedId >= 0 && msg.breedId <= 3 ? msg.breedId : 0;
+      const breedId = Number.isInteger(msg.breedId) && DOG_BREEDS[msg.breedId] ? msg.breedId : 0;
 
       const player = createPlayer(playerId, playerName, breedId);
 

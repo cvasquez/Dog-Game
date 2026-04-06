@@ -53,6 +53,7 @@ let selectedBreed = 0;
 
 // Generate breed buttons from DOG_BREEDS constants
 for (const breed of DOG_BREEDS) {
+  if (!breed) continue; // skip removed breeds
   const btn = document.createElement('button');
   btn.className = 'breed-btn' + (breed.id === 0 ? ' selected' : '');
   btn.dataset.breed = breed.id;

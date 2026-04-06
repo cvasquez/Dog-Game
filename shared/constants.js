@@ -183,25 +183,7 @@ export const DOG_BREEDS = [
     hitboxWidth: 0.6875,   // 11px
     hitboxHeight: 0.625,   // 10px
   },
-  {
-    id: 2,
-    name: 'Husky',
-    defaultName: 'Tank',
-    desc: 'Explorer. Fast runner, great climber, slow digger.',
-    colors: { body: '#B0B0B0', dark: '#606060', light: '#FFFFFF' },
-    stats: {
-      moveSpeed: 1.3,    // fast
-      jumpForce: 1.2,    // high jump
-      digSpeed: 0.7,     // slow digger
-      maxStamina: 1.1,
-      staminaRegen: 1.3, // great stamina regen (endurance breed)
-      maxHP: 1.1,        // hardy explorer
-    },
-    freeEmote: 5, // Howl
-    // Hitbox derived from opaque sprite bounds (rows 5-14, cols 2-13)
-    hitboxWidth: 0.75,     // 12px
-    hitboxHeight: 0.625,   // 10px
-  },
+  null, // id 2 (Husky) — removed, slot kept to preserve breed indices
   {
     id: 3,
     name: 'Terrier',
@@ -244,12 +226,12 @@ export const DOG_BREEDS = [
 ];
 
 // Keep DOG_COLORS for backward compat (maps to breed colors)
-export const DOG_COLORS = DOG_BREEDS.map(b => ({
+export const DOG_COLORS = DOG_BREEDS.map(b => b ? {
   name: b.name,
   body: b.colors.body,
   dark: b.colors.dark,
   light: b.colors.light,
-}));
+} : null);
 
 // Tile colors for rendering
 export const TILE_COLORS = {
