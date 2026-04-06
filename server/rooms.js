@@ -648,7 +648,7 @@ function handleDigging(room, player) {
   // Update target (load existing tile damage if any)
   const tileKey = tx + ',' + ty;
   if (!player.digTarget || player.digTarget.x !== tx || player.digTarget.y !== ty) {
-    player.digTarget = { x: tx, y: ty };
+    player.digTarget = { x: tx, y: ty, tile: tileType };
     player.digProgress = room.tileDamage.get(tileKey) || 0;
   }
 

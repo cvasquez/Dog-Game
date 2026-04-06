@@ -111,6 +111,9 @@ async function main() {
     sPalettes[row.shop_type] = row.palette;
     sSprites[row.shop_type] = row.pixels;
   }
+  // Stash/bank isn't in the shop_sprites DB table — inject from local file
+  if (!sSprites['stash']) sSprites['stash'] = BANK_SPRITE;
+  if (!sPalettes['stash']) sPalettes['stash'] = BANK_PALETTE;
   lines.push(`export const SHOP_PALETTES = ${JSON.stringify(sPalettes)};`);
   lines.push('');
   lines.push(`export const SHOP_SPRITES = ${formatDecorationSprites(sSprites)};`);
