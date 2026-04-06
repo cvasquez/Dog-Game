@@ -517,6 +517,7 @@ function updatePlayer(room, player, dt) {
   }
 
   const newY = player.y + player.vy * dt;
+  const wasGrounded = player.grounded;
   if (!collidesAt(room, player.x, newY, pw, ph)) {
     player.y = newY;
     player.grounded = false;
@@ -524,6 +525,10 @@ function updatePlayer(room, player, dt) {
   } else {
     if (player.vy > 0) {
       const preVy = player.vy;
+      // Debug: log every landing from a fall
+      if (!wasGrounded) {
+        console.log(`[LANDING] player=${player.name} vy=${player.vy.toFixed(2)} y=${player.y.toFixed(2)} newY=${newY.toFixed(2)} fallPeakY=${player.fallPeakY.toFixed(2)} fallBlocks=${(player.y - player.fallPeakY).toFixed(2)}`);
+      }
       // Landing snap (matching client: snap to tile boundary, walk up until clear)
       const groundTileY = Math.floor(newY);
       player.y = groundTileY;
@@ -543,9 +548,13 @@ function updatePlayer(room, player, dt) {
       } else {
         // Fall damage (using HP system)
         const fallBlocks = player.y - player.fallPeakY;
+        if (fallBlocks > 1) {
+          console.log(`[FALL-DMG] player=${player.name} landed at y=${player.y.toFixed(2)} peak=${player.fallPeakY.toFixed(2)} fallBlocks=${fallBlocks.toFixed(2)} threshold=${FALL_DAMAGE_MIN_BLOCKS} hp=${player.hp.toFixed(1)}`);
+        }
         if (fallBlocks > FALL_DAMAGE_MIN_BLOCKS) {
           const excess = fallBlocks - FALL_DAMAGE_MIN_BLOCKS;
           const damage = excess * excess * FALL_DAMAGE_SCALE;
+          console.log(`[FALL-DMG] DAMAGE! player=${player.name} excess=${excess.toFixed(2)} damage=${damage.toFixed(1)} hp=${player.hp.toFixed(1)} → ${(player.hp - damage).toFixed(1)}`);
           takeDamage(player, damage, 'fall');
           if (!player.dead) {
             player.exhausted = true;

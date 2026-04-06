@@ -115,11 +115,17 @@ export class Game {
     this.hud.setRoomCode(this.roomId);
     this.hud.updateResources(this.localPlayer.resources);
 
-    // Add controls hint
-    const hint = document.createElement('div');
-    hint.className = 'controls-hint';
-    hint.innerHTML = 'WASD/Arrows: Move | Shift: Sprint<br>F/J/K + Direction: Dig<br>Space: Jump | Up + Wall: Climb<br>E: Emotes | B: Shop (at surface) | Tab: Save';
-    document.body.appendChild(hint);
+    // Show key legend (same as single-player)
+    const legend = document.getElementById('keyLegend');
+    const legendHint = document.getElementById('keyLegendHint');
+    const keysHidden = localStorage.getItem('doggame_keysVisible') === 'false';
+    if (legend) {
+      legend.classList.toggle('hidden', keysHidden);
+      legend.style.display = '';
+    }
+    if (legendHint) {
+      legendHint.style.display = keysHidden ? '' : 'none';
+    }
 
     // Canvas click for decoration placement
     this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
@@ -311,6 +317,34 @@ export class Game {
     // Handle save
     if (this.input.justPressed('Tab')) {
       this.network.sendSave();
+    }
+
+    // Toggle key legend (H key)
+    if (this.input.justPressed('KeyH') && !this.shop.visible && !this.bank.visible) {
+      const legend = document.getElementById('keyLegend');
+      const legendHint = document.getElementById('keyLegendHint');
+      if (legend) {
+        const nowHidden = !legend.classList.contains('hidden');
+        legend.classList.toggle('hidden', nowHidden);
+        if (legendHint) legendHint.style.display = nowHidden ? '' : 'none';
+        localStorage.setItem('doggame_keysVisible', String(!nowHidden));
+      }
+    }
+
+    // Recall to surface (R key) — uses Scratch emote if unlocked
+    if (this.input.justPressed('KeyR') && this.localPlayer.y > SURFACE_Y + 1) {
+      const scratchEmote = EMOTES.findIndex(e => e && e.isRecall);
+      if (scratchEmote >= 0 && this.localPlayer.unlockedEmotes.includes(scratchEmote) && !this.localPlayer.emoteCooldowns[scratchEmote]) {
+        this.network.sendEmote(scratchEmote);
+        this.localPlayer.activeEmote = scratchEmote;
+        this.localPlayer.emoteTimer = EMOTE_DISPLAY_FRAMES;
+        this.localPlayer.emoteCooldowns[scratchEmote] = Math.round(EMOTES[scratchEmote].cooldown * 60);
+        this.notify('Scratched your way back to the surface!');
+      } else if (scratchEmote < 0 || !this.localPlayer.unlockedEmotes.includes(scratchEmote)) {
+        this.notify('Unlock the Scratch emote to recall!');
+      } else {
+        this.notify('Recall is on cooldown!');
+      }
     }
 
     // Action bar — number keys 1-8 trigger emotes
