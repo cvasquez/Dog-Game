@@ -660,7 +660,10 @@ function handleDigging(room, player) {
         const dir = inp.down ? 'down' : inp.up ? 'up' : inp.left ? 'left' : inp.right ? 'right' : `facing(${player.facing})`;
         console.log(`[MP-DIG-FAIL] player=${player.name} pos=(${player.x.toFixed(2)},${player.y.toFixed(2)}) dir=${dir} target=(${origTx},${origTy}) tileType=${getTile(room, origTx, origTy)} (not solid/diggable)`);
         player._lastDigFailLog = Date.now();
-        sendTo(player, { type: MSG.DIG_REJECTED, reason: 'invalid_target' });
+        // Only notify on fresh dig attempts, not while transitioning between tiles
+        if (!player.digging) {
+          sendTo(player, { type: MSG.DIG_REJECTED, reason: 'invalid_target' });
+        }
       }
       player.digging = false;
       player.digTarget = null;
@@ -680,7 +683,10 @@ function handleDigging(room, player) {
     if (!player._lastDigRejectLog || Date.now() - player._lastDigRejectLog > 1000) {
       console.log(`[MP-DIG-REJECT] player=${player.name} stamina=${player.stamina.toFixed(1)} exhausted=${player.exhausted} exhaustionTimer=${player.exhaustionTimer}`);
       player._lastDigRejectLog = Date.now();
-      sendTo(player, { type: MSG.DIG_REJECTED, reason: 'no_stamina' });
+      // Only notify once when stamina runs out, not every frame while held
+      if (player.digging) {
+        sendTo(player, { type: MSG.DIG_REJECTED, reason: 'no_stamina' });
+      }
     }
     player.digTarget = null;
     player.digging = false;
