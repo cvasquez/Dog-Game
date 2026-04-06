@@ -1280,7 +1280,8 @@ function rebuildUI() {
   }
 }
 
-rebuildUI();
+// Don't render yet — wait for DB load so database sprites are shown first
+statusText.textContent = 'Loading sprites from database...';
 // Start animation preview
 setInterval(drawAnimPreview, 125);
 
@@ -1344,7 +1345,6 @@ async function loadSpritesFromDB() {
     }
   }
 
-  rebuildUI();
   showCloudStatus(`Loaded ${loaded.length} breeds from DB: ${loaded.join(', ')}`, false);
 }
 
@@ -1581,7 +1581,6 @@ async function loadDecorationsFromDB() {
             decorationPalettes[row.dec_id] = row.palette;
             count++;
           }
-          rebuildUI();
           showDecStatus(`Loaded ${count} decorations from DB`, false);
           return;
         }
@@ -1607,7 +1606,6 @@ async function loadDecorationsFromDB() {
         decorationPalettes[id] = palette;
       }
     }
-    rebuildUI();
     showDecStatus(`Loaded ${count} decorations from server`, false);
   } catch {
     // Server not available — keep file defaults
@@ -1728,7 +1726,6 @@ async function loadShopsFromDB() {
       shopPalettes[row.shop_type] = row.palette;
       count++;
     }
-    rebuildUI();
     showShopStatus(`Loaded ${count} shop sprites from DB`, false);
   } catch (e) {
     showShopStatus('Load failed: ' + e.message, true);
@@ -1838,11 +1835,22 @@ document.getElementById('downloadAllBtn').addEventListener('click', async () => 
   }
 });
 
-// Load sprites from DB on startup — await breed sprites before allowing edits
+// Load all sprites from DB before allowing edits — DB is source of truth
 let dbLoadComplete = false;
-loadSpritesFromDB().then(() => { dbLoadComplete = true; });
-loadDecorationsFromDB();
-loadShopsFromDB();
+Promise.all([
+  loadSpritesFromDB(),
+  loadDecorationsFromDB(),
+  loadShopsFromDB()
+]).then(() => {
+  dbLoadComplete = true;
+  // Default to the first breed that was loaded from DB (most recently edited)
+  const dbBreeds = Object.keys(dbRowIds);
+  if (dbBreeds.length > 0) {
+    currentBreed = dbBreeds[0];
+    breedSelect.value = currentBreed;
+  }
+  rebuildUI();
+});
 </script>
 </body>
 </html>
