@@ -1,10 +1,5 @@
 import { EMOTES, BIOMES, SURFACE_Y } from '../../shared/constants.js';
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
+import { escapeHtml } from './utils.js';
 
 export class HUD {
   constructor() {

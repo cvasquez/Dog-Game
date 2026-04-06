@@ -6,10 +6,11 @@ import 'dotenv/config';
 import { DECORATION_SPRITES, DECORATION_PALETTES } from '../shared/sprite-data.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
+// Prefer service role key (bypasses RLS) over anon key
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('Error: SUPABASE_URL and SUPABASE_KEY environment variables are required');
+  console.error('Error: SUPABASE_URL and SUPABASE_SERVICE_KEY (or SUPABASE_KEY) environment variables are required');
   process.exit(1);
 }
 

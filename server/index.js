@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
@@ -10,9 +11,24 @@ import {
   handleMessage, createPlayer, sendTo,
 } from './rooms.js';
 import { MSG, DECORATIONS } from '../shared/constants.js';
+import { requireAdmin } from './auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
+
+// Allowed origins for CORS and WebSocket
+const ALLOWED_ORIGINS = [
+  process.env.CORS_ORIGIN,
+  'https://cvasquez.github.io',
+].filter(Boolean);
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true; // non-browser clients
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  // Allow localhost for development
+  if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return true;
+  return false;
+}
 
 // Initialize database
 initDB();
@@ -21,20 +37,70 @@ initDB();
 const app = express();
 const server = createServer(app);
 
+// --- CORS ---
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && isAllowedOrigin(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 // --- Security headers ---
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Content-Security-Policy', [
+    "default-src 'self'",
+    "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'",
+    "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'",
+    "font-src 'self' https://fonts.gstatic.com",
+    "connect-src 'self' https://*.supabase.co wss://*",
+    "img-src 'self' data: blob:",
+  ].join('; '));
   next();
 });
+
+// --- HTTP rate limiting for mutation endpoints ---
+const httpRateLimits = new Map();
+function rateLimit(windowMs, max) {
+  return (req, res, next) => {
+    const key = req.ip + ':' + req.path;
+    const now = Date.now();
+    const entry = httpRateLimits.get(key) || { count: 0, start: now };
+    if (now - entry.start > windowMs) { entry.count = 0; entry.start = now; }
+    entry.count++;
+    httpRateLimits.set(key, entry);
+    if (entry.count > max) return res.status(429).json({ error: 'Rate limited' });
+    next();
+  };
+}
+// Clean up stale rate limit entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of httpRateLimits) {
+    if (now - entry.start > 120000) httpRateLimits.delete(key);
+  }
+}, 300000);
 
 // Serve client files
 app.use(express.static(path.join(__dirname, '..', 'client')));
 
 // Serve shared constants for client ES module import
 app.use('/shared', express.static(path.join(__dirname, '..', 'shared')));
+
+// --- Public config (Supabase credentials from env) ---
+app.get('/api/config', (req, res) => {
+  res.json({
+    supabaseUrl: process.env.SUPABASE_URL || '',
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+  });
+});
 
 // --- Decoration sprite API ---
 app.use(express.json({ limit: '1mb' }));
@@ -51,7 +117,7 @@ app.get('/api/decoration-sprites/:id', (req, res) => {
   res.json(data);
 });
 
-app.put('/api/decoration-sprites/:id', (req, res) => {
+app.put('/api/decoration-sprites/:id', rateLimit(60000, 30), requireAdmin, (req, res) => {
   const decId = parseInt(req.params.id);
   if (!Number.isFinite(decId) || decId < 0) {
     return res.status(400).json({ error: 'Invalid decoration ID' });
@@ -71,7 +137,7 @@ app.put('/api/decoration-sprites/:id', (req, res) => {
 // --- Sync sprite-data.js file endpoint ---
 const SPRITE_DATA_PATH = path.join(__dirname, '..', 'shared', 'sprite-data.js');
 
-app.post('/api/sync-sprite-file', (req, res) => {
+app.post('/api/sync-sprite-file', rateLimit(60000, 10), requireAdmin, (req, res) => {
   const { content } = req.body;
   if (typeof content !== 'string' || content.length === 0) {
     return res.status(400).json({ error: 'content must be a non-empty string' });
@@ -92,8 +158,14 @@ app.post('/api/sync-sprite-file', (req, res) => {
   }
 });
 
-// WebSocket server
-const wss = new WebSocketServer({ server });
+// --- Health check ---
+app.get('/healthz', (req, res) => res.send('ok'));
+
+// WebSocket server (with origin validation)
+const wss = new WebSocketServer({
+  server,
+  verifyClient: (info) => isAllowedOrigin(info.origin),
+});
 
 let nextPlayerId = 1;
 

@@ -118,8 +118,14 @@
   <div id="notifications"></div>
 
   <script>
+    // Hardcoded fallback for GitHub Pages (no server)
     window.SUPABASE_URL = 'https://qwvmbmjanuyinlqzmymt.supabase.co';
     window.SUPABASE_ANON_KEY = 'sb_publishable_z4VoEXQzKeGzgqJ5i-tfgA_ukh0Pt_i';
+    // Override from server config when available
+    fetch('/api/config').then(r => r.json()).then(cfg => {
+      if (cfg.supabaseUrl) window.SUPABASE_URL = cfg.supabaseUrl;
+      if (cfg.supabaseAnonKey) window.SUPABASE_ANON_KEY = cfg.supabaseAnonKey;
+    }).catch(() => {});
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script type="module" src="js/main.js"></script>
