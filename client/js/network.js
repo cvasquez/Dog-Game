@@ -10,7 +10,19 @@ export class Network {
     this.ws = null;
     this.connected = false;
     this.handlers = {};
-    this.lastInputState = null;
+    // Input dedup — track last sent values to avoid JSON.stringify each frame
+    this._prevLeft = false;
+    this._prevRight = false;
+    this._prevUp = false;
+    this._prevDown = false;
+    this._prevJump = false;
+    this._prevDig = false;
+    this._prevSprint = false;
+    // Input sequencing for server reconciliation
+    this.inputSeq = 0;
+    // Latency measurement
+    this.rtt = 0;
+    this._pingInterval = null;
   }
 
   connect(roomId, playerName, breedId) {
@@ -28,6 +40,10 @@ export class Network {
           breedId: breedId || 0,
           roomId: roomId || undefined,
         });
+        // Start latency measurement
+        this._pingInterval = setInterval(() => {
+          this.send({ type: MSG.NET_PING, t: performance.now() });
+        }, 2000);
       };
 
       this.ws.onmessage = (event) => {
@@ -42,6 +58,13 @@ export class Network {
             msg = JSON.parse(event.data);
           }
         } catch { return; }
+
+        // Latency measurement
+        if (msg.type === MSG.NET_PONG) {
+          const sample = performance.now() - msg.t;
+          this.rtt = this.rtt === 0 ? sample : this.rtt * 0.8 + sample * 0.2;
+          return;
+        }
 
         // First message should be ROOM_JOINED
         if (msg.type === MSG.ROOM_JOINED) {
@@ -82,11 +105,19 @@ export class Network {
   }
 
   sendInput(inputState) {
-    // Only send if input changed
-    const s = JSON.stringify(inputState);
-    if (s !== this.lastInputState) {
-      this.lastInputState = s;
-      this.send({ type: MSG.INPUT, ...inputState });
+    // Only send if any input field changed (avoids JSON.stringify per frame)
+    if (inputState.left !== this._prevLeft || inputState.right !== this._prevRight ||
+        inputState.up !== this._prevUp || inputState.down !== this._prevDown ||
+        inputState.jump !== this._prevJump || inputState.dig !== this._prevDig ||
+        inputState.sprint !== this._prevSprint) {
+      this._prevLeft = inputState.left;
+      this._prevRight = inputState.right;
+      this._prevUp = inputState.up;
+      this._prevDown = inputState.down;
+      this._prevJump = inputState.jump;
+      this._prevDig = inputState.dig;
+      this._prevSprint = inputState.sprint;
+      this.send({ type: MSG.INPUT, seq: ++this.inputSeq, ...inputState });
     }
   }
 
@@ -119,6 +150,7 @@ export class Network {
   }
 
   disconnect() {
+    if (this._pingInterval) clearInterval(this._pingInterval);
     if (this.ws) this.ws.close();
   }
 }

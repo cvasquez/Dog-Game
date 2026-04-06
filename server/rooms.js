@@ -98,6 +98,7 @@ function createPlayer(id, name, breedId) {
       bones: 0, gems: 0, fossils: 0, gold: 0, diamonds: 0, artifacts: 0,
       mushrooms: 0, crystals: 0, frozen_gems: 0, relics: 0,
     },
+    bankedResources: {},
     unlockedEmotes,
     activeEmote: null,
     emoteTimer: 0,
@@ -139,6 +140,7 @@ function createPlayer(id, name, breedId) {
     clingWallSide: 0,
     mantling: false,
     climbEfficiency: s.climbEfficiency || 1.0,
+    lastInputSeq: null,
     ws: null,
   };
 }
@@ -638,11 +640,32 @@ function handleDigging(room, player) {
     ty = Math.floor(player.y - 0.5);
   }
 
-  const tileType = getTile(room, tx, ty);
+  let tileType = getTile(room, tx, ty);
+  // If target tile is air, try one tile further in the dig direction.
+  // Skip for down direction — player should fall naturally, not skip ahead.
   if (!SOLID_TILES.has(tileType) || tileType === TILE.BEDROCK || tileType === TILE.GRANITE || tileType === TILE.SHOP_FLOOR) {
-    player.digging = false;
-    player.digTarget = null;
-    return;
+    const origTx = tx, origTy = ty;
+    let tryFallback = !inp.down; // don't fallback downward — let gravity handle it
+    if (tryFallback) {
+      if (inp.up) ty -= 1;
+      else if (inp.left) tx -= 1;
+      else if (inp.right) tx += 1;
+      else if (player.facing > 0) tx += 1;
+      else tx -= 1;
+      tileType = getTile(room, tx, ty);
+      tryFallback = SOLID_TILES.has(tileType) && tileType !== TILE.BEDROCK && tileType !== TILE.GRANITE && tileType !== TILE.SHOP_FLOOR;
+    }
+    if (!tryFallback) {
+      if (!player._lastDigFailLog || Date.now() - player._lastDigFailLog > 500) {
+        const dir = inp.down ? 'down' : inp.up ? 'up' : inp.left ? 'left' : inp.right ? 'right' : `facing(${player.facing})`;
+        console.log(`[MP-DIG-FAIL] player=${player.name} pos=(${player.x.toFixed(2)},${player.y.toFixed(2)}) dir=${dir} target=(${origTx},${origTy}) tileType=${getTile(room, origTx, origTy)} (not solid/diggable)`);
+        player._lastDigFailLog = Date.now();
+        sendTo(player, { type: MSG.DIG_REJECTED, reason: 'invalid_target' });
+      }
+      player.digging = false;
+      player.digTarget = null;
+      return;
+    }
   }
 
   // Update target (load existing tile damage if any)
@@ -654,6 +677,11 @@ function handleDigging(room, player) {
 
   // Digging costs stamina
   if (player.stamina <= 0 || player.exhausted) {
+    if (!player._lastDigRejectLog || Date.now() - player._lastDigRejectLog > 1000) {
+      console.log(`[MP-DIG-REJECT] player=${player.name} stamina=${player.stamina.toFixed(1)} exhausted=${player.exhausted} exhaustionTimer=${player.exhaustionTimer}`);
+      player._lastDigRejectLog = Date.now();
+      sendTo(player, { type: MSG.DIG_REJECTED, reason: 'no_stamina' });
+    }
     player.digTarget = null;
     player.digging = false;
     return;
@@ -807,9 +835,25 @@ function buildPlayerSnapshot(p) {
 }
 
 function tickRoom(room) {
-  const dt = SERVER_TICK_MS / 1000;
+  // Sub-step physics to match client frame rate (~60fps).
+  // Server ticks at 20Hz (50ms). Without sub-stepping, gravity and other
+  // per-frame forces are applied 20×/sec vs client's 60×/sec, causing
+  // massive position drift during jumps.
+  const SUB_STEPS = 3; // 50ms / 3 ≈ 16.7ms per step ≈ 60fps
+  const subDt = (SERVER_TICK_MS / 1000) / SUB_STEPS;
+  for (let step = 0; step < SUB_STEPS; step++) {
+    for (const [, player] of room.players) {
+      updatePlayer(room, player, subDt);
+    }
+  }
   for (const [, player] of room.players) {
-    updatePlayer(room, player, dt);
+    // Periodic server state dump for debugging
+    if (!player._lastStateDump || Date.now() - player._lastStateDump > 2000) {
+      const inp = player.input;
+      const activeInputs = Object.entries(inp).filter(([, v]) => v).map(([k]) => k);
+      console.log(`[MP-STATE] player=${player.name} pos=(${player.x.toFixed(2)},${player.y.toFixed(2)}) vel=(${player.vx.toFixed(2)},${player.vy.toFixed(2)}) grounded=${player.grounded} stamina=${player.stamina.toFixed(1)}/${player.maxStamina.toFixed(1)} exhausted=${player.exhausted} digging=${player.digging} input=[${activeInputs.join('+')}]`);
+      player._lastStateDump = Date.now();
+    }
   }
 
   // Build current snapshots for all players
@@ -824,33 +868,37 @@ function tickRoom(room) {
 
     const players = [];
     for (const [playerId, snapshot] of currentSnapshots) {
-      // Skip recipient's own movement data (client predicts that), but
-      // always send server-authoritative fields like digging/stamina/hp
-      if (playerId === recipientId && !recipient.needsFullState) {
-        // Send only server-authoritative fields the client can't predict
-        const snap = snapshot;
+      if (playerId === recipientId) {
+        // Local player: send server-authoritative fields + state for reconciliation
         const prev = room.prevStates.get(playerId);
-        const selfDelta = { id: snap.id };
+        const selfDelta = { id: snapshot.id };
+        // Include ack so client can trim its input history
+        const selfPlayer = room.players.get(playerId);
+        if (selfPlayer && selfPlayer.lastInputSeq != null) selfDelta.ack = selfPlayer.lastInputSeq;
         let selfChanged = false;
-        for (const key of ['digging', 'digTarget', 'digProgress', 'stamina', 'maxStamina',
-                           'exhausted', 'hp', 'maxHP', 'dead', 'activeEmote', 'climbing',
-                           'clinging', 'clingWallSide', 'mantling']) {
-          const cur = snap[key];
+        for (const key of ['digging', 'digTarget', 'digProgress', 'dead', 'hp', 'maxHP',
+                           'stamina', 'maxStamina', 'exhausted', 'x', 'y',
+                           'vx', 'vy', 'grounded', 'climbing', 'clinging']) {
+          const cur = snapshot[key];
           const old = prev?.[key];
           if (cur !== null && typeof cur === 'object') {
             if (!shallowEqual(cur, old)) { selfDelta[key] = cur; selfChanged = true; }
           } else if (cur !== old) { selfDelta[key] = cur; selfChanged = true; }
         }
-        if (selfChanged) players.push(selfDelta);
+        // Force position into delta when dig state transitions — client needs
+        // to know server position for dig target alignment and post-dig falling
+        if (selfChanged && ('digging' in selfDelta || 'digTarget' in selfDelta)) {
+          selfDelta.x = snapshot.x;
+          selfDelta.y = snapshot.y;
+        }
+        // Always send if ack is present (client needs it to trim input history)
+        if (selfChanged || selfDelta.ack != null) players.push(selfDelta);
         continue;
       }
-
       const prev = room.prevStates.get(playerId);
       const delta = computeDelta(prev, snapshot);
       if (delta) players.push(delta);
     }
-
-    recipient.needsFullState = false;
 
     // Only send if there's data
     if (players.length > 0) {
@@ -891,7 +939,7 @@ export function createRoom(hostPlayer, ws) {
 
   // Add host
   hostPlayer.ws = ws;
-  hostPlayer.needsFullState = true;
+
   room.players.set(hostPlayer.id, hostPlayer);
 
   return room;
@@ -908,12 +956,13 @@ export function joinRoom(roomId, player, ws) {
   const saved = loadPlayer(roomId, player.name);
   if (saved) {
     player.resources = saved.resources;
+    player.bankedResources = saved.bankedResources || {};
     player.unlockedEmotes = saved.unlockedEmotes;
     player.ownedUpgrades = saved.ownedUpgrades || [];
     applyServerUpgrades(player, room);
   }
 
-  player.needsFullState = true;
+
   room.players.set(player.id, player);
   return room;
 }
@@ -925,7 +974,7 @@ export function leaveRoom(roomId, playerId) {
   const player = room.players.get(playerId);
   if (player) {
     // Save player data
-    savePlayer(roomId, player.name, player.resources, player.unlockedEmotes, player.ownedUpgrades);
+    savePlayer(roomId, player.name, player.resources, player.unlockedEmotes, player.ownedUpgrades, player.bankedResources);
     room.players.delete(playerId);
     room.prevStates.delete(playerId);
     broadcast(room, { type: MSG.PLAYER_LEFT, playerId });
@@ -975,7 +1024,7 @@ export function tryLoadRoom(roomId) {
 function doSave(room) {
   saveWorld(room.id, room.seed, room.tiles, room.decorations);
   for (const [, player] of room.players) {
-    savePlayer(room.id, player.name, player.resources, player.unlockedEmotes, player.ownedUpgrades);
+    savePlayer(room.id, player.name, player.resources, player.unlockedEmotes, player.ownedUpgrades, player.bankedResources);
   }
 }
 
@@ -996,6 +1045,7 @@ export function handleMessage(roomId, playerId, msg) {
         dig: !!msg.dig,
         sprint: !!msg.sprint,
       };
+      if (msg.seq != null) player.lastInputSeq = msg.seq;
       break;
 
     case MSG.EMOTE: {
@@ -1130,6 +1180,28 @@ export function handleMessage(roomId, playerId, msg) {
     case MSG.LOAD_WORLD:
       sendTo(player, { type: MSG.WORLD_LIST, worlds: listWorlds() });
       break;
+
+    case MSG.DEPOSIT: {
+      const key = msg.resource;
+      const amount = Math.min(msg.amount || 0, player.resources[key] || 0);
+      if (amount > 0 && typeof key === 'string') {
+        player.resources[key] -= amount;
+        player.bankedResources[key] = (player.bankedResources[key] || 0) + amount;
+        sendTo(player, { type: MSG.BANK_UPDATE, resources: player.resources, bankedResources: player.bankedResources });
+      }
+      break;
+    }
+
+    case MSG.WITHDRAW: {
+      const key = msg.resource;
+      const amount = Math.min(msg.amount || 0, player.bankedResources[key] || 0);
+      if (amount > 0 && typeof key === 'string') {
+        player.bankedResources[key] -= amount;
+        player.resources[key] = (player.resources[key] || 0) + amount;
+        sendTo(player, { type: MSG.BANK_UPDATE, resources: player.resources, bankedResources: player.bankedResources });
+      }
+      break;
+    }
 
     case MSG.PING: {
       const px = typeof msg.x === 'number' && Number.isFinite(msg.x)

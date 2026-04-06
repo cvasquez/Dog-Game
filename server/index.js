@@ -207,6 +207,12 @@ wss.on('connection', (ws) => {
     // Basic shape validation: must be a plain object with a type
     if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.type !== 'string') return;
 
+    // Latency measurement — echo immediately, bypass room logic
+    if (msg.type === MSG.NET_PING) {
+      if (ws.readyState === 1) ws.send(JSON.stringify({ type: MSG.NET_PONG, t: msg.t }));
+      return;
+    }
+
     if (msg.type === MSG.JOIN) {
       // Prevent re-joining
       if (playerId) return;
@@ -246,6 +252,7 @@ wss.on('connection', (ws) => {
         playersArr.push({
           id: p.id, name: p.name, color: p.color,
           x: p.x, y: p.y, resources: p.resources,
+          bankedResources: p.bankedResources || {},
           unlockedEmotes: p.unlockedEmotes,
           ownedUpgrades: p.ownedUpgrades || [],
         });

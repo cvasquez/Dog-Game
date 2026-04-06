@@ -1,4 +1,4 @@
-import { TILE_SIZE, TILE, MSG, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, EMOTE_DISPLAY_FRAMES, RESPAWN_FRAMES, getNearbyShop, SOLID_TILES, DECORATIONS, PARK_TOP, PARK_BOTTOM, EMOTES } from '../../shared/constants.js';
+import { TILE_SIZE, TILE, MSG, SURFACE_Y, TILE_COLORS, RESOURCE_NAMES, EMOTE_DISPLAY_FRAMES, RESPAWN_FRAMES, getNearbyShop, getNearbyBank, SOLID_TILES, DECORATIONS, PARK_TOP, PARK_BOTTOM, EMOTES } from '../../shared/constants.js';
 import { World } from './world.js';
 import { Player } from './player.js';
 import { Camera } from './camera.js';
@@ -8,7 +8,9 @@ import { ParticleSystem } from './particles.js';
 import { Network } from './network.js';
 import { HUD } from './hud.js';
 import { Shop } from './shop.js';
+import { Bank } from './bank.js';
 import { ActionBar } from './emotes.js';
+import mpDebug from './mp-debug.js';
 
 export class Game {
   constructor() {
@@ -21,6 +23,7 @@ export class Game {
     this.network = new Network();
     this.hud = new HUD();
     this.shop = new Shop();
+    this.bank = new Bank();
     this.actionBar = new ActionBar(this.hud);
 
     this.localPlayer = null;
@@ -31,6 +34,10 @@ export class Game {
     this.lastTime = 0;
     this.placingDecoration = null; // id of decoration being placed, or null
     this.pings = []; // { x, y, playerName, life }
+    // Input history for server reconciliation — stores state snapshots
+    // keyed by the input seq at which each snapshot was taken
+    this.inputHistory = [];
+    this._lastInputSeq = 0;
   }
 
   async start(roomId, playerName, breedId) {
@@ -50,15 +57,25 @@ export class Game {
     const localData = joinData.players.find(p => p.id === joinData.playerId);
     this.localPlayer = new Player(joinData.playerId, localData.name, localData.color);
     this.localPlayer.isLocal = true;
+    this.localPlayer.serverAuthoritative = true; // server owns stamina/exhaustion/digging
     this.localPlayer.x = localData.x;
     this.localPlayer.y = localData.y;
     if (localData.resources) this.localPlayer.resources = localData.resources;
+    if (localData.bankedResources) this.localPlayer.bankedResources = localData.bankedResources;
     if (localData.unlockedEmotes) this.localPlayer.unlockedEmotes = localData.unlockedEmotes;
     if (localData.ownedUpgrades) {
       this.localPlayer.ownedUpgrades = localData.ownedUpgrades;
       this.localPlayer.applyUpgrades(this.decorations);
     }
     this.players.set(this.localPlayer.id, this.localPlayer);
+
+    // Bank callbacks — send deposit/withdraw to server
+    this.bank.onDeposit = (key, amount) => {
+      this.network.send({ type: MSG.DEPOSIT, resource: key, amount });
+    };
+    this.bank.onWithdraw = (key, amount) => {
+      this.network.send({ type: MSG.WITHDRAW, resource: key, amount });
+    };
 
     // Setup remote players
     for (const pd of joinData.players) {
@@ -127,9 +144,11 @@ export class Game {
       for (const ps of msg.players) {
         const player = this.players.get(ps.id);
         if (player) {
-          player.applyServerState(ps);
+          player.applyServerState(ps, this.world, this.inputHistory);
         }
       }
+      // Log RTT periodically
+      mpDebug.rtt(this.network.rtt);
     });
 
     this.network.on(MSG.TILE_UPDATE, (msg) => {
@@ -226,6 +245,19 @@ export class Game {
       }
     });
 
+    this.network.on(MSG.BANK_UPDATE, (msg) => {
+      this.localPlayer.resources = msg.resources;
+      this.localPlayer.bankedResources = msg.bankedResources;
+      this.hud.updateResources(this.localPlayer.resources);
+      if (this.bank.visible) {
+        this.bank.show(this.localPlayer.resources, this.localPlayer.bankedResources);
+      }
+    });
+
+    this.network.on(MSG.DIG_REJECTED, (msg) => {
+      this.notify(msg.reason === 'no_stamina' ? 'Too tired to dig!' : 'Nothing to dig here!');
+    });
+
     this.network.on(MSG.SAVED, () => {
       this.notify('World saved!');
     });
@@ -257,13 +289,18 @@ export class Game {
   }
 
   update(dt) {
-    // Track nearby shop for prompt rendering
+    // Track nearby shop/bank for prompt rendering
     this.nearbyShop = getNearbyShop(this.localPlayer.x, this.localPlayer.y);
+    this.nearbyBank = getNearbyBank(this.localPlayer.x, this.localPlayer.y);
 
-    // Handle shop toggle — only when near a shop machine at the surface
+    // Handle shop/bank toggle — only when near a machine at the surface
     if (this.input.justPressed('KeyB')) {
       if (this.shop.visible) {
         this.shop.hide();
+      } else if (this.bank.visible) {
+        this.bank.hide();
+      } else if (this.nearbyBank) {
+        this.bank.show(this.localPlayer.resources, this.localPlayer.bankedResources || {});
       } else if (this.nearbyShop) {
         this.shop.show(this.localPlayer.resources, this.localPlayer.unlockedEmotes, this.localPlayer.ownedUpgrades, this.nearbyShop.type, this.localPlayer.discoveredBlueprints);
       } else {
@@ -313,10 +350,12 @@ export class Game {
       if (this.pings[i].life <= 0) this.pings.splice(i, 1);
     }
 
-    // Cancel decoration placement or close shop on Escape
+    // Cancel decoration placement or close shop/bank on Escape
     if (this.input.justPressed('Escape')) {
       if (this.shop.visible) {
         this.shop.hide();
+      } else if (this.bank.visible) {
+        this.bank.hide();
       }
       this.placingDecoration = null;
     }
@@ -324,10 +363,37 @@ export class Game {
     if (!this.shop.visible) {
       // Send input to server
       const inputState = this.input.getState();
+      mpDebug.input(inputState);
       this.network.sendInput(inputState);
 
       // Client-side prediction
+      const prevAnim = this.localPlayer.animState;
+      const prevGrounded = this.localPlayer.grounded;
       this.localPlayer.predictUpdate(inputState, this.world, dt);
+
+      // Store prediction state for server reconciliation
+      const seq = this.network.inputSeq;
+      if (seq > this._lastInputSeq) {
+        this._lastInputSeq = seq;
+        this.inputHistory.push({
+          seq,
+          input: { ...inputState },
+          x: this.localPlayer.x,
+          y: this.localPlayer.y,
+          vx: this.localPlayer.vx,
+          vy: this.localPlayer.vy,
+        });
+        // Cap ring buffer at ~2 seconds of input changes
+        if (this.inputHistory.length > 120) this.inputHistory.shift();
+      }
+
+      mpDebug.prediction(this.localPlayer);
+      if (this.localPlayer.animState !== prevAnim) {
+        mpDebug.animChange(prevAnim, this.localPlayer.animState, this.localPlayer);
+      }
+      if (this.localPlayer.grounded !== prevGrounded) {
+        mpDebug.groundedChange(prevGrounded, this.localPlayer.grounded, this.localPlayer);
+      }
     }
 
     // Landing effects: particles + screen shake
@@ -352,12 +418,13 @@ export class Game {
     // Update remote players
     for (const [id, player] of this.players) {
       if (!player.isLocal) {
-        player.interpolate(dt);
-        // Derive animation state from server data
+        player.interpolate(dt, performance.now());
+        // Derive animation state — use interpolated velocity for walk/idle
+        // to avoid flickering at 20Hz server update rate
         if (player.mantling) player.animState = 'mantle';
         else if (player.climbing || player.clinging) player.animState = 'climb';
         else if (player.digging) player.animState = 'dig';
-        else if (Math.abs(player.vx) > 0.5) player.animState = 'walk';
+        else if (Math.abs(player.interpVx || 0) > 0.02) player.animState = 'walk';
         else player.animState = 'idle';
         // Advance frames
         player.animTimer = (player.animTimer || 0) + 1;
@@ -422,6 +489,7 @@ export class Game {
     this.renderer.drawParkZone(this.camera);
     this.renderer.drawDecorations(this.decorations, this.camera);
     this.renderer.drawShopMachines(this.camera);
+    this.renderer.drawBankMachine(this.camera);
 
     // Draw all players
     for (const [id, player] of this.players) {
@@ -439,6 +507,11 @@ export class Game {
     // Shop interaction prompt
     if (this.nearbyShop && !this.shop.visible) {
       this.renderer.drawShopPrompt(this.nearbyShop, this.camera);
+    }
+
+    // Bank interaction prompt
+    if (this.nearbyBank) {
+      this.renderer.drawBankPrompt(this.camera);
     }
 
     // Draw decoration placement preview

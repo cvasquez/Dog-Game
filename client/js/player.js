@@ -1,3 +1,4 @@
+import mpDebug from './mp-debug.js';
 import { getFrameCount } from './sprites.js';
 import {
   GRAVITY, MOVE_SPEED, JUMP_FORCE, FRICTION, MAX_FALL_SPEED,
@@ -125,6 +126,11 @@ export class Player {
     // Interpolation
     this.targetX = this.x;
     this.targetY = this.y;
+    this._prevInterpX = this.x;
+    this._prevInterpY = this.y;
+    this.interpVx = 0;
+    // Remote player interpolation buffer for smooth timeline rendering
+    this.posBuffer = []; // { x, y, vx, vy, t }
 
     // Squash & stretch (visual only)
     this.scaleX = 1;
@@ -195,9 +201,11 @@ export class Player {
       return;
     }
 
-    // Check for lava
-    this.checkHazards(world);
-    if (this.dead) return;
+    // Check for lava (skip in multiplayer — server owns HP/death)
+    if (!this.serverAuthoritative) {
+      this.checkHazards(world);
+      if (this.dead) return;
+    }
 
     const jumpPressed = input.jump && !this.prevJump;
     this.prevJump = input.jump;
@@ -213,8 +221,8 @@ export class Player {
     const wallRight = this.checkWall(world, 1);
     const nextToWall = wallLeft || wallRight;
 
-    // Exhaustion recovery
-    if (this.exhausted) {
+    // Exhaustion recovery (skip in multiplayer — server owns stamina)
+    if (!this.serverAuthoritative && this.exhausted) {
       this.exhaustionTimer--;
       if (this.exhaustionTimer <= 0) this.exhausted = false;
     }
@@ -258,7 +266,7 @@ export class Player {
           this.releaseCling();
           this.vx = -this.clingWallSide * this.moveSpeed * 0.5;
         } else if (this.stamina <= 0) {
-          this.triggerExhaustion();
+          if (!this.serverAuthoritative) this.triggerExhaustion();
         }
       }
     }
@@ -275,17 +283,17 @@ export class Player {
         this.vx = 0;
         this.climbing = true;
         this.vy = -CLIMB_SPEED;
-        this.stamina -= STAMINA_CLIMB_COST / this.climbEfficiency;
+        if (!this.serverAuthoritative) this.stamina -= STAMINA_CLIMB_COST / this.climbEfficiency;
       } else {
         this.vx = 0;
         this.climbing = false;
         this.vy = CLING_SLIDE_SPEED;
-        this.stamina -= STAMINA_CLING_COST / this.climbEfficiency;
+        if (!this.serverAuthoritative) this.stamina -= STAMINA_CLING_COST / this.climbEfficiency;
       }
-      if (this.stamina < 0) this.stamina = 0;
+      if (!this.serverAuthoritative && this.stamina < 0) this.stamina = 0;
 
       if (jumpPressed && this.stamina >= STAMINA_CLIMB_JUMP) {
-        this.stamina -= STAMINA_CLIMB_JUMP;
+        if (!this.serverAuthoritative) this.stamina -= STAMINA_CLIMB_JUMP;
         this.vy = CLIMB_JUMP_FORCE;
         const pushAway = (this.clingWallSide < 0 && input.right) ||
                          (this.clingWallSide > 0 && input.left);
@@ -296,7 +304,7 @@ export class Player {
         const pushAway = (this.clingWallSide < 0 && input.right) ||
                          (this.clingWallSide > 0 && input.left);
         this.vx = -this.clingWallSide * this.moveSpeed * (pushAway ? 0.2 : 0.08);
-        this.stamina = 0;
+        if (!this.serverAuthoritative) this.stamina = 0;
         this.releaseCling();
       }
     } else {
@@ -308,12 +316,16 @@ export class Player {
       const effectiveSpeed = sprinting ? this.moveSpeed * SPRINT_SPEED_MULT : this.moveSpeed;
       this._movingDrain = false;
       if (moving && !this.exhausted) {
-        this.stamina -= STAMINA_RUN_COST;
-        if (sprinting) {
-          this.stamina -= STAMINA_SPRINT_COST;
+        if (!this.serverAuthoritative) {
+          this.stamina -= STAMINA_RUN_COST;
+          if (sprinting) {
+            this.stamina -= STAMINA_SPRINT_COST;
+            this._movingDrain = true;
+          }
+          if (this.stamina <= 0) this.triggerExhaustion();
+        } else if (sprinting) {
           this._movingDrain = true;
         }
-        if (this.stamina <= 0) this.triggerExhaustion();
       }
 
       // Acceleration-based horizontal movement
@@ -376,15 +388,17 @@ export class Player {
       if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
     }
 
-    // Stamina regen on ground after delay (not while running/sprinting/digging)
-    if (this.grounded && !this.exhausted && !this._movingDrain && !this.digging && this.groundedTimer > STAMINA_REGEN_DELAY) {
+    // Stamina regen on ground after delay (skip in multiplayer — server owns stamina)
+    if (!this.serverAuthoritative && this.grounded && !this.exhausted && !this._movingDrain && !this.digging && this.groundedTimer > STAMINA_REGEN_DELAY) {
       this.stamina = Math.min(this.maxStamina, this.stamina + this.staminaRegenRate);
     }
 
-    // HP regen (slow, requires being grounded for a while)
-    this.hpRegenTimer++;
-    if (this.grounded && this.hpRegenTimer > HP_REGEN_DELAY && this.hp < this.maxHP) {
-      this.hp = Math.min(this.maxHP, this.hp + HP_REGEN_RATE);
+    // HP regen (skip in multiplayer — server owns HP)
+    if (!this.serverAuthoritative) {
+      this.hpRegenTimer++;
+      if (this.grounded && this.hpRegenTimer > HP_REGEN_DELAY && this.hp < this.maxHP) {
+        this.hp = Math.min(this.maxHP, this.hp + HP_REGEN_RATE);
+      }
     }
 
     // --- PHYSICS ---
@@ -467,16 +481,17 @@ export class Player {
         this.scaleY = 1 - 0.25 * intensity;
         this.squashTimer = 6;
 
-        // Distance-based fall damage (HP loss + stun)
-        const fallBlocks = this.y - this.fallPeakY;
-        if (fallBlocks > FALL_DAMAGE_MIN_BLOCKS) {
-          const excess = fallBlocks - FALL_DAMAGE_MIN_BLOCKS;
-          const damage = excess * excess * FALL_DAMAGE_SCALE;
-          this.takeDamage(damage, 'fall');
-          if (!this.dead) {
-            // Stun only — no stamina drain from landing
-            this.exhausted = true;
-            this.exhaustionTimer = FALL_DAMAGE_STUN_FRAMES;
+        // Distance-based fall damage (skip in multiplayer — server owns HP)
+        if (!this.serverAuthoritative) {
+          const fallBlocks = this.y - this.fallPeakY;
+          if (fallBlocks > FALL_DAMAGE_MIN_BLOCKS) {
+            const excess = fallBlocks - FALL_DAMAGE_MIN_BLOCKS;
+            const damage = excess * excess * FALL_DAMAGE_SCALE;
+            this.takeDamage(damage, 'fall');
+            if (!this.dead) {
+              this.exhausted = true;
+              this.exhaustionTimer = FALL_DAMAGE_STUN_FRAMES;
+            }
           }
         }
       }
@@ -706,28 +721,162 @@ export class Player {
     return false;
   }
 
-  interpolate(dt) {
+  interpolate(dt, now) {
     if (this.isLocal) return;
-    this.x += (this.targetX - this.x) * 0.3;
-    this.y += (this.targetY - this.y) * 0.3;
+    this._prevInterpX = this.x;
+    this._prevInterpY = this.y;
+
+    // Timeline-based interpolation: render 100ms behind to always
+    // have two snapshots to interpolate between
+    const INTERP_DELAY = 100;
+    const renderTime = (now || performance.now()) - INTERP_DELAY;
+
+    if (this.posBuffer.length >= 2) {
+      // Find the two snapshots that bracket renderTime
+      let i = 0;
+      while (i < this.posBuffer.length - 1 && this.posBuffer[i + 1].t <= renderTime) i++;
+
+      if (i < this.posBuffer.length - 1) {
+        const a = this.posBuffer[i];
+        const b = this.posBuffer[i + 1];
+        const span = b.t - a.t;
+        const frac = span > 0 ? Math.min(1, (renderTime - a.t) / span) : 1;
+        this.x = a.x + (b.x - a.x) * frac;
+        this.y = a.y + (b.y - a.y) * frac;
+      } else {
+        // renderTime is past all snapshots — extrapolate from last entry (capped at 200ms)
+        const last = this.posBuffer[this.posBuffer.length - 1];
+        const elapsed = Math.min(200, renderTime - last.t) / 1000;
+        this.x = last.x + (last.vx || 0) * elapsed * 60;
+        this.y = last.y + (last.vy || 0) * elapsed * 60;
+      }
+
+      // Trim old entries we've passed (keep at least 2)
+      while (this.posBuffer.length > 2 && this.posBuffer[1].t < renderTime) {
+        this.posBuffer.shift();
+      }
+    } else {
+      // Not enough buffer entries yet, fall back to simple lerp
+      this.x += (this.targetX - this.x) * 0.3;
+      this.y += (this.targetY - this.y) * 0.3;
+    }
+
+    // Derive velocity from interpolated movement for smooth animation
+    if (dt > 0) this.interpVx = (this.x - this._prevInterpX) / dt;
   }
 
-  applyServerState(state) {
+  applyServerState(state, world, inputHistory) {
     if (this.isLocal) {
-      // Don't override position during mantle animation
-      if (!this.mantling && state.x != null && state.y != null) {
-        const dx = state.x - this.x;
-        const dy = state.y - this.y;
-        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) { this.x = state.x; this.y = state.y; }
-        else { this.x += dx * 0.1; this.y += dy * 0.1; }
+      mpDebug.serverState(state, this);
+
+      // Trim input history up to ack'd sequence
+      if (state.ack != null && inputHistory) {
+        while (inputHistory.length > 0 && inputHistory[0].seq <= state.ack) {
+          inputHistory.shift();
+        }
       }
-      if (state.grounded != null) this.grounded = state.grounded;
-    } else {
-      if (state.x != null) this.targetX = state.x;
-      if (state.y != null) this.targetY = state.y;
-      if (state.vx != null) this.vx = state.vx;
-      if (state.vy != null) this.vy = state.vy;
+
+      // Position correction with server reconciliation
+      if (state.x != null && state.y != null) {
+        const beforeX = this.x, beforeY = this.y;
+        const dist = Math.abs(state.x - this.x) + Math.abs(state.y - this.y);
+
+        if (dist > 8) {
+          // Large teleport (respawn, recall) — snap immediately
+          this.x = state.x;
+          this.y = state.y;
+          if (state.vx != null) this.vx = state.vx;
+          if (state.vy != null) this.vy = state.vy;
+          mpDebug.posCorrection('SNAP', { x: beforeX, y: beforeY }, { x: this.x, y: this.y }, { x: state.x, y: state.y });
+        } else if (inputHistory && inputHistory.length > 0 && world) {
+          // Server reconciliation: replay unacknowledged inputs from server position
+          const savedX = this.x, savedY = this.y;
+          const savedVx = this.vx, savedVy = this.vy;
+          const savedGrounded = this.grounded;
+          const savedClimbing = this.climbing;
+          const savedClinging = this.clinging;
+
+          this.x = state.x;
+          this.y = state.y;
+          if (state.vx != null) this.vx = state.vx;
+          if (state.vy != null) this.vy = state.vy;
+          if (state.grounded != null) this.grounded = state.grounded;
+          if (state.climbing != null) this.climbing = state.climbing;
+          if (state.clinging != null) this.clinging = state.clinging;
+
+          // Replay all unacknowledged inputs
+          for (const entry of inputHistory) {
+            this.predictUpdate(entry.input, world, 1 / 60);
+          }
+
+          const reconciledX = this.x, reconciledY = this.y;
+          const reconDist = Math.abs(reconciledX - savedX) + Math.abs(reconciledY - savedY);
+
+          if (reconDist < 0.5) {
+            // Prediction was close enough — keep original prediction
+            this.x = savedX;
+            this.y = savedY;
+            this.vx = savedVx;
+            this.vy = savedVy;
+            this.grounded = savedGrounded;
+            this.climbing = savedClimbing;
+            this.clinging = savedClinging;
+          } else {
+            // Prediction diverged — use reconciled position
+            mpDebug.posCorrection('RECON', { x: savedX, y: savedY }, { x: reconciledX, y: reconciledY }, { x: state.x, y: state.y });
+          }
+        } else if ((this.grounded || this.clinging || this.climbing) && !this.mantling) {
+          // Fallback: gentle lerp in stable states (no input history available)
+          const dx = state.x - this.x;
+          const dy = state.y - this.y;
+          if (Math.abs(dx) > 0.3) this.x += dx * 0.2;
+          if ((this.clinging || this.climbing) && Math.abs(dy) > 0.3) this.y += dy * 0.2;
+          if (this.x !== beforeX || this.y !== beforeY) {
+            mpDebug.posCorrection('LERP', { x: beforeX, y: beforeY }, { x: this.x, y: this.y }, { x: state.x, y: state.y });
+          }
+        }
+      }
+      // Server-authoritative: digging (no client prediction)
+      if (state.digging != null) this.digging = state.digging;
+      if ('digTarget' in state) {
+        if (state.digTarget && !this.digTarget) {
+          mpDebug.dig('START', { target: state.digTarget, clientPos: { x: this.x.toFixed(2), y: this.y.toFixed(2) }, serverPos: (state.x != null && state.y != null) ? { x: state.x.toFixed(2), y: state.y.toFixed(2) } : 'n/a' });
+          // Snap position to server when dig starts so health bar aligns with player
+          if (state.x != null && state.y != null) {
+            this.x = state.x;
+            this.y = state.y;
+          }
+        } else if (!state.digTarget && this.digTarget) {
+          mpDebug.dig('STOP', { wasTarget: this.digTarget });
+        }
+        this.digTarget = state.digTarget;
+      }
+      if (state.digProgress != null) this.digProgress = state.digProgress;
+      // Server-authoritative: stamina (server decides if dig is allowed)
+      if (state.stamina != null) this.stamina = state.stamina;
+      if (state.maxStamina != null) this.maxStamina = state.maxStamina;
+      if (state.exhausted != null) this.exhausted = state.exhausted;
+      mpDebug.stamina(this);
+      // Server-authoritative: death and HP
+      if (state.dead != null) this.dead = state.dead;
+      if (state.hp != null) this.hp = state.hp;
+      if (state.maxHP != null) this.maxHP = state.maxHP;
+      return;
     }
+    // Remote players: apply everything from server
+    if (state.x != null) this.targetX = state.x;
+    if (state.y != null) this.targetY = state.y;
+    // Push to interpolation buffer for smooth timeline rendering
+    if (state.x != null || state.y != null) {
+      this.posBuffer.push({
+        x: this.targetX, y: this.targetY,
+        vx: state.vx ?? this.vx, vy: state.vy ?? this.vy,
+        t: performance.now(),
+      });
+      if (this.posBuffer.length > 10) this.posBuffer.shift();
+    }
+    if (state.vx != null) this.vx = state.vx;
+    if (state.vy != null) this.vy = state.vy;
     if (state.facing != null) this.facing = state.facing;
     if (state.digging != null) this.digging = state.digging;
     if ('digTarget' in state) this.digTarget = state.digTarget;
@@ -736,7 +885,7 @@ export class Player {
     if (state.dead != null) this.dead = state.dead;
     if (state.color != null) {
       this.color = state.color;
-      this.breedId = state.color; // server sends breedId as color
+      this.breedId = state.color;
     }
     if (state.name != null) this.name = state.name;
     if (state.stamina != null) this.stamina = state.stamina;

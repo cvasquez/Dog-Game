@@ -153,13 +153,13 @@ export const DOG_BREEDS = [
     colors: { body: '#C49A6C', dark: '#8B6914', light: '#E8D5A3' },
     stats: {
       moveSpeed: 1.4,    // very fast
-      jumpForce: 1.35,   // sky-high jumps
-      digSpeed: 0.6,     // low dig speed
+      jumpForce: 1.4,   // sky-high jumps
+      digSpeed: 0.8,     // low dig speed
       maxStamina: 1.0,   // mid stamina
       staminaRegen: 1.0,
       maxHP: 1.2,        // 20% more HP — tanky all-rounder
     },
-    freeEmote: 0, // Bark
+    freeEmote: 4, // Celebrate
     // Hitbox derived from opaque sprite bounds (rows 5-15, cols 2-13)
     hitboxWidth: 0.75,     // 12px
     hitboxHeight: 0.6875,  // 11px
@@ -492,6 +492,12 @@ export const MSG = {
   WORLD_LIST: 'world_list',
   PING: 'ping',
   PING_PLACED: 'ping_placed',
+  DEPOSIT: 'deposit',
+  WITHDRAW: 'withdraw',
+  BANK_UPDATE: 'bank_update',
+  NET_PING: 'np',
+  NET_PONG: 'nq',
+  DIG_REJECTED: 'dig_reject',
 };
 
 // Decoration synergy pairs: { ids: [a, b], bonus: { stat: value }, name: string }

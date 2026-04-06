@@ -30,9 +30,13 @@ export function initDB() {
       resources TEXT DEFAULT '{}',
       unlocked_emotes TEXT DEFAULT '[0,1]',
       owned_upgrades TEXT DEFAULT '[]',
+      banked_resources TEXT DEFAULT '{}',
       PRIMARY KEY (room_id, player_name)
     )
   `);
+
+  // Migration: add banked_resources column if missing
+  try { db.exec('ALTER TABLE players ADD COLUMN banked_resources TEXT DEFAULT \'{}\''); } catch { /* already exists */ }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS decoration_sprites (
@@ -105,12 +109,12 @@ export function listWorlds() {
   return db.prepare('SELECT room_id, created_at, updated_at FROM worlds ORDER BY updated_at DESC').all();
 }
 
-export function savePlayer(roomId, playerName, resources, unlockedEmotes, ownedUpgrades) {
+export function savePlayer(roomId, playerName, resources, unlockedEmotes, ownedUpgrades, bankedResources) {
   const stmt = db.prepare(`
-    INSERT OR REPLACE INTO players (room_id, player_name, resources, unlocked_emotes, owned_upgrades)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO players (room_id, player_name, resources, unlocked_emotes, owned_upgrades, banked_resources)
+    VALUES (?, ?, ?, ?, ?, ?)
   `);
-  stmt.run(roomId, playerName, JSON.stringify(resources), JSON.stringify(unlockedEmotes), JSON.stringify(ownedUpgrades || []));
+  stmt.run(roomId, playerName, JSON.stringify(resources), JSON.stringify(unlockedEmotes), JSON.stringify(ownedUpgrades || []), JSON.stringify(bankedResources || {}));
 }
 
 export function loadPlayer(roomId, playerName) {
@@ -119,10 +123,11 @@ export function loadPlayer(roomId, playerName) {
   const resources = safeJsonParse(row.resources, {});
   const unlockedEmotes = safeJsonParse(row.unlocked_emotes, [0, 1]);
   const ownedUpgrades = safeJsonParse(row.owned_upgrades || '[]', []);
+  const bankedResources = safeJsonParse(row.banked_resources || '{}', {});
   if (typeof resources !== 'object' || !Array.isArray(unlockedEmotes) || !Array.isArray(ownedUpgrades)) {
     return null;
   }
-  return { resources, unlockedEmotes, ownedUpgrades };
+  return { resources, unlockedEmotes, ownedUpgrades, bankedResources };
 }
 
 export function deleteWorld(roomId) {
