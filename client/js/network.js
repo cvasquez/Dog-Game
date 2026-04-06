@@ -1,5 +1,10 @@
 import { MSG } from '../../shared/constants.js';
 
+// msgpackr is loaded via UMD script tag — globalThis.msgpackr
+const msgpackUnpack = globalThis.msgpackr
+  ? new globalThis.msgpackr.Unpackr({ mapsAsObjects: true, useRecords: false })
+  : null;
+
 export class Network {
   constructor() {
     this.ws = null;
@@ -12,6 +17,7 @@ export class Network {
     return new Promise((resolve, reject) => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       this.ws = new WebSocket(`${protocol}//${window.location.host}`);
+      this.ws.binaryType = 'arraybuffer';
 
       this.ws.onopen = () => {
         this.connected = true;
@@ -27,7 +33,14 @@ export class Network {
       this.ws.onmessage = (event) => {
         let msg;
         try {
-          msg = JSON.parse(event.data);
+          if (event.data instanceof ArrayBuffer) {
+            // Binary frame — msgpack-encoded STATE message
+            msg = msgpackUnpack
+              ? msgpackUnpack.unpack(new Uint8Array(event.data))
+              : JSON.parse(new TextDecoder().decode(event.data));
+          } else {
+            msg = JSON.parse(event.data);
+          }
         } catch { return; }
 
         // First message should be ROOM_JOINED

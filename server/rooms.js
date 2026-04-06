@@ -16,12 +16,51 @@ import {
   BASE_MAX_HP, HP_REGEN_RATE, HP_REGEN_DELAY, LAVA_DAMAGE,
 } from '../shared/constants.js';
 import crypto from 'crypto';
+import { Packr } from 'msgpackr';
 import { generateWorld } from './world-gen.js';
 import { saveWorld, loadWorld, savePlayer, loadPlayer, listWorlds } from './persistence.js';
 
 const rooms = new Map();
 const AUTO_SAVE_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_DECORATIONS_PER_ROOM = 200;
+const packr = new Packr({ useRecords: false, mapsAsObjects: true });
+
+// Compare two objects shallowly (for digTarget, emoteBuff)
+function shallowEqual(a, b) {
+  if (a === b) return true;
+  if (a == null || b == null) return a === b;
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  for (const k of keysA) {
+    if (a[k] !== b[k]) return false;
+  }
+  return true;
+}
+
+// Compute delta between previous and current player state.
+// Returns partial object with only changed fields (always includes id), or null if nothing changed.
+function computeDelta(prev, current) {
+  if (!prev) return { ...current };
+  const delta = { id: current.id };
+  let changed = false;
+  for (const key of Object.keys(current)) {
+    if (key === 'id') continue;
+    const cur = current[key];
+    const old = prev[key];
+    if (cur !== null && typeof cur === 'object') {
+      // Object fields: digTarget, emoteBuff — shallow compare
+      if (!shallowEqual(cur, old)) {
+        delta[key] = cur;
+        changed = true;
+      }
+    } else if (cur !== old) {
+      delta[key] = cur;
+      changed = true;
+    }
+  }
+  return changed ? delta : null;
+}
 
 function genRoomId() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -738,43 +777,74 @@ function sendTo(player, message) {
   }
 }
 
+function buildPlayerSnapshot(p) {
+  return {
+    id: p.id,
+    x: p.x,
+    y: p.y,
+    vx: p.vx,
+    vy: p.vy,
+    facing: p.facing,
+    grounded: p.grounded,
+    dead: p.dead,
+    digging: p.digging,
+    digTarget: p.digTarget,
+    digProgress: p.digProgress,
+    activeEmote: p.activeEmote,
+    emoteBuff: p.emoteBuff ? { emoteId: p.emoteBuff.emoteId, timer: p.emoteBuff.timer } : null,
+    color: p.color,
+    name: p.name,
+    stamina: p.stamina,
+    maxStamina: p.maxStamina,
+    exhausted: p.exhausted,
+    climbing: p.climbing,
+    clinging: p.clinging,
+    clingWallSide: p.clingWallSide,
+    mantling: p.mantling,
+    hp: p.hp,
+    maxHP: p.maxHP,
+  };
+}
+
 function tickRoom(room) {
   const dt = SERVER_TICK_MS / 1000;
   for (const [, player] of room.players) {
     updatePlayer(room, player, dt);
   }
 
-  // Build state snapshot
-  const players = [];
-  for (const [, p] of room.players) {
-    players.push({
-      id: p.id,
-      x: p.x,
-      y: p.y,
-      vx: p.vx,
-      vy: p.vy,
-      facing: p.facing,
-      grounded: p.grounded,
-      dead: p.dead,
-      digging: p.digging,
-      digTarget: p.digTarget,
-      digProgress: p.digProgress,
-      activeEmote: p.activeEmote,
-      emoteBuff: p.emoteBuff ? { emoteId: p.emoteBuff.emoteId, timer: p.emoteBuff.timer } : null,
-      color: p.color,
-      name: p.name,
-      stamina: p.stamina,
-      maxStamina: p.maxStamina,
-      exhausted: p.exhausted,
-      climbing: p.climbing,
-      clinging: p.clinging,
-      clingWallSide: p.clingWallSide,
-      mantling: p.mantling,
-      hp: p.hp,
-      maxHP: p.maxHP,
-    });
+  // Build current snapshots for all players
+  const currentSnapshots = new Map();
+  for (const [id, p] of room.players) {
+    currentSnapshots.set(id, buildPlayerSnapshot(p));
   }
-  broadcast(room, { type: MSG.STATE, players });
+
+  // Send per-recipient delta-encoded, selective, binary STATE messages
+  for (const [recipientId, recipient] of room.players) {
+    if (!recipient.ws || recipient.ws.readyState !== 1) continue;
+
+    const players = [];
+    for (const [playerId, snapshot] of currentSnapshots) {
+      // Selective: skip recipient's own data (unless first tick after join)
+      if (playerId === recipientId && !recipient.needsFullState) continue;
+
+      const prev = room.prevStates.get(playerId);
+      const delta = computeDelta(prev, snapshot);
+      if (delta) players.push(delta);
+    }
+
+    recipient.needsFullState = false;
+
+    // Only send if there's data
+    if (players.length > 0) {
+      const packed = packr.pack({ type: MSG.STATE, players });
+      recipient.ws.send(packed);
+    }
+  }
+
+  // Update previous states for next tick's delta computation
+  for (const [id, snapshot] of currentSnapshots) {
+    room.prevStates.set(id, snapshot);
+  }
 }
 
 export function createRoom(hostPlayer, ws) {
@@ -791,6 +861,7 @@ export function createRoom(hostPlayer, ws) {
     players: new Map(),
     decorations: [],
     tileDamage: new Map(),
+    prevStates: new Map(),
     tickInterval: null,
     autoSaveInterval: null,
   };
@@ -802,6 +873,7 @@ export function createRoom(hostPlayer, ws) {
 
   // Add host
   hostPlayer.ws = ws;
+  hostPlayer.needsFullState = true;
   room.players.set(hostPlayer.id, hostPlayer);
 
   return room;
@@ -823,6 +895,7 @@ export function joinRoom(roomId, player, ws) {
     applyServerUpgrades(player, room);
   }
 
+  player.needsFullState = true;
   room.players.set(player.id, player);
   return room;
 }
@@ -836,6 +909,7 @@ export function leaveRoom(roomId, playerId) {
     // Save player data
     savePlayer(roomId, player.name, player.resources, player.unlockedEmotes, player.ownedUpgrades);
     room.players.delete(playerId);
+    room.prevStates.delete(playerId);
     broadcast(room, { type: MSG.PLAYER_LEFT, playerId });
   }
 
@@ -868,6 +942,7 @@ export function tryLoadRoom(roomId) {
     players: new Map(),
     decorations: saved.decorations || [],
     tileDamage: new Map(),
+    prevStates: new Map(),
     tickInterval: null,
     autoSaveInterval: null,
   };

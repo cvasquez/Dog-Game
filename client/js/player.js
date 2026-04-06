@@ -715,38 +715,37 @@ export class Player {
   applyServerState(state) {
     if (this.isLocal) {
       // Don't override position during mantle animation
-      if (!this.mantling) {
+      if (!this.mantling && state.x != null && state.y != null) {
         const dx = state.x - this.x;
         const dy = state.y - this.y;
         if (Math.abs(dx) > 2 || Math.abs(dy) > 2) { this.x = state.x; this.y = state.y; }
         else { this.x += dx * 0.1; this.y += dy * 0.1; }
       }
-      this.grounded = state.grounded;
+      if (state.grounded != null) this.grounded = state.grounded;
     } else {
-      this.targetX = state.x;
-      this.targetY = state.y;
-      this.vx = state.vx;
-      this.vy = state.vy;
+      if (state.x != null) this.targetX = state.x;
+      if (state.y != null) this.targetY = state.y;
+      if (state.vx != null) this.vx = state.vx;
+      if (state.vy != null) this.vy = state.vy;
     }
-    this.facing = state.facing;
-    this.digging = state.digging;
-    this.digTarget = state.digTarget;
-    this.digProgress = state.digProgress;
-    this.activeEmote = state.activeEmote;
-    this.dead = state.dead;
-    this.color = state.color;
-    this.breedId = state.color; // server sends breedId as color
-    this.name = state.name;
-    // Sync stamina from server for multiplayer
+    if (state.facing != null) this.facing = state.facing;
+    if (state.digging != null) this.digging = state.digging;
+    if ('digTarget' in state) this.digTarget = state.digTarget;
+    if (state.digProgress != null) this.digProgress = state.digProgress;
+    if ('activeEmote' in state) this.activeEmote = state.activeEmote;
+    if (state.dead != null) this.dead = state.dead;
+    if (state.color != null) {
+      this.color = state.color;
+      this.breedId = state.color; // server sends breedId as color
+    }
+    if (state.name != null) this.name = state.name;
     if (state.stamina != null) this.stamina = state.stamina;
     if (state.maxStamina != null) this.maxStamina = state.maxStamina;
     if (state.exhausted != null) this.exhausted = state.exhausted;
-    // Sync climbing/wall state from server
     if (state.climbing != null) this.climbing = state.climbing;
     if (state.clinging != null) this.clinging = state.clinging;
     if (state.clingWallSide != null) this.clingWallSide = state.clingWallSide;
     if (state.mantling != null) this.mantling = state.mantling;
-    // Sync HP from server
     if (state.hp != null) this.hp = state.hp;
     if (state.maxHP != null) this.maxHP = state.maxHP;
   }
