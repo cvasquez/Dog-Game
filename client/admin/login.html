@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login — Dog Digging Game</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --dirt-deep: #2C1810;
+      --dirt-mid: #3E2723;
+      --bg-surface: #3A2518;
+      --bg-inset: #261108;
+      --border-stone: #6D4C41;
+      --border-highlight: #8D6E63;
+      --text-primary: #E8D5B0;
+      --text-dim: #A0876C;
+      --text-bright: #FFF3E0;
+      --gem-gold: #FFD700;
+      --gem-ruby: #E53935;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--dirt-deep);
+      font-family: 'Press Start 2P', monospace;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background:
+        repeating-linear-gradient(
+          0deg, transparent, transparent 3px,
+          rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px
+        ),
+        linear-gradient(180deg, #3E2723 0%, #2C1810 40%, #1A0E08 100%);
+    }
+
+    .login-box {
+      background: var(--bg-surface);
+      border: 3px solid var(--border-stone);
+      border-top-color: var(--border-highlight);
+      border-left-color: var(--border-highlight);
+      padding: 32px;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 14px;
+      color: var(--gem-gold);
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 8px;
+      color: var(--text-dim);
+      margin-bottom: 24px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    label {
+      display: block;
+      font-size: 8px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-inset);
+      border: 2px solid var(--border-stone);
+      color: var(--text-bright);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: var(--gem-gold);
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      margin-top: 20px;
+      background: var(--border-stone);
+      border: 2px solid var(--border-highlight);
+      border-bottom-color: #1A0E08;
+      border-right-color: #1A0E08;
+      color: var(--text-bright);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .btn:hover { background: var(--border-highlight); }
+    .btn:active {
+      border-top-color: #1A0E08;
+      border-left-color: #1A0E08;
+      border-bottom-color: var(--border-highlight);
+      border-right-color: var(--border-highlight);
+    }
+
+    .error {
+      font-size: 8px;
+      color: var(--gem-ruby);
+      margin-top: 12px;
+      min-height: 16px;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-top: 20px;
+      font-size: 8px;
+      color: var(--text-dim);
+      text-decoration: none;
+    }
+
+    .back-link:hover { color: var(--text-primary); }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h1>Admin Login</h1>
+    <p class="subtitle">Dog Digging Game</p>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" autocomplete="email" required>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn" id="loginBtn">Sign In</button>
+      <div class="error" id="error"></div>
+    </form>
+
+    <a href="/" class="back-link">Back to game</a>
+  </div>
+
+  <script>
+    // Hardcoded fallback for GitHub Pages (no server)
+    window.SUPABASE_URL = 'https://qwvmbmjanuyinlqzmymt.supabase.co';
+    window.SUPABASE_ANON_KEY = 'sb_publishable_z4VoEXQzKeGzgqJ5i-tfgA_ukh0Pt_i';
+    // Override from server config when available
+    fetch('/api/config').then(r => r.json()).then(cfg => {
+      if (cfg.supabaseUrl) window.SUPABASE_URL = cfg.supabaseUrl;
+      if (cfg.supabaseAnonKey) window.SUPABASE_ANON_KEY = cfg.supabaseAnonKey;
+    }).catch(() => {});
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <script>
+    const form = document.getElementById('loginForm');
+    const errorEl = document.getElementById('error');
+    const loginBtn = document.getElementById('loginBtn');
+
+    // Redirect destination: the page that sent us here, or admin by default
+    const params = new URLSearchParams(window.location.search);
+    const redirectTo = params.get('redirect') || '/admin/index.html';
+
+    // If already logged in as admin, redirect immediately
+    (async function checkSession() {
+      const sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+      const { data: { session } } = await sb.auth.getSession();
+      if (session && session.user.app_metadata?.role === 'admin') {
+        window.location.href = redirectTo;
+      }
+    })();
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.textContent = '';
+      loginBtn.textContent = 'Signing in...';
+      loginBtn.disabled = true;
+
+      try {
+        const sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+        const { data, error } = await sb.auth.signInWithPassword({
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value,
+        });
+
+        if (error) {
+          errorEl.textContent = error.message;
+          loginBtn.textContent = 'Sign In';
+          loginBtn.disabled = false;
+          return;
+        }
+
+        // Verify admin role
+        if (data.user?.app_metadata?.role !== 'admin') {
+          await sb.auth.signOut();
+          errorEl.textContent = 'Admin access required';
+          loginBtn.textContent = 'Sign In';
+          loginBtn.disabled = false;
+          return;
+        }
+
+        window.location.href = redirectTo;
+      } catch (err) {
+        errorEl.textContent = 'Login failed: ' + err.message;
+        loginBtn.textContent = 'Sign In';
+        loginBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

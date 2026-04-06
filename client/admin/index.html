@@ -423,6 +423,10 @@ tr:hover td { background: rgba(90,74,58,0.15); }
 </head>
 <body>
 
+<!-- Admin auth gate -->
+<div id="authGate" style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:'Press Start 2P',monospace;color:#e8d5c0;font-size:10px;">Checking access...</div>
+<div id="appContent" style="display:none;">
+
 <div class="header">
   <h1>BALANCE ADMIN</h1>
   <span class="subtitle">Dog Game Constants Tuner</span>
@@ -517,6 +521,39 @@ tr:hover td { background: rgba(90,74,58,0.15); }
   </div>
   <div id="constants-editor"></div>
 </div>
+
+</div><!-- end appContent -->
+
+<!-- Supabase SDK + auth gate -->
+<script>
+  window.SUPABASE_URL = 'https://qwvmbmjanuyinlqzmymt.supabase.co';
+  window.SUPABASE_ANON_KEY = 'sb_publishable_z4VoEXQzKeGzgqJ5i-tfgA_ukh0Pt_i';
+  fetch('/api/config').then(r => r.json()).then(cfg => {
+    if (cfg.supabaseUrl) window.SUPABASE_URL = cfg.supabaseUrl;
+    if (cfg.supabaseAnonKey) window.SUPABASE_ANON_KEY = cfg.supabaseAnonKey;
+  }).catch(() => {});
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  (async function authGate() {
+    const gate = document.getElementById('authGate');
+    const app = document.getElementById('appContent');
+    try {
+      const sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session || session.user.app_metadata?.role !== 'admin') {
+        window.location.href = '/admin/login.html?redirect=' + encodeURIComponent(window.location.pathname);
+        return;
+      }
+      // Expose session for API calls
+      window._adminSession = session;
+      gate.style.display = 'none';
+      app.style.display = '';
+    } catch (e) {
+      gate.textContent = 'Auth check failed';
+    }
+  })();
+</script>
 
 <script type="module">
 import {

@@ -1,4 +1,5 @@
 import { DECORATIONS, EMOTES, UPGRADES, ACHIEVEMENTS } from '../../shared/constants.js';
+import { escapeHtml } from './utils.js';
 
 // Resource icon map for visual cost display
 const RESOURCE_ICONS = {
@@ -14,12 +15,6 @@ const UPGRADE_CATEGORIES = {
   boots:  { name: 'Boots', desc: 'Climb Efficiency', icon: '🥾' },
   paws:   { name: 'Paws', desc: 'Dig & Stamina', icon: '🐾' },
 };
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = String(str);
-  return div.innerHTML;
-}
 
 export class Shop {
   constructor() {

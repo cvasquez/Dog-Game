@@ -6,7 +6,8 @@
 <title>Dog Sprite &amp; Decoration Editor</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; height: 100vh; overflow: hidden; margin: 0; }
+.app-content { display: flex; height: 100vh; overflow: hidden; }
 .sidebar { width: 220px; background: #16213e; padding: 12px; display: flex; flex-direction: column; gap: 10px; border-right: 1px solid #333; overflow-y: auto; }
 .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .toolbar { display: flex; gap: 8px; padding: 8px 12px; background: #16213e; border-bottom: 1px solid #333; align-items: center; flex-wrap: wrap; }
@@ -74,6 +75,10 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
 </style>
 </head>
 <body>
+
+<!-- Auth gate -->
+<div id="authGate" style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#e0e0e0;font-size:14px;">Checking access...</div>
+<div id="appContent" style="display:none;height:100vh;width:100vw;" class="app-content">
 
 <div class="sidebar">
   <h3>Mode</h3>
@@ -204,15 +209,49 @@ h3 { font-size: 13px; color: #4fc3f7; border-bottom: 1px solid #333; padding-bot
   </div>
 </div>
 
+</div><!-- end appContent -->
+
 <script>
+  // Hardcoded fallback for GitHub Pages (no server)
   window.SUPABASE_URL = 'https://qwvmbmjanuyinlqzmymt.supabase.co';
   window.SUPABASE_ANON_KEY = 'sb_publishable_z4VoEXQzKeGzgqJ5i-tfgA_ukh0Pt_i';
+  // Override from server config when available
+  fetch('/api/config').then(r => r.json()).then(cfg => {
+    if (cfg.supabaseUrl) window.SUPABASE_URL = cfg.supabaseUrl;
+    if (cfg.supabaseAnonKey) window.SUPABASE_ANON_KEY = cfg.supabaseAnonKey;
+  }).catch(() => {});
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  (async function authGate() {
+    const gate = document.getElementById('authGate');
+    const app = document.getElementById('appContent');
+    try {
+      const sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session || session.user.app_metadata?.role !== 'admin') {
+        window.location.href = '/admin/login.html?redirect=' + encodeURIComponent(window.location.pathname);
+        return;
+      }
+      window._adminSession = session;
+      gate.style.display = 'none';
+      app.style.display = '';
+    } catch (e) {
+      gate.textContent = 'Auth check failed';
+    }
+  })();
+</script>
 
 <script type="module">
 import { DOG_BREEDS, DECORATIONS, SHOP_LOCATIONS } from '../../shared/constants.js';
 import { DOG_SPRITES, SPRITE_PALETTE, ANIM_STATES, DECORATION_SPRITES, DECORATION_PALETTES, SHOP_SPRITES, SHOP_PALETTES, BANK_SPRITE, BANK_PALETTE } from '../../shared/sprite-data.js';
+import { escapeHtml } from '../js/utils.js';
+
+// Get admin auth headers for protected API calls
+function adminAuthHeaders() {
+  const token = window._adminSession?.access_token;
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
 
 // Working sprite data — will be replaced by DB data on load
 let sprites = JSON.parse(JSON.stringify(DOG_SPRITES));
@@ -967,7 +1006,7 @@ async function syncToFile() {
     const content = serializeAll();
     const res = await fetch('/api/sync-sprite-file', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...adminAuthHeaders() },
       body: JSON.stringify({ content }),
     });
     if (!res.ok) {
@@ -1256,11 +1295,6 @@ function showCloudStatus(msg, isError) {
   setTimeout(() => { el.textContent = ''; }, 4000);
 }
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
 
 // Load all sprites from Supabase on startup
 async function loadSpritesFromDB() {
@@ -1617,7 +1651,7 @@ async function saveDecorationToDB(decId) {
   try {
     const res = await fetch('/api/decoration-sprites/' + decId, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...adminAuthHeaders() },
       body: JSON.stringify({ pixels, palette }),
     });
     if (!res.ok) {
