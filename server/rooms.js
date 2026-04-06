@@ -824,8 +824,26 @@ function tickRoom(room) {
 
     const players = [];
     for (const [playerId, snapshot] of currentSnapshots) {
-      // Selective: skip recipient's own data (unless first tick after join)
-      if (playerId === recipientId && !recipient.needsFullState) continue;
+      // Skip recipient's own movement data (client predicts that), but
+      // always send server-authoritative fields like digging/stamina/hp
+      if (playerId === recipientId && !recipient.needsFullState) {
+        // Send only server-authoritative fields the client can't predict
+        const snap = snapshot;
+        const prev = room.prevStates.get(playerId);
+        const selfDelta = { id: snap.id };
+        let selfChanged = false;
+        for (const key of ['digging', 'digTarget', 'digProgress', 'stamina', 'maxStamina',
+                           'exhausted', 'hp', 'maxHP', 'dead', 'activeEmote', 'climbing',
+                           'clinging', 'clingWallSide', 'mantling']) {
+          const cur = snap[key];
+          const old = prev?.[key];
+          if (cur !== null && typeof cur === 'object') {
+            if (!shallowEqual(cur, old)) { selfDelta[key] = cur; selfChanged = true; }
+          } else if (cur !== old) { selfDelta[key] = cur; selfChanged = true; }
+        }
+        if (selfChanged) players.push(selfDelta);
+        continue;
+      }
 
       const prev = room.prevStates.get(playerId);
       const delta = computeDelta(prev, snapshot);
