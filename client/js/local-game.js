@@ -641,6 +641,16 @@ export class LocalGame {
       p.digging = false;
       p.digTarget = null;
       p.digProgress = 0;
+
+      // When digging down, force the player to fall into the hole.
+      // Without this, the hitbox can straddle two tile columns and
+      // the adjacent solid tile keeps the player grounded on AIR.
+      if (input.down && p.grounded) {
+        p.grounded = false;
+        const tileCenterX = tx + 0.5;
+        const dx = tileCenterX - p.x;
+        if (Math.abs(dx) < 0.5) p.x += dx * 0.5;
+      }
     }
   }
 
