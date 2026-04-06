@@ -741,6 +741,14 @@ export class Player {
     if (state.stamina != null) this.stamina = state.stamina;
     if (state.maxStamina != null) this.maxStamina = state.maxStamina;
     if (state.exhausted != null) this.exhausted = state.exhausted;
+    // Sync climbing/wall state from server
+    if (state.climbing != null) this.climbing = state.climbing;
+    if (state.clinging != null) this.clinging = state.clinging;
+    if (state.clingWallSide != null) this.clingWallSide = state.clingWallSide;
+    if (state.mantling != null) this.mantling = state.mantling;
+    // Sync HP from server
+    if (state.hp != null) this.hp = state.hp;
+    if (state.maxHP != null) this.maxHP = state.maxHP;
   }
 
   applyUpgrades(decorations) {

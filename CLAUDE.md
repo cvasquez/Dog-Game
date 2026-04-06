@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm install          # Install dependencies (better-sqlite3 requires native build)
 npm start            # Run server at http://localhost:3000
-npm run dev          # Run with nodemon (auto-restart)
+npm run dev          # Run with nodemon (auto-restart on file changes)
 ```
 
 No linter or test framework is configured. Validate changes by importing modules:
@@ -21,13 +21,45 @@ Quick smoke test — server should print the startup message and exit cleanly:
 timeout 3 node server/index.js
 ```
 
+### Local Server Management
+
+**Development mode (`npm run dev`)** uses nodemon, which watches for file changes and auto-restarts the server. This is the recommended way to run locally during development — just save your files and the server restarts automatically. No manual restart needed.
+
+**Production mode (`npm start`)** runs the server directly with no file watching. You must manually restart it after code changes:
+```bash
+# Kill the running server (find the process)
+lsof -ti:3000 | xargs kill
+# Or if you started it in the foreground, just Ctrl+C
+
+# Restart
+npm start
+```
+
+### Deploying to Fly.io (Multiplayer)
+
+The multiplayer server is deployed to Fly.io as `dog-digging-game` in the `sjc` region. The app uses a Dockerfile and persists SQLite data on a mounted volume at `/data`.
+
+```bash
+fly deploy              # Build and deploy the latest code
+fly status              # Check app status and running machines
+fly logs                # Stream live server logs
+fly ssh console         # SSH into the running machine
+fly apps restart dog-digging-game  # Restart without redeploying
+```
+
+**When to deploy:** Any changes to `server/`, `shared/`, or `client/` files that affect multiplayer need a `fly deploy`. Single-player-only changes (GitHub Pages) just need a push to `main`.
+
+### Deploying to GitHub Pages (Single-Player)
+
+Pushing to the `main` branch automatically deploys single-player to https://cvasquez.github.io/Dog-Game. No additional steps needed — GitHub Pages serves the static files directly.
+
 ## Architecture
 
 ### Two Game Modes, One Codebase
 
 The game runs in **multiplayer** (Express + WebSocket server) and **single-player** (static files, works on GitHub Pages). The client dynamically imports `game.js` only when multiplayer is chosen; single-player uses `local-game.js` which runs the full game loop locally with localStorage saves.
 
-Deployed to GitHub Pages at https://cvasquez.github.io/Dog-Game (single-player only). GitHub Pages is configured to deploy from the `main` branch.
+Deployed to GitHub Pages at https://cvasquez.github.io/Dog-Game (single-player only). GitHub Pages is configured to deploy from the `main` branch. Multiplayer server is deployed to Fly.io (app: `dog-digging-game`, region: `sjc`).
 
 ### Directory Layout
 
