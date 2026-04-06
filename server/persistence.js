@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { DECORATION_SPRITES, DECORATION_PALETTES } from '../shared/sprite-data.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.join(__dirname, '..', 'doggame.db');
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'doggame.db');
 
 let db;
 

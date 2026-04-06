@@ -1,0 +1,24 @@
+app = 'dog-digging-game'
+primary_region = 'sjc'
+
+[build]
+
+[env]
+  PORT = '8080'
+  NODE_ENV = 'production'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[http_service.checks]]
+  path = '/healthz'
+  interval = '10s'
+  timeout = '2s'
+
+[mounts]
+  source = 'dog_game_data'
+  destination = '/data'
