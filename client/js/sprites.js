@@ -287,7 +287,7 @@ function genTileSprite(tileType) {
 // Generate dog sprite from sprite-data.js pixel arrays (or custom overrides)
 function genDogSprite(breedId, animState, frameIndex) {
   const breed = DOG_BREEDS[breedId] || DOG_BREEDS[0];
-  const breedKey = breed.name.toLowerCase();
+  const breedKey = breed.name.toLowerCase().replace(/\s+/g, '_');
   const breedData = customSprites[breedKey] || DOG_SPRITES[breedKey];
   if (!breedData) return null;
 
@@ -430,7 +430,7 @@ export function getBankSprite() {
 
 export function getFrameCount(breedId, animState) {
   const breed = DOG_BREEDS[breedId] || DOG_BREEDS[0];
-  const breedKey = breed.name.toLowerCase();
+  const breedKey = breed.name.toLowerCase().replace(/\s+/g, '_');
   const breedData = customSprites[breedKey] || DOG_SPRITES[breedKey];
   if (!breedData) return 1;
   const frames = breedData[animState] || breedData.idle;

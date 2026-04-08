@@ -78,6 +78,7 @@ export class Player {
     this.baseMaxStamina = BASE_MAX_STAMINA * s.maxStamina;
     this.baseStaminaRegen = BASE_STAMINA_REGEN_RATE * s.staminaRegen;
     this.baseClimbEfficiency = 1.0;
+    this.baseFallResistance = s.fallResistance || 1.0;
     this.baseMaxHP = BASE_MAX_HP * (s.maxHP || 1.0);
 
     // Active stats (recalculated when upgrades change)
@@ -86,6 +87,7 @@ export class Player {
     this.digSpeed = this.baseDigSpeed;
     this.lootBonus = this.baseLootBonus;
     this.climbEfficiency = 1.0;
+    this.fallResistance = this.baseFallResistance;
 
     // Upgrades
     this.ownedUpgrades = [];
@@ -484,8 +486,9 @@ export class Player {
         // Distance-based fall damage (skip in multiplayer — server owns HP)
         if (!this.serverAuthoritative) {
           const fallBlocks = this.y - this.fallPeakY;
-          if (fallBlocks > FALL_DAMAGE_MIN_BLOCKS) {
-            const excess = fallBlocks - FALL_DAMAGE_MIN_BLOCKS;
+          const fallThreshold = FALL_DAMAGE_MIN_BLOCKS * (this.fallResistance || 1);
+          if (fallBlocks > fallThreshold) {
+            const excess = fallBlocks - fallThreshold;
             const damage = excess * excess * FALL_DAMAGE_SCALE;
             this.takeDamage(damage, 'fall');
             if (!this.dead) {
@@ -906,6 +909,7 @@ export class Player {
     this.digSpeed = this.baseDigSpeed;
     this.lootBonus = this.baseLootBonus;
     this.climbEfficiency = this.baseClimbEfficiency;
+    this.fallResistance = this.baseFallResistance;
     const oldMax = this.maxStamina;
     const oldMaxHP = this.maxHP;
     this.maxStamina = this.baseMaxStamina;

@@ -59,6 +59,7 @@ body {
   position: fixed;
   top: 0; left: 0; width: 100vw; height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   z-index: 100;
@@ -108,108 +109,102 @@ body {
   pointer-events: none;
 }
 
-.lobby-box {
+/* Title */
+.lobby-title {
   position: relative;
   z-index: 1;
-  width: 400px;
-  padding: 28px 24px;
   text-align: center;
-
-  /* Stone-carved panel */
-  background:
-    linear-gradient(180deg,
-      rgba(93,64,55,0.95) 0%,
-      rgba(62,39,35,0.97) 40%,
-      rgba(44,24,16,0.98) 100%
-    );
-
-  /* Double-border stone frame */
-  border: 3px solid var(--border-stone);
-  outline: 2px solid var(--border-shadow);
-  outline-offset: 0px;
-  box-shadow:
-    inset 0 1px 0 var(--border-highlight),
-    inset 0 -1px 0 var(--border-shadow),
-    0 0 0 4px rgba(0,0,0,0.3),
-    0 8px 32px rgba(0,0,0,0.6);
+  margin-bottom: 12px;
 }
 
-.lobby-box h1 {
+.lobby-title h1 {
   font-family: 'Press Start 2P', monospace;
-  font-size: 16px;
+  font-size: 18px;
   color: var(--gem-gold);
   text-shadow:
     1px 1px 0 #8B6914,
     2px 2px 0 rgba(0,0,0,0.5);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   line-height: 1.4;
   letter-spacing: -0.5px;
 }
 
-.subtitle {
+.lobby-title .subtitle {
   font-size: 8px;
   color: var(--text-dim);
-  margin-bottom: 24px;
   line-height: 1.6;
 }
 
-/* Form elements */
-.form-group {
-  margin-bottom: 16px;
-  text-align: left;
+/* Three-column layout */
+.lobby-columns {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 12px;
+  width: 90vw;
+  max-width: 860px;
+  max-height: calc(100vh - 120px);
+  min-height: 300px;
 }
 
-.form-group label {
-  display: block;
-  font-size: 8px;
+.lobby-col {
+  background:
+    linear-gradient(180deg,
+      rgba(93,64,55,0.85) 0%,
+      rgba(62,39,35,0.9) 40%,
+      rgba(44,24,16,0.92) 100%
+    );
+  border: 2px solid var(--border-stone);
+  box-shadow:
+    inset 0 1px 0 var(--border-highlight),
+    inset 0 -1px 0 var(--border-shadow),
+    0 4px 16px rgba(0,0,0,0.4);
+  padding: 12px;
+}
+
+.col-label {
+  font-size: 7px;
   color: var(--text-dim);
-  margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  margin-bottom: 8px;
 }
 
-input[type="text"] {
-  width: 100%;
-  padding: 10px 12px;
-  font-family: 'Press Start 2P', monospace;
-  font-size: 10px;
-  color: var(--text-bright);
-  background: var(--bg-inset);
-  border: 2px solid var(--border-shadow);
-  box-shadow:
-    inset 0 2px 4px rgba(0,0,0,0.5),
-    0 1px 0 var(--border-stone);
-  outline: none;
+/* LEFT: breed list */
+.lobby-col-breeds {
+  flex: 0 0 280px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-input[type="text"]:focus {
-  border-color: var(--gem-gold);
-  box-shadow:
-    inset 0 2px 4px rgba(0,0,0,0.5),
-    0 0 6px rgba(255,215,0,0.2);
-}
-
-input[type="text"]::placeholder {
-  color: rgba(160,135,108,0.5);
-}
-
-/* ========== BREED PICKER ========== */
 .breed-picker {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.breed-picker::-webkit-scrollbar { width: 6px; }
+.breed-picker::-webkit-scrollbar-track { background: var(--bg-inset); }
+.breed-picker::-webkit-scrollbar-thumb {
+  background: var(--border-stone);
+  border: 1px solid var(--border-shadow);
 }
 
 .breed-btn {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 5px 8px;
   font-family: 'Press Start 2P', monospace;
   color: var(--text-primary);
   text-align: left;
   cursor: pointer;
   transition: background 0.1s;
+  flex-shrink: 0;
 
   background: rgba(0,0,0,0.2);
   border: 2px solid transparent;
@@ -230,8 +225,8 @@ input[type="text"]::placeholder {
 }
 
 .breed-icon {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
@@ -241,23 +236,154 @@ input[type="text"]::placeholder {
 
 /* Breed icon canvases rendered by JS */
 .breed-icon canvas {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   display: block;
 }
 
-.breed-info { line-height: 1.6; }
+.breed-info { line-height: 1.5; }
 .breed-info strong {
   font-family: 'Press Start 2P', monospace;
-  font-size: 9px;
+  font-size: 8px;
   color: var(--text-bright);
 }
 .breed-info small {
   font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  color: var(--text-dim);
+}
+
+/* CENTER: character preview */
+.lobby-col-preview {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 200px;
+}
+
+.preview-sprite {
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: rgba(0,0,0,0.3);
+  border: 2px solid var(--border-stone);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-sprite canvas {
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+}
+
+.preview-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: var(--gem-gold);
+  margin-top: 10px;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+}
+
+.preview-desc {
   font-size: 7px;
   color: var(--text-dim);
+  margin-top: 4px;
+  text-align: center;
+  line-height: 1.6;
+  max-width: 220px;
+}
+
+/* Stat bars */
+.stat-bars {
+  width: 80%;
+  max-width: 200px;
+  margin-top: 16px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+
+.stat-label {
+  font-size: 7px;
+  color: var(--text-dim);
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.stat-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(109,76,65,0.3);
+}
+
+.stat-fill {
+  height: 100%;
+  transition: width 0.2s;
+}
+
+.stat-fill-spd { background: linear-gradient(90deg, #4CAF50, #8BC34A); }
+.stat-fill-jmp { background: linear-gradient(90deg, #42A5F5, #29B6F6); }
+.stat-fill-dig { background: linear-gradient(90deg, #FF9800, #FFB74D); }
+.stat-fill-hp  { background: linear-gradient(90deg, #EF5350, #E57373); }
+.stat-fill-fall { background: linear-gradient(90deg, #AB47BC, #CE93D8); }
+
+/* RIGHT: action buttons */
+.lobby-col-actions {
+  flex: 0 0 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.multiplayer-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border-stone);
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 8px 10px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: var(--text-bright);
+  background: var(--bg-inset);
+  border: 2px solid var(--border-shadow);
+  box-shadow:
+    inset 0 2px 4px rgba(0,0,0,0.5),
+    0 1px 0 var(--border-stone);
+  outline: none;
+}
+
+input[type="text"]:focus {
+  border-color: var(--gem-gold);
+  box-shadow:
+    inset 0 2px 4px rgba(0,0,0,0.5),
+    0 0 6px rgba(255,215,0,0.2);
+}
+
+input[type="text"]::placeholder {
+  color: rgba(160,135,108,0.5);
 }
 
 /* ========== BUTTONS ========== */
@@ -357,44 +483,22 @@ input[type="text"]::placeholder {
     );
 }
 
-/* ========== DIVIDERS ========== */
-.divider {
-  margin: 16px 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.divider::before, .divider::after {
-  content: '';
-  flex: 1;
-  height: 2px;
-  background:
-    linear-gradient(90deg,
-      transparent,
-      var(--border-stone) 20%,
-      var(--border-stone) 80%,
-      transparent
-    );
-}
-
-.divider span {
-  font-size: 7px;
-  color: var(--text-dim);
-  white-space: nowrap;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 /* ========== JOIN ROW ========== */
 .join-row {
   display: flex;
-  gap: 8px;
+  gap: 4px;
 }
 
 .join-row input {
   flex: 1;
   text-transform: uppercase;
+  padding: 6px 8px;
+  font-size: 8px;
+}
+
+.join-row .btn {
+  padding: 6px 10px;
+  font-size: 8px;
 }
 
 /* ========== ERROR ========== */
@@ -439,10 +543,12 @@ input[type="text"]::placeholder {
 
 /* ========== LOBBY FOOTER ========== */
 .lobby-footer {
-  margin-top: 20px;
+  position: relative;
+  z-index: 1;
+  margin-top: 10px;
   display: flex;
   justify-content: center;
-  gap: 16px;
+  gap: 20px;
 }
 
 .lobby-link {

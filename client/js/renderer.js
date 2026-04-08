@@ -186,13 +186,18 @@ export class Renderer {
     this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
     this.ctx.fillRect(Math.floor(sx), Math.floor(sy), TILE_SIZE, TILE_SIZE);
 
-    // Progress bar
+    // Progress bar (inside tile, near bottom)
     const progress = player.digProgress / (HARDNESS[player.digTarget.tile] || 3);
     if (progress > 0 && progress < 1) {
+      const pad = 2;
+      const barH = 2;
+      const barX = Math.floor(sx) + pad;
+      const barY = Math.floor(sy) + TILE_SIZE - pad - barH;
+      const barW = TILE_SIZE - pad * 2;
       this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      this.ctx.fillRect(Math.floor(sx), Math.floor(sy - 3), TILE_SIZE, 2);
+      this.ctx.fillRect(barX, barY, barW, barH);
       this.ctx.fillStyle = '#4FC3F7';
-      this.ctx.fillRect(Math.floor(sx), Math.floor(sy - 3), TILE_SIZE * Math.min(1, progress), 2);
+      this.ctx.fillRect(barX, barY, barW * Math.min(1, progress), barH);
     }
   }
 

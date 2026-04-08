@@ -363,8 +363,9 @@ document.getElementById('modeShops').addEventListener('click', () => setEditorMo
 
 // Breed selector
 DOG_BREEDS.forEach((b, i) => {
+  if (!b) return; // skip removed breeds
   const opt = document.createElement('option');
-  opt.value = b.name.toLowerCase();
+  opt.value = b.name.toLowerCase().replace(/\s+/g, '_');
   opt.textContent = b.name;
   breedSelect.appendChild(opt);
 });
@@ -398,7 +399,7 @@ function resolvePalette() {
   if (editorMode === 'shops') {
     return shopPalettes[currentShop] || [null];
   }
-  const breed = DOG_BREEDS.find(b => b.name.toLowerCase() === currentBreed) || DOG_BREEDS[0];
+  const breed = DOG_BREEDS.find(b => b && b.name.toLowerCase().replace(/\s+/g, '_') === currentBreed) || DOG_BREEDS[0];
   return customPalette.map(entry => {
     if (entry === 'body') return breed.colors.body;
     if (entry === 'dark') return breed.colors.dark;
@@ -1445,8 +1446,9 @@ document.getElementById('cloudSaveAllBtn').addEventListener('click', async () =>
 // Browse / load modal
 const loadBreedFilter = document.getElementById('loadBreedFilter');
 DOG_BREEDS.forEach(b => {
+  if (!b) return; // skip removed breeds
   const opt = document.createElement('option');
-  opt.value = b.name.toLowerCase();
+  opt.value = b.name.toLowerCase().replace(/\s+/g, '_');
   opt.textContent = b.name;
   loadBreedFilter.appendChild(opt);
 });

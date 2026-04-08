@@ -9,38 +9,53 @@
 <body>
   <!-- Lobby overlay -->
   <div id="lobby">
-    <div class="lobby-box">
+    <!-- Title -->
+    <div class="lobby-title">
       <h1>Dog Digging Game</h1>
       <p class="subtitle">Dig deep, find treasure, decorate your park!</p>
+    </div>
 
-      <div class="form-group">
-        <label>Choose Your Breed</label>
+    <!-- Three-column layout -->
+    <div class="lobby-columns">
+      <!-- LEFT: breed list -->
+      <div class="lobby-col lobby-col-breeds">
+        <div class="col-label">Choose Breed</div>
         <div class="breed-picker" id="breedPicker">
           <!-- Populated dynamically from DOG_BREEDS in main.js -->
         </div>
       </div>
 
-      <button id="soloBtn" class="btn btn-primary">Play Solo</button>
-
-      <div class="divider"><span>or load a saved world</span></div>
-      <button id="loadBtn" class="btn btn-secondary">Load Saved World</button>
-      <div id="worldList" class="world-list" style="display:none"></div>
-
-      <div class="divider"><span>multiplayer (requires server)</span></div>
-
-      <button id="createBtn" class="btn btn-secondary">Create Room</button>
-
-      <div class="join-row" style="margin-top:8px">
-        <input type="text" id="roomInput" placeholder="Room code" maxlength="6">
-        <button id="joinBtn" class="btn">Join</button>
+      <!-- CENTER: character preview + stats -->
+      <div class="lobby-col lobby-col-preview">
+        <div class="preview-sprite" id="previewSprite"></div>
+        <div class="preview-name" id="previewName"></div>
+        <div class="preview-desc" id="previewDesc"></div>
+        <div class="stat-bars" id="statBars">
+          <!-- Populated dynamically in main.js -->
+        </div>
       </div>
 
-      <div id="lobbyError" class="error"></div>
-
-      <div class="lobby-footer">
-        <a href="changelog.html" class="lobby-link">Changelog</a>
-        <a href="editor/index.html" class="lobby-link">Sprite Editor</a>
+      <!-- RIGHT: action buttons -->
+      <div class="lobby-col lobby-col-actions">
+        <button id="soloBtn" class="btn btn-primary">&#9654; Play Solo</button>
+        <button id="loadBtn" class="btn btn-secondary">Load World</button>
+        <div id="worldList" class="world-list" style="display:none"></div>
+        <button id="multiplayerBtn" class="btn btn-secondary">Multiplayer &#9662;</button>
+        <div id="multiplayerPanel" class="multiplayer-panel" style="display:none">
+          <button id="createBtn" class="btn btn-secondary">Create Room</button>
+          <div class="join-row">
+            <input type="text" id="roomInput" placeholder="Room code" maxlength="6">
+            <button id="joinBtn" class="btn">Join</button>
+          </div>
+        </div>
+        <div id="lobbyError" class="error"></div>
       </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="lobby-footer">
+      <a href="changelog.html" class="lobby-link">Changelog</a>
+      <a href="editor/index.html" class="lobby-link">Sprite Editor</a>
     </div>
   </div>
 

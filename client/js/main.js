@@ -9,10 +9,49 @@ const spritesReady = loadCustomSprites().catch(() => {});
 loadDecorationSprites().catch(() => {});
 loadShopSprites().catch(() => {});
 
-// Render animated breed preview sprites in lobby (after DB sprites load)
+// DOM elements
+const lobby = document.getElementById('lobby');
+const soloBtn = document.getElementById('soloBtn');
+const createBtn = document.getElementById('createBtn');
+const joinBtn = document.getElementById('joinBtn');
+const loadBtn = document.getElementById('loadBtn');
+const multiplayerBtn = document.getElementById('multiplayerBtn');
+const multiplayerPanel = document.getElementById('multiplayerPanel');
+const roomInput = document.getElementById('roomInput');
+const breedPicker = document.getElementById('breedPicker');
+const lobbyError = document.getElementById('lobbyError');
+const worldList = document.getElementById('worldList');
+const previewSprite = document.getElementById('previewSprite');
+const previewName = document.getElementById('previewName');
+const previewDesc = document.getElementById('previewDesc');
+const statBars = document.getElementById('statBars');
+
+let selectedBreed = 0;
+
+// Stat bar config: label, stat key, CSS class, max value for scaling
+const STAT_CONFIG = [
+  { label: 'SPD',  key: 'moveSpeed',      cls: 'stat-fill-spd',  max: 1.6 },
+  { label: 'JMP',  key: 'jumpForce',      cls: 'stat-fill-jmp',  max: 1.6 },
+  { label: 'DIG',  key: 'digSpeed',       cls: 'stat-fill-dig',  max: 1.8 },
+  { label: 'HP',   key: 'maxHP',          cls: 'stat-fill-hp',   max: 1.4 },
+  { label: 'FALL', key: 'fallResistance', cls: 'stat-fill-fall', max: 2.8 },
+];
+
+// Generate breed buttons from DOG_BREEDS constants
+for (const breed of DOG_BREEDS) {
+  if (!breed) continue;
+  const btn = document.createElement('button');
+  btn.className = 'breed-btn' + (breed.id === 0 ? ' selected' : '');
+  btn.dataset.breed = breed.id;
+  btn.innerHTML = `<span class="breed-icon" id="breedIcon${breed.id}"></span>` +
+    `<span class="breed-info"><strong>${breed.defaultName} the ${breed.name}</strong><br><small>${breed.desc}</small></span>`;
+  breedPicker.appendChild(btn);
+}
+
+// Render animated breed preview sprites in the breed list (small icons)
 function renderBreedPreviews() {
   const WALK_FRAMES = 2;
-  const FRAME_INTERVAL = 300; // ms per frame
+  const FRAME_INTERVAL = 300;
   for (let i = 0; i < DOG_BREEDS.length; i++) {
     const container = document.getElementById('breedIcon' + i);
     if (!container) continue;
@@ -36,31 +75,59 @@ function renderBreedPreviews() {
     setInterval(drawFrame, FRAME_INTERVAL);
   }
 }
-spritesReady.then(() => renderBreedPreviews());
 
-// DOM elements
-const lobby = document.getElementById('lobby');
-const soloBtn = document.getElementById('soloBtn');
-const createBtn = document.getElementById('createBtn');
-const joinBtn = document.getElementById('joinBtn');
-const loadBtn = document.getElementById('loadBtn');
-const roomInput = document.getElementById('roomInput');
-const breedPicker = document.getElementById('breedPicker');
-const lobbyError = document.getElementById('lobbyError');
-const worldList = document.getElementById('worldList');
+// Render large animated preview sprite in the center column
+let previewInterval = null;
+function renderPreviewSprite(breedId) {
+  if (previewInterval) clearInterval(previewInterval);
+  const canvas = document.createElement('canvas');
+  canvas.width = 16;
+  canvas.height = 16;
+  const ctx = canvas.getContext('2d');
+  previewSprite.innerHTML = '';
+  previewSprite.appendChild(canvas);
 
-let selectedBreed = 0;
-
-// Generate breed buttons from DOG_BREEDS constants
-for (const breed of DOG_BREEDS) {
-  if (!breed) continue; // skip removed breeds
-  const btn = document.createElement('button');
-  btn.className = 'breed-btn' + (breed.id === 0 ? ' selected' : '');
-  btn.dataset.breed = breed.id;
-  btn.innerHTML = `<span class="breed-icon" id="breedIcon${breed.id}"></span>` +
-    `<span class="breed-info"><strong>${breed.defaultName} the ${breed.name}</strong><br><small>${breed.desc}</small></span>`;
-  breedPicker.appendChild(btn);
+  let frame = 0;
+  function drawFrame() {
+    const sprite = getDogSprite(breedId, 'walk', frame);
+    if (sprite) {
+      ctx.clearRect(0, 0, 16, 16);
+      ctx.drawImage(sprite, 0, 0);
+    }
+    frame = (frame + 1) % 5;
+  }
+  drawFrame();
+  previewInterval = setInterval(drawFrame, 250);
 }
+
+// Update the center preview panel for the selected breed
+function updatePreview(breedId) {
+  const breed = DOG_BREEDS[breedId];
+  if (!breed) return;
+
+  previewName.textContent = `${breed.defaultName} the ${breed.name}`;
+  previewDesc.textContent = breed.desc;
+  renderPreviewSprite(breedId);
+
+  // Build stat bars
+  statBars.innerHTML = '';
+  for (const stat of STAT_CONFIG) {
+    const value = breed.stats[stat.key] || 0;
+    const pct = Math.min(100, (value / stat.max) * 100);
+    const row = document.createElement('div');
+    row.className = 'stat-row';
+    row.innerHTML =
+      `<span class="stat-label">${stat.label}</span>` +
+      `<div class="stat-track"><div class="stat-fill ${stat.cls}" style="width:${pct}%"></div></div>`;
+    statBars.appendChild(row);
+  }
+}
+
+// Initialize previews after sprites load
+spritesReady.then(() => {
+  renderBreedPreviews();
+  updatePreview(selectedBreed);
+});
 
 // Breed picker
 breedPicker.addEventListener('click', (e) => {
@@ -69,17 +136,25 @@ breedPicker.addEventListener('click', (e) => {
   selectedBreed = parseInt(btn.dataset.breed);
   breedPicker.querySelectorAll('.breed-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
+  updatePreview(selectedBreed);
 });
 
-// Solo play (no server needed)
+// Solo play
 soloBtn.addEventListener('click', () => {
   startSoloGame(null);
 });
 
-// Load saved worlds (localStorage)
+// Load saved worlds
 loadBtn.addEventListener('click', () => {
   const saves = LocalGame.getSaves();
   showWorldList(saves);
+});
+
+// Multiplayer expand/collapse
+multiplayerBtn.addEventListener('click', () => {
+  const visible = multiplayerPanel.style.display !== 'none';
+  multiplayerPanel.style.display = visible ? 'none' : 'flex';
+  multiplayerBtn.innerHTML = visible ? 'Multiplayer &#9662;' : 'Multiplayer &#9652;';
 });
 
 // Create multiplayer room
@@ -111,7 +186,6 @@ function showWorldList(saves) {
     const el = document.createElement('div');
     el.className = 'world-item';
     const date = new Date(s.savedAt).toLocaleDateString();
-    const name = s.player ? s.player.resources : {};
     const span1 = document.createElement('span');
     span1.textContent = `World: ${s.id}`;
     const span2 = document.createElement('span');

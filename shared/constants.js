@@ -148,7 +148,7 @@ export const DOG_BREEDS = [
   {
     id: 0,
     name: 'Pitty',
-    defaultName: 'Scrappy',
+    defaultName: 'Parker',
     desc: 'Speed demon. Lightning fast, sky-high jumps, weak digger.',
     colors: { body: '#C49A6C', dark: '#8B6914', light: '#E8D5A3' },
     stats: {
@@ -158,6 +158,7 @@ export const DOG_BREEDS = [
       maxStamina: 1.0,   // mid stamina
       staminaRegen: 1.0,
       maxHP: 1.2,        // 20% more HP — tanky all-rounder
+      fallResistance: 1.2, // tanky, handles falls well
     },
     freeEmote: 4, // Celebrate
     // Hitbox derived from opaque sprite bounds (rows 5-15, cols 2-13)
@@ -177,6 +178,7 @@ export const DOG_BREEDS = [
       maxStamina: 0.7,   // less stamina
       staminaRegen: 1.1,
       maxHP: 0.8,        // fragile — low HP
+      fallResistance: 0.8, // short legs, fragile on landing
     },
     freeEmote: 3, // Dig Here
     // Hitbox derived from opaque sprite bounds (rows 5-14, cols 2-12)
@@ -197,6 +199,7 @@ export const DOG_BREEDS = [
       maxStamina: 1.2,
       staminaRegen: 1.2,
       maxHP: 1,
+      fallResistance: 1.0,
     },
     freeEmote: 4, // Celebrate
     // Hitbox derived from opaque sprite bounds (rows 5-14, cols 2-13)
@@ -217,10 +220,49 @@ export const DOG_BREEDS = [
       staminaRegen: 1,
       lootBonus: 0.25,   // 15% chance for double loot
       maxHP: 0.7,        // glass cannon — lowest HP
+      fallResistance: 1.0,
     },
     freeEmote: 4, // Celebrate
     // Hitbox derived from opaque sprite bounds (rows 5-14, cols 2-13)
     hitboxWidth: 0.75,     // 12px
+    hitboxHeight: 0.625,   // 10px
+  },
+  {
+    id: 5,
+    name: 'Street Cat',
+    defaultName: 'Fritzy',
+    desc: 'Agile acrobat. Lightning reflexes, lands on her feet, can\'t dig worth a darn.',
+    colors: { body: '#708090', dark: '#3B3B3B', light: '#C0C0C0' },
+    stats: {
+      moveSpeed: 1.3,      // fast, but slightly slower than Bombay
+      jumpForce: 1.45,     // highest jumper — cats leap
+      digSpeed: 0.5,       // worst digger — cats don't dig
+      maxStamina: 1.1,     // good climber endurance
+      staminaRegen: 1.1,
+      maxHP: 0.75,         // fragile
+      fallResistance: 2.5, // lands on feet — can fall 5 blocks safely
+    },
+    freeEmote: 4, // Celebrate
+    hitboxWidth: 0.75,     // 12px
+    hitboxHeight: 0.625,   // 10px
+  },
+  {
+    id: 6,
+    name: 'Bombay',
+    defaultName: 'Sera',
+    desc: 'Speed demon. Fastest on four legs, but tiny and can\'t jump.',
+    colors: { body: '#1A1A1A', dark: '#0D0D0D', light: '#3D3D3D' },
+    stats: {
+      moveSpeed: 1.5,      // fastest breed
+      jumpForce: 0.75,     // stubby jumps
+      digSpeed: 0.6,       // poor digger
+      maxStamina: 0.9,
+      staminaRegen: 1.0,
+      maxHP: 0.7,          // frail — small and skinny
+      fallResistance: 2.0, // cat reflexes, but not as good as Street Cat
+    },
+    freeEmote: 4, // Celebrate
+    hitboxWidth: 0.6875,   // 11px — small frame
     hitboxHeight: 0.625,   // 10px
   },
 ];

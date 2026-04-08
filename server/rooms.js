@@ -140,6 +140,7 @@ function createPlayer(id, name, breedId) {
     clingWallSide: 0,
     mantling: false,
     climbEfficiency: s.climbEfficiency || 1.0,
+    fallResistance: s.fallResistance || 1.0,
     lastInputSeq: null,
     ws: null,
   };
@@ -541,10 +542,11 @@ function updatePlayer(room, player, dt) {
         player.grounded = false;
         player.fallPeakY = player.y;
       } else {
-        // Fall damage (using HP system)
+        // Fall damage (using HP system, per-breed threshold)
         const fallBlocks = player.y - player.fallPeakY;
-        if (fallBlocks > FALL_DAMAGE_MIN_BLOCKS) {
-          const excess = fallBlocks - FALL_DAMAGE_MIN_BLOCKS;
+        const fallThreshold = FALL_DAMAGE_MIN_BLOCKS * (player.fallResistance || 1);
+        if (fallBlocks > fallThreshold) {
+          const excess = fallBlocks - fallThreshold;
           const damage = excess * excess * FALL_DAMAGE_SCALE;
           takeDamage(player, damage, 'fall');
           if (!player.dead) {
@@ -1263,6 +1265,7 @@ function applyServerUpgrades(player, room) {
   player.maxStamina = baseMax;
   player.staminaRegenRate = baseRegen;
   player.climbEfficiency = 1.0;
+  player.fallResistance = s.fallResistance || 1.0;
 
   // Apply personal upgrades
   for (const id of player.ownedUpgrades) {
