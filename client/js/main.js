@@ -50,8 +50,8 @@ for (const breed of DOG_BREEDS) {
 
 // Render animated breed preview sprites in the breed list (small icons)
 function renderBreedPreviews() {
-  const WALK_FRAMES = 2;
-  const FRAME_INTERVAL = 300;
+  const WALK_FRAMES = 4;
+  const FRAME_INTERVAL = 200;
   for (let i = 0; i < DOG_BREEDS.length; i++) {
     const container = document.getElementById('breedIcon' + i);
     if (!container) continue;
@@ -92,9 +92,9 @@ function renderPreviewSprite(breedId) {
     const sprite = getDogSprite(breedId, 'walk', frame);
     if (sprite) {
       ctx.clearRect(0, 0, 16, 16);
-      ctx.drawImage(sprite, 0, 0);
+      ctx.drawImage(sprite, 0, -2); // shift up so feet don't clip container
     }
-    frame = (frame + 1) % 5;
+    frame = (frame + 1) % 4;
   }
   drawFrame();
   previewInterval = setInterval(drawFrame, 250);
