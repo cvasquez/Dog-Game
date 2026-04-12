@@ -144,6 +144,10 @@ export class Renderer {
     const cy = Math.floor(sy + TILE_SIZE);
     this.ctx.translate(cx, cy);
     this.ctx.scale(player.facing < 0 ? -sclX : sclX, sclY);
+    // Subtle dark outline via shadow blur for definition against any background
+    const underground = player.y > SURFACE_Y + 1;
+    this.ctx.shadowColor = underground ? 'rgba(255, 255, 255, 0.33)' : 'rgba(0, 0, 0, 1)';
+    this.ctx.shadowBlur = underground ? 6 : 2;
     this.ctx.drawImage(sprite, -TILE_SIZE / 2, -TILE_SIZE);
     this.ctx.restore();
 
