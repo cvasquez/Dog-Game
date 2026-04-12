@@ -655,7 +655,9 @@ function handleDigging(room, player) {
       else if (player.facing > 0) tx += 1;
       else tx -= 1;
       tileType = getTile(room, tx, ty);
-      tryFallback = SOLID_TILES.has(tileType) && tileType !== TILE.BEDROCK && tileType !== TILE.GRANITE && tileType !== TILE.SHOP_FLOOR;
+      // Only accept fallback if it's diggable AND within 1.5 tiles of player
+      const distToFallback = Math.abs(player.x - (tx + 0.5)) + Math.abs(player.y - (ty + 0.5));
+      tryFallback = SOLID_TILES.has(tileType) && tileType !== TILE.BEDROCK && tileType !== TILE.GRANITE && tileType !== TILE.SHOP_FLOOR && distToFallback <= 1.5;
     }
     if (!tryFallback) {
       if (!player._lastDigFailLog || Date.now() - player._lastDigFailLog > 500) {
